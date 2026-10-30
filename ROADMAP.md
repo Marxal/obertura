@@ -2261,3 +2261,38 @@ Timed game exercises and Time Attack use a white two-sided chess clock inside a 
 ## Scroll-driven wooden pieces — 2026-10-25
 
 Wooden images now follow a shallow horizontal arc with vertical drift, rotation, a slight perspective tilt and gentle scaling as their stationary container crosses the viewport. The light pool moves in the opposite direction for layered depth. Desktop movement is bounded to 26px horizontal, 72px vertical and 12 degrees rotation; phones use 38% of the movement. Transforms ease over 180ms, without an idle animation loop. Reduced motion disables all piece and halo transforms/transitions. Live preference changes reset the new variables. Validation: inline script syntax and executable checks of the actual transform block at multiple viewport positions for desktop/mobile bounds and scale.
+
+
+## 2026-10-30 — Landing presentation pass: playable exercises and sticky sections
+
+Layout, presentation and micro-animation only; feature copy unchanged except
+the "Why I made Bito Chess" bubble, which is back to Marçal's original text.
+
+- **Your games:** step cards with drawn scenes (import rows slide in, the eval
+  graph draws itself and drops a ?? disc, a knight's better move is arrowed),
+  joined by arrow seams; app icons (download, review, target) in a shared tile.
+- **Exercises:** the uneven five-card grid became five stacking sticky cards,
+  each with a small playable board (back-rank mate, Légal's mate detective,
+  Nc3-vs-Ne7+ choice, a 10-second clock with a pawn fork, Philidor's smothered
+  mate). Boards draw like the app's: cburnett pieces, last-move wash, and the
+  classification disc in the square's top-right. The script measures each card
+  and lays the stack flat if a card can't fit on screen (e.g. 360×740).
+- **Openings:** the Italian Game box is gone; a sticky walk-through pins one
+  example repertoire tree that changes per feature note (build, results,
+  review, connect, prepare). Pinned to the top of the screen on phones.
+- **Puzzles:** tactics reduced to a puzzles-only row of four tiles, app icons.
+- **Daily challenge:** a working copy of the app's daily card — counts and
+  order change, labels from `TASK_META`, nothing saved, no invented streak.
+- **Everywhere:** section kickers, app icons via one `<symbol>` sprite, button
+  arrow nudge, and removal of dead CSS/JS (carousel, ledger, drills, chips,
+  editorial, endgame/rating/tree remnants).
+
+Accessibility: playable boards have one roving tab stop with arrow keys;
+squares are labelled by piece; tree line ends are buttons. Reduced motion
+disables the card sinking, entrances and pulses (sticking stays). Without
+JavaScript the boards are hidden and every section is the plain copy.
+
+Validation: headless Chromium at 1400×900, 1280×720, 390×844 and 360×740, light
+and dark: no page errors; each demo driven to its solved state; stack and
+walk-through checked mid-scroll.
+

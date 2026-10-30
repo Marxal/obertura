@@ -214,7 +214,7 @@
   --gutter: 22px;
   --bar-h: 62px;       /* the fixed top bar */
 
-  /* The portrait in the "Built by a player who wanted a better way to learn" signature. A token because the
+  /* The portrait in the "Why I made Bito Chess" signature. A token because the
      speech bubble's tail has to point at the middle of it, and a tail aimed at
      a number that has drifted is worse than no tail at all — see .bubble. */
   --avatar: 190px;     /* phone */
@@ -367,31 +367,6 @@ strong { font-weight: 700; color: var(--text); }
   text-transform: uppercase;
   color: var(--text-faint);
   margin-bottom: 18px;
-}
-
-/* Step numbers set as chess move numbers. Used in "How it works" only. */
-.movenum {
-  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
-  font-weight: 700;
-  font-size: clamp(21px, 3vw, 27px);
-  line-height: 1;
-  color: var(--primary);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  position: relative;
-  display: inline-block;
-  padding-bottom: 8px;
-}
-/* The quiet brass underline. Final state by default so a no-JS page shows it
-   drawn; html.js collapses it and the reveal draws it left-to-right. */
-.movenum::after {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 2px;
-  background: var(--accent);
-  transform: scaleX(1);
-  transform-origin: left center;
 }
 
 .lede {
@@ -1002,192 +977,7 @@ html.js .mini__arrow .head {
 }
 .mini__done .again:hover { color: var(--accent); }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   HOW IT WORKS
-   ══════════════════════════════════════════════════════════════════════════ */
-.steps { margin-top: clamp(36px, 5vw, 56px); display: grid; gap: clamp(30px, 4vw, 44px); }
-
-@media (min-width: 900px) {
-  .steps { grid-template-columns: repeat(3, 1fr); gap: clamp(40px, 4vw, 60px); }
-}
-
-.step__n { margin-bottom: 16px; }
-.step p { max-width: 40ch; color: var(--text-muted); }
-.step p strong { color: var(--text); }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   LISTS — real hanging indents, no bullet dots.
-   ══════════════════════════════════════════════════════════════════════════ */
-.hang { list-style: none; max-width: var(--measure); }
-.hang li {
-  position: relative;
-  padding-left: 1.35em;
-  color: var(--text-muted);
-}
-.hang li + li { margin-top: 13px; }
-.hang li::before {
-  content: "–";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: var(--primary);
-  font-weight: 700;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   SECTION SHAPES
-
-   Five distinct layouts below, and that is the point of them: this page is one
-   long scroll, and a reader who meets the same two-column head/body block eight
-   times in a row stops reading it by the fourth. Every band now gets a shape
-   that suits what it is saying — a ledger for a list of routes in, a stack of
-   rows for a list of drills, a narrow centred column for a paragraph that is
-   really an argument, tags for a list of measurements, and two very different
-   price treatments. Nothing here repeats.
-   ══════════════════════════════════════════════════════════════════════════ */
-
-/* ── 1. THE LEDGER — "Build your repertoire your way" ───────────────────────
-   Numbered rows separated by hairlines, two up on a wide screen. No cards: the
-   carousel further down is the page's card moment, and using them here would
-   flatten both. */
-.ways { margin-top: clamp(30px, 4vw, 46px); display: grid; }
-@media (min-width: 820px) {
-  .ways { grid-template-columns: 1fr 1fr; column-gap: clamp(40px, 5vw, 76px); }
-}
-.way {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 16px;
-  padding: 22px 0;
-  border-top: 1px solid var(--hairline);
-}
-.way__n {
-  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
-  font-weight: 700;
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  transition: color 160ms ease;
-}
-.way h3 { margin-bottom: 5px; }
-.way p { max-width: none; color: var(--text-muted); font-size: 16px; }
-
-/* ── 2. THE ROW STACK — "Train what you actually need" ──────────────────────
-   One bordered block cut into rows, each with a felt-green mark. Reads as a
-   panel of the app rather than as marketing cards. */
-.drills {
-  margin-top: clamp(28px, 4vw, 42px);
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-.drill {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0 16px;
-  padding: 20px clamp(18px, 2.4vw, 26px);
-  transition: background-color 160ms ease;
-}
-.drill + .drill { border-top: 1px solid var(--hairline); }
-.drill__mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: var(--primary);
-  color: var(--on-primary);
-  display: grid;
-  place-items: center;
-  flex: none;
-}
-.drill__mark svg { width: 18px; height: 18px; }
-.drill h3 { font-size: 17px; margin-bottom: 3px; }
-.drill p { max-width: none; color: var(--text-muted); font-size: 16px; }
-
-/* The closing line, set apart from the rows it concludes. */
-.result {
-  margin-top: 26px;
-  padding-left: 20px;
-  border-left: 3px solid var(--accent);
-}
-.result p { color: var(--text-muted); }
-.result strong { display: block; font-size: clamp(19px, 2.4vw, 23px); letter-spacing: -0.02em; }
-
-/* ── 3. THE EDITORIAL BLOCK — "Prepare for the games you actually play" ─────
-   An oversized opening line, and the detail set beside it in the second column
-   and pushed to the bottom. Left-aligned and asymmetric, not centred: the
-   previous attempt used centred text for this section, and centred body copy
-   is hard to read and looks like a different website. (An ink rule ran across
-   the top of this block in an earlier draft — cut; the section reads as its own
-   change of voice without it.) */
-.editorial h2 { max-width: 20ch; }
-.editorial__lede {
-  margin-top: 18px;
-  font-size: clamp(19px, 2.5vw, 25px);
-  line-height: 1.35;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--text);
-  max-width: 26ch;
-}
-.editorial__body { margin-top: 22px; color: var(--text-muted); max-width: 48ch; }
-
-@media (min-width: 900px) {
-  .editorial {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: clamp(48px, 6vw, 96px);
-  }
-  .editorial h2 { grid-column: 1; grid-row: 1; }
-  .editorial__lede { grid-column: 1; grid-row: 2; }
-  /* Spans both rows and sits on the baseline of the lede, so the column ends
-     level instead of starting level — the asymmetry is the point. */
-  .editorial__body { grid-column: 2; grid-row: 1 / span 2; align-self: end; margin-top: 0; }
-}
-
-/* ── 4. TAGS — "Measure your progress" ──────────────────────────────────────
-   The four things the app actually measures, as objects rather than as a comma
-   list in a sentence. */
-.chips {
-  margin-top: 26px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  transition: border-color 160ms ease, transform 160ms ease;
-}
-.chip span {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--accent);
-  flex: none;
-}
-
-.quote {
-  margin-top: clamp(26px, 3.4vw, 38px);
-  font-size: clamp(20px, 2.8vw, 26px);
-  line-height: 1.3;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  color: var(--text);
-  max-width: 22ch;
-}
-
-/* ── 5. THE TWO PLANS — free and paid, one section, one column ─────────────
+/* ── THE TWO PLANS — free and paid, one section, one column ─────────────
    Both offers are the same object in two states, so they are the same box: the
    same width, the same padding, the same corner, stacked one below the other.
 
@@ -1330,88 +1120,6 @@ html.js .mini__arrow .head {
   -webkit-tap-highlight-color: transparent;
 }
 .signup-cancel:hover { color: var(--text); }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   THE CAROUSEL — "There's more than openings in here"
-   Scroll-snap track, one card at a time on a phone, two and a bit on a desktop.
-   The arrows and dots are enhancement: with JS off it is still a perfectly good
-   swipeable row.
-   ══════════════════════════════════════════════════════════════════════════ */
-.carousel { margin-top: clamp(32px, 4vw, 48px); }
-
-.carousel__track {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  /* Bleed past the gutter so cards run off both screen edges. */
-  margin: 0 calc(var(--gutter) * -1);
-  padding: 6px var(--gutter) 10px;
-}
-.carousel__track::-webkit-scrollbar { display: none; }
-
-.mcard {
-  flex: 0 0 min(78%, 320px);
-  scroll-snap-align: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  padding: 24px 22px 26px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-@media (min-width: 700px) { .mcard { flex-basis: 320px; } }
-
-.mcard__icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  display: grid;
-  place-items: center;
-  margin-bottom: 4px;
-}
-.mcard__icon svg { width: 24px; height: 24px; }
-.mcard p { max-width: none; color: var(--text-muted); font-size: 16px; }
-
-.carousel__nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 18px;
-}
-.carousel__btn {
-  width: 42px; height: 42px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: background-color 160ms ease, opacity 160ms ease;
-}
-.carousel__btn:hover { background: var(--bg-elevated); }
-.carousel__btn[disabled] { opacity: 0.35; cursor: default; }
-.carousel__btn svg { width: 20px; height: 20px; }
-
-.carousel__dots { display: flex; gap: 8px; }
-.carousel__dot {
-  width: 8px; height: 8px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: var(--border);
-  cursor: pointer;
-  transition: background-color 200ms ease, width 200ms ease;
-}
-.carousel__dot.on { background: var(--accent); width: 22px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    WHY — a comic speech bubble, then who is behind it.
@@ -1696,18 +1404,6 @@ html.js .hop__svg { animation: hop-bounce 1.05s cubic-bezier(0.3, 0, 0.35, 1) 42
 
   .brand:hover .applogo img { transform: scale(1.06) rotate(-3deg); }
 
-  .mcard {
-    transition: transform 220ms cubic-bezier(0.2, 0.7, 0.3, 1),
-                box-shadow 220ms ease, border-color 220ms ease;
-  }
-  .mcard:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); border-color: var(--accent); }
-  .mcard:hover .mcard__icon { background: var(--accent); color: var(--on-accent); }
-  .mcard__icon { transition: background-color 220ms ease, color 220ms ease; }
-
-  .way:hover .way__n { color: var(--accent-active); }
-  .drill:hover { background: var(--fill-faint); }
-  .chip:hover { border-color: var(--accent); transform: translateY(-2px); }
-
   .plan:hover { transform: translateY(-3px); box-shadow: var(--shadow-frame); }
   .plan--pro:hover { box-shadow: 0 26px 60px rgba(28, 22, 16, 0.16), 0 6px 16px rgba(28, 22, 16, 0.09); }
 
@@ -1727,22 +1423,11 @@ html.js .reveal {
 }
 html.js .reveal.in { opacity: 1; transform: none; }
 
-html.js .movenum::after {
-  transform: scaleX(0);
-  transition: transform 480ms ease-out calc(var(--d, 0ms) + 140ms);
-}
-html.js .reveal.in .movenum::after { transform: scaleX(1); }
-
 @media (prefers-reduced-motion: reduce) {
   html.js .reveal,
   html.js .reveal.in {
     opacity: 1 !important;
     transform: none !important;
-    transition: none !important;
-  }
-  html.js .movenum::after,
-  html.js .reveal.in .movenum::after {
-    transform: scaleX(1) !important;
     transition: none !important;
   }
   html.js .cta-bar { transition: none !important; }
@@ -1754,7 +1439,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   /* The board keeps its drop (it is layout, and the page is designed around the
      overlap) but never lags: --pin stays at its 0 default because the script
      skips the handler entirely. */
-  .hero__board, .board-card, .mcard, .chip, .plan { transition: none !important; }
+  .hero__board, .board-card, .plan, .jcard, .pz, .dc { transition: none !important; }
   .btn { transition: none !important; }
   .btn:active { transform: none !important; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
@@ -1778,80 +1463,708 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 .pc-bq { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIHN0cm9rZT0ibm9uZSI+PGNpcmNsZSBjeD0iNiIgY3k9IjEyIiByPSIyLjc1Ii8+PGNpcmNsZSBjeD0iMTQiIGN5PSI5IiByPSIyLjc1Ii8+PGNpcmNsZSBjeD0iMjIuNSIgY3k9IjgiIHI9IjIuNzUiLz48Y2lyY2xlIGN4PSIzMSIgY3k9IjkiIHI9IjIuNzUiLz48Y2lyY2xlIGN4PSIzOSIgY3k9IjEyIiByPSIyLjc1Ii8+PC9nPjxwYXRoIGQ9Ik05IDI2YzguNS0xLjUgMjEtMS41IDI3IDBsMi41LTEyLjVMMzEgMjVsLS4zLTE0LjEtNS4yIDEzLjYtMy0xNC41LTMgMTQuNS01LjItMTMuNkwxNCAyNSA2LjUgMTMuNSA5IDI2eiIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNOSAyNmMwIDIgMS41IDIgMi41IDQgMSAxLjUgMSAxIC41IDMuNS0xLjUgMS0xLjUgMi41LTEuNSAyLjUtMS41IDEuNS41IDIuNS41IDIuNSA2LjUgMSAxNi41IDEgMjMgMCAwIDAgMS41LTEgMC0yLjUgMCAwIC41LTEuNS0xLTIuNS0uNS0yLjUtLjUtMiAuNS0zLjUgMS0yIDIuNS0yIDIuNS00LTguNS0xLjUtMTguNS0xLjUtMjcgMHoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTExIDM4LjVhMzUgMzUgMSAwIDAgMjMgMCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNMTEgMjlhMzUgMzUgMSAwIDEgMjMgMG0tMjEuNSAyLjVoMjBtLTIxIDNhMzUgMzUgMSAwIDAgMjIgMG0tMjMgM2EzNSAzNSAxIDAgMCAyNCAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNlY2VjZWMiLz48L2c+PC9zdmc+'); }
 .pc-bk { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMi41IDExLjYzVjYiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48cGF0aCBkPSJNMjIuNSAyNXM0LjUtNy41IDMtMTAuNWMwIDAtMS0yLjUtMy0yLjVzLTMgMi41LTMgMi41Yy0xLjUgMyAzIDEwLjUgMyAxMC41IiBmaWxsPSIjMDAwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPjxwYXRoIGQ9Ik0xMS41IDM3YzUuNSAzLjUgMTUuNSAzLjUgMjEgMHYtN3M5LTQuNSA2LTEwLjVjLTQtNi41LTEzLjUtMy41LTE2IDRWMjd2LTMuNWMtMy41LTcuNS0xMy0xMC41LTE2LTQtMyA2IDUgMTAgNSAxMFYzN3oiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNMjAgOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PHBhdGggZD0iTTMyIDI5LjVzOC41LTQgNi4wMy05LjY1QzM0LjE1IDE0IDI1IDE4IDIyLjUgMjQuNWwuMDEgMi4xLS4wMS0yLjFDMjAgMTggOS45MDYgMTQgNi45OTcgMTkuODVjLTIuNDk3IDUuNjUgNC44NTMgOSA0Ljg1MyA5IiBzdHJva2U9IiNlY2VjZWMiLz48cGF0aCBkPSJNMTEuNSAzMGM1LjUtMyAxNS41LTMgMjEgMG0tMjEgMy41YzUuNS0zIDE1LjUtMyAyMSAwbS0yMSAzLjVjNS41LTMgMTUuNS0zIDIxIDAiIHN0cm9rZT0iI2VjZWNlYyIvPjwvZz48L3N2Zz4='); }
 
-/* Varied feature layouts: readable stacks on phones, distinct silhouettes on desktop. */
-.story-head { max-width: 710px; margin-bottom: 36px; }
+/* ══════════════════════════════════════════════════════════════════════════
+   FEATURE SECTIONS — shared pieces
+   Every feature section opens with the same three things (kicker, heading,
+   lede) and then takes a shape of its own: a three-step journey, a stack of
+   playable cards, a sticky walk-through, a row of puzzle modes and a working
+   daily card. Shared furniture first.
+   ══════════════════════════════════════════════════════════════════════════ */
+.story-head { max-width: 720px; margin-bottom: clamp(30px, 4vw, 48px); }
 .story-head .lede { margin-top: 18px; }
-.journey { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; margin-top: 38px; }
-.journey article { position: relative; padding: 28px; border-top: 3px solid var(--accent); background: var(--bg-card); border-radius: 0 0 16px 16px; }
-.journey__symbol { display: block; font: 700 38px/1 'Chakra Petch',monospace; color: var(--primary); margin-bottom: 24px; }
-.journey h3 { margin-bottom: 10px; }
-.journey p, .exercise-card p, .tactic-tile p, .compact-copy p { color: var(--text-muted); font-size: 16px; }
-.showcase { display: grid; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); gap: clamp(28px,5vw,76px); align-items: center; }
-.product-shot { padding: 18px; border: 1px solid var(--border-card); border-radius: 24px; background: var(--bg-card); box-shadow: var(--shadow-frame); }
-.product-shot img { width:100%; height:auto; border-radius: 12px; }
-.product-shot figcaption { margin-top: 12px; font-size: 13px; color: var(--text-faint); text-align:center; }
-.exercise-grid { display:grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap:16px; }
-.exercise-card { grid-column:span 2; padding:26px; border:1px solid var(--border-card); border-radius:18px; background:var(--bg-card); }
-.exercise-card:first-child { grid-column:span 3; background:var(--primary); color:var(--on-primary); }
-.exercise-card:nth-child(2) { grid-column:span 3; }
-.exercise-card:first-child h3, .exercise-card:first-child p, .exercise-card:first-child .exercise-symbol { color:var(--on-primary); }
-.exercise-symbol { display:block; font:700 30px/1 ui-monospace,monospace; color:var(--accent); margin-bottom:24px; }
-.exercise-card h3 { margin-bottom:10px; }
-.compact-copy { display:grid; gap:22px; }
-.compact-copy h3 { margin-bottom:7px; }
-.opening-notes { margin-top:40px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
-.opening-notes article { border-top:1px solid var(--hairline); padding-top:20px; }
-.opening-notes h3 { margin-bottom:8px; }
-.opening-notes p { color:var(--text-muted); font-size:16px; }
-.tactics-layout { display:grid; grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); gap:60px; align-items:center; }
-.tactics-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-.tactic-tile { border-radius:18px; background:var(--bg-parchment); padding:26px; min-height:220px; }
-.tactic-tile:nth-child(2), .tactic-tile:nth-child(3) { background:var(--bg-card); border:1px solid var(--border-card); }
-.tactic-tile h3 { margin:20px 0 10px; }
-.endgame-layout { display:grid; grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); gap:60px; align-items:center; }
-.endgame-art { display:flex; align-items:center; justify-content:center; aspect-ratio:1; max-height:360px; background:repeating-conic-gradient(var(--board-dark) 0% 25%,var(--board-light) 0% 50%) 0 0 / 50% 50%; border-radius:50%; border:12px solid var(--bg-card); box-shadow:var(--shadow-frame); font-size:clamp(80px,12vw,150px); color:#211c16; letter-spacing:-.12em; padding-right:.12em; }
-.endgame-copy .lede { margin:18px 0 30px; }
-.endgame-copy .compact-copy { gap:20px; }
-.daily-panel { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:60px; align-items:center; background:var(--primary); color:var(--on-primary); border-radius:28px; padding:clamp(26px,5vw,60px); }
-.daily-panel h2,.daily-panel h3,.daily-panel p { color:var(--on-primary); }
-.daily-panel .lede { margin:20px 0 28px; opacity:.9; }
-.daily-list { list-style:none; display:grid; gap:12px; }
-.daily-list li { padding:16px 20px; border:1px solid rgba(255,255,255,.3); border-radius:12px; display:flex; align-items:center; gap:16px; }
-.daily-list span { font-size:22px; }
-.daily-caption { font-size:13px; margin-top:16px; opacity:.8; }
-.rating-story .lede { margin:20px 0 28px; }
-.rating-story .faint { margin-top:24px; }
-#rating-progress { background:var(--bg-page); }
-#tactics .story-head { margin:0; }
-@media(max-width:800px) {
- .journey,.showcase,.tactics-layout,.endgame-layout,.daily-panel { grid-template-columns:1fr; gap:28px; }
- .exercise-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
- .exercise-card,.exercise-card:first-child,.exercise-card:nth-child(2) { grid-column:span 1; }
- .exercise-card:last-child { grid-column:1/-1; }
- .opening-notes { grid-template-columns:1fr; gap:20px; }
- .endgame-art { width:240px; margin:0 auto; font-size:110px; }
- .product-shot { max-width:540px; margin:0 auto; }
+.story-head--center { margin-left: auto; margin-right: auto; text-align: center; }
+.story-head--center .lede { margin-left: auto; margin-right: auto; }
+
+/* The section label. A small brass diamond — a chess square on its point —
+   then the name of the area of the app, set like the app's own labels. */
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font: 700 13px/1.2 'Chakra Petch', ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-active);
 }
-@media(max-width:480px) {
- .exercise-grid,.tactics-grid { grid-template-columns:1fr; }
- .exercise-card:last-child { grid-column:auto; }
- .tactic-tile { min-height:0; }
- .journey article { padding:24px; }
+.kicker::before {
+  content: "";
+  width: 8px; height: 8px;
+  background: var(--accent);
+  transform: rotate(45deg);
+  border-radius: 1px;
+}
+@media (prefers-color-scheme: dark) { .kicker { color: var(--accent); } }
+.kicker--on-felt, .kicker--on-felt::before { color: #f3d9ae; }
+.kicker--on-felt::before { background: #e3b25a; }
+
+/* Line icons: the app's stroke set, sized by the element that holds them. */
+.ico {
+  width: 24px; height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
 }
 
+/* The icon tile, used by every feature list on the page so they read as one
+   family: a soft brass square with the icon in felt green. */
+.tile {
+  display: inline-grid;
+  place-items: center;
+  width: 44px; height: 44px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(192, 122, 42, 0.18);
+  flex: none;
+}
+.tile .ico { width: 22px; height: 22px; }
+@media (prefers-color-scheme: dark) { .tile { color: #9cc7ac; } }
+.tile--felt { background: rgba(255, 255, 255, 0.12); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
 
-.visual-label { font:700 12px/1.4 'Chakra Petch',monospace; letter-spacing:.15em; color:var(--accent); margin-bottom:28px; }
-.repertoire-visual,.progress-visual { padding:clamp(24px,4vw,40px); width:100%; }
-.tree-start { margin:0 auto; width:100px; padding:14px; text-align:center; border-radius:12px; background:var(--primary); color:var(--on-primary); font-weight:700; }
-.tree-fork { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:22px; padding-top:22px; border-top:2px solid var(--border); }
-.tree-fork>div { border-left:2px solid var(--accent); padding-left:12px; }
-.tree-fork>div>span { font:700 14px ui-monospace,monospace; color:var(--text-muted); }
-.tree-leaf { padding:16px 12px; margin-top:16px; background:var(--bg-parchment); border-radius:10px; font-size:15px; font-weight:700; }
-.tree-leaf small { display:block; margin-top:8px; font-size:12px; font-weight:400; color:var(--text-muted); }
-.progress-orbit { display:flex; align-items:center; justify-content:center; width:110px; height:110px; border:1px solid var(--border); border-radius:50%; color:var(--primary); font-size:72px; margin:0 auto 28px; background:var(--accent-soft); }
-.metric-row { display:flex; gap:12px; justify-content:space-between; align-items:center; padding:18px 0; border-top:1px solid var(--hairline); font-size:15px; }
-.metric-row span { font-size:12px; color:var(--text-muted); text-align:right; }
-@media(max-width:480px) { .tree-fork { gap:10px; } .tree-leaf { font-size:13px; padding:12px 8px; } .metric-row { flex-wrap:wrap; } }
+/* The arrow inside every button nudges forward on hover. Wrapped in a span by
+   the script (section 2b) so the signed-in relabelling keeps working. */
+.btn .arr { display: inline-block; transition: transform 200ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+@media (hover: hover) and (pointer: fine) { .btn:hover .arr { transform: translateX(4px); } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. YOUR GAMES — three steps, each with a drawn scene
+   ══════════════════════════════════════════════════════════════════════════ */
+.journey {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2.4vw, 30px);
+  counter-reset: step;
+}
+.jcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease, border-color 260ms ease;
+}
+/* The arrow between steps, on the seam between two cards. */
+.jcard + .jcard::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 74px;
+  left: calc(clamp(18px, 2.4vw, 30px) / -2 - 15px);
+  width: 30px; height: 30px;
+  border-radius: 999px;
+  background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c07a2a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center / 16px no-repeat;
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
+}
+.jscene {
+  position: relative;
+  height: 150px;
+  margin: 10px 10px 0;
+  border-radius: calc(var(--radius) - 8px);
+  background: var(--bg-parchment);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.jcard__body { padding: 22px 24px 26px; }
+.jcard__tag { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.jcard__n {
+  font: 700 12px/1 'Chakra Petch', ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.jcard h3 { margin-bottom: 8px; }
+.jcard p { color: var(--text-muted); font-size: 16px; }
+
+/* Scene 1 — the import list: three result rows that slide in. */
+.jscene--import { align-content: center; gap: 9px; padding: 0 22px; place-items: stretch; }
+.jrow {
+  display: grid;
+  grid-template-columns: 38px 1fr 0.55fr;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card), inset 0 0 0 1px var(--hairline);
+}
+.jrow i { height: 7px; border-radius: 4px; background: var(--border-card); }
+.jrow i + i { background: var(--fill-faint); box-shadow: inset 0 0 0 1px var(--border-card); }
+.jres {
+  font: 700 11px/1 ui-monospace, 'SF Mono', Menlo, monospace;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  color: #fff;
+}
+.jres--w { background: #5a9e3f; }
+.jres--l { background: #c93636; }
+.jres--d { background: #a9b28f; }
+
+/* Scene 2 — an evaluation graph that draws itself, with the turning point. */
+.jscene--eval svg { position: absolute; inset: 18px 0; width: 100%; height: calc(100% - 36px); overflow: visible; }
+.jeval__mid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 5; fill: none; vector-effect: non-scaling-stroke; }
+.jeval__area { fill: var(--accent-soft); }
+.jeval__line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+@media (prefers-color-scheme: dark) { .jeval__line { stroke: #9cc7ac; } }
+.jeval__dot { position: absolute; left: calc(54.5% - 15px); top: 50%; transform: translateY(-50%); line-height: 0; filter: drop-shadow(0 3px 6px rgba(201, 54, 54, 0.35)); }
+.jeval__dot svg { display: block; }
+
+/* Scene 3 — a corner of a board, a knight, the move you should have played. */
+.jboard {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 34px);
+  grid-template-rows: repeat(3, 34px);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lift);
+}
+.jboard > i { background: var(--board-light); }
+.jboard > i:nth-child(8n+2), .jboard > i:nth-child(8n+4), .jboard > i:nth-child(8n+5), .jboard > i:nth-child(8n+7) { background: var(--board-dark); }
+.jboard__pc.pc { width: 34px; height: 34px; left: 0; top: 68px; transform: none; }
+.jboard__arrow { position: absolute; inset: 0; width: 100%; height: 100%; }
+.jboard__arrow line { stroke: #5a9e3f; stroke-width: 0.17; stroke-linecap: round; }
+.jboard__arrow polygon { fill: #5a9e3f; }
+.jboard__badge { position: absolute; left: 50px; top: -1px; line-height: 0; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25)); }
+
+/* Entrances: each scene plays once, as its card is revealed. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js .jcard .jrow { opacity: 0; transform: translateX(-16px); transition: opacity 420ms ease, transform 520ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+  html.js .jcard .jrow:nth-child(2) { transition-delay: 120ms; }
+  html.js .jcard .jrow:nth-child(3) { transition-delay: 240ms; }
+  html.js .jcard.in .jrow { opacity: 1; transform: none; }
+  html.js .jcard .jeval__line { stroke-dasharray: 400; stroke-dashoffset: 400; transition: stroke-dashoffset 1300ms cubic-bezier(0.4, 0, 0.2, 1) 300ms; }
+  html.js .jcard .jeval__area { opacity: 0; transition: opacity 700ms ease 900ms; }
+  html.js .jcard.in .jeval__line { stroke-dashoffset: 0; }
+  html.js .jcard.in .jeval__area { opacity: 1; }
+  html.js .jcard .jeval__dot, html.js .jcard .jboard__badge { opacity: 0; transform: translateY(-50%) scale(0.3); transition: opacity 260ms ease 1200ms, transform 420ms cubic-bezier(0.3, 1.6, 0.5, 1) 1200ms; }
+  html.js .jcard .jboard__badge { transform: scale(0.3); transition-delay: 1000ms; }
+  html.js .jcard.in .jeval__dot { opacity: 1; transform: translateY(-50%) scale(1); }
+  html.js .jcard.in .jboard__badge { opacity: 1; transform: scale(1); }
+  html.js .jcard .jboard__arrow { opacity: 0; clip-path: inset(0 100% 0 0); transition: opacity 200ms ease 600ms, clip-path 500ms ease 600ms; }
+  html.js .jcard.in .jboard__arrow { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .jcard:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); border-color: var(--border); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. PERSONAL EXERCISES — stacking cards, each with a playable position
+   Each card sticks a little lower than the one before it, so the next slides
+   up and over it. The card underneath is shrunk and shaded by the script as
+   it gets covered (--sink, 0 → 1), which is what sells the stack.
+   ══════════════════════════════════════════════════════════════════════════ */
+.stack { list-style: none; display: grid; gap: clamp(22px, 4vw, 40px); }
+.stack__item {
+  position: sticky;
+  top: calc(var(--bar-h) + 18px + var(--i) * 14px);
+}
+.xcard {
+  --sink: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 330px);
+  gap: clamp(24px, 4vw, 56px);
+  /* Top-aligned, not centred: when a card is covered only its top strip
+     shows, and that strip should carry its badge and its name. */
+  align-items: start;
+  padding: clamp(24px, 3.4vw, 44px);
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--tone) 9%, transparent), transparent 60%),
+    var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: calc(var(--radius) + 6px);
+  box-shadow: var(--shadow-frame);
+  transform-origin: 50% 0;
+  transform: scale(calc(1 - var(--sink) * 0.06));
+}
+/* The shade that deepens as the card is covered. */
+.xcard::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: #1c1610;
+  opacity: calc(var(--sink) * 0.14);
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) { .xcard::after { background: #000; opacity: calc(var(--sink) * 0.35); } }
+.xcard__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.xcard__top .move-badge { filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--tone) 40%, transparent)); }
+.xcard__n { font: 700 15px/1 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.08em; color: var(--tone); }
+.xcard__n span { color: var(--text-faint); }
+.xcard h3 { font-size: clamp(22px, 2.8vw, 30px); letter-spacing: -0.025em; margin-bottom: 12px; }
+.xcard__text p { color: var(--text-muted); font-size: clamp(16px, 1.7vw, 18px); }
+.xcard__demo { display: grid; gap: 12px; }
+html:not(.js) .xcard__demo { display: none; }
+html:not(.js) .xcard { grid-template-columns: 1fr; }
+
+/* The board. Squares are buttons only where the card is playable; pieces,
+   washes, arrows and badges are layers above them that ignore the pointer. */
+.xb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(28, 22, 16, 0.08), 0 10px 26px rgba(28, 22, 16, 0.14);
+  background: repeating-conic-gradient(var(--board-dark) 0% 25%, var(--board-light) 0% 50%) 0 0 / 25% 25%;
+  touch-action: manipulation;
+}
+.xb.shake { animation: mini-shake 300ms ease; }
+.xb__sq { position: absolute; inset: 0; display: grid; grid-template: repeat(8, 1fr) / repeat(8, 1fr); }
+.xb__sq > * { border: 0; padding: 0; background: transparent; position: relative; -webkit-tap-highlight-color: transparent; }
+.xb__sq > button { cursor: pointer; }
+.xb__sq > button:focus-visible { outline: 3px solid var(--text); outline-offset: -3px; border-radius: 0; }
+.xb__wash, .xb__fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.xb__fx { z-index: 2; overflow: visible; }
+.xb__pc { position: absolute; inset: 0; pointer-events: none; }
+.xb__pc .pc { z-index: 1; }
+.xb .pc.is-gone { opacity: 0; transform: translate(calc(var(--f) * 100%), calc(var(--r) * 100%)) scale(0.6); transition: opacity 200ms ease, transform 200ms ease; }
+.xb__fx .badge { transform-box: fill-box; transform-origin: center; animation: badge-pop 420ms cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes badge-pop { from { transform: scale(0); } to { transform: scale(1); } }
+.xb__fx .arw { animation: arw-in 320ms ease both; }
+@keyframes arw-in { from { opacity: 0; } to { opacity: 0.9; } }
+.xb__fx .halo { animation: halo 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes halo { from { transform: scale(1); opacity: 0.6; } to { transform: scale(1.9); opacity: 0; } }
+
+.xmsg { min-height: 2.9em; font-size: 15px; line-height: 1.45; color: var(--text-muted); max-width: none; }
+.xmsg b { color: var(--text); }
+.xmsg .mk { font-weight: 800; }
+.xmsg .mk--bad { color: var(--bad); }
+.xmsg .mk--dubious { color: var(--dubious); }
+.xmsg .mk--good { color: #4f8a37; }
+.xmsg .mk--great { color: #1d9e8f; }
+.xctl { display: flex; gap: 8px; flex-wrap: wrap; }
+.xbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 6px 14px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-card); color: var(--text-muted);
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease, transform 120ms ease;
+}
+.xbtn:hover { border-color: var(--tone, var(--accent)); color: var(--text); }
+.xbtn:active { transform: scale(0.97); }
+.xbtn[hidden] { display: none; }
+
+/* Blunder detective: the sequence as chips that become the answer buttons. */
+.xmoves { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; min-height: 34px; }
+.xmoves button {
+  font: 700 14px/1 ui-monospace, 'SF Mono', Menlo, monospace;
+  padding: 8px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-parchment);
+  color: var(--text);
+  cursor: default;
+  animation: chip-in 260ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+@keyframes chip-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.xmoves.is-asking button { cursor: pointer; border-color: var(--border); }
+.xmoves.is-asking button:hover { border-color: var(--tone); transform: translateY(-2px); }
+.xmoves button.is-wrong { animation: mini-shake 300ms ease; opacity: 0.5; }
+.xmoves button.is-right { background: #c93636; border-color: #c93636; color: #fff; }
+
+/* Choose the better move: two candidate buttons. */
+.xpick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.xpick button {
+  display: grid; gap: 3px; text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+.xpick small { font: 700 10.5px/1.2 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+.xpick strong { font: 700 18px/1.1 ui-monospace, 'SF Mono', Menlo, monospace; display: flex; align-items: center; gap: 6px; }
+.xpick button:hover:not(:disabled) { border-color: var(--tone); transform: translateY(-2px); }
+.xpick button:disabled { cursor: default; }
+.xpick .is-best { border-color: #5a9e3f; background: color-mix(in srgb, #5a9e3f 12%, var(--bg-card)); }
+.xpick .is-worse { opacity: 0.72; }
+.xpick svg { width: 18px; height: 18px; }
+
+/* Under time pressure: the clock above the board, and the start button. */
+.xclock { display: flex; align-items: center; gap: 12px; }
+.xclock__face {
+  font: 700 22px/1 'Chakra Petch', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #2b3a46;
+  color: #fff;
+  min-width: 74px;
+  text-align: center;
+  transition: background-color 200ms ease;
+}
+.xclock.is-low .xclock__face { background: #c93636; }
+.xclock__bar { flex: 1; height: 8px; border-radius: 99px; background: var(--fill-faint); box-shadow: inset 0 0 0 1px var(--border-card); overflow: hidden; }
+.xclock__bar i { display: block; height: 100%; width: 100%; background: #5c8bb0; transform-origin: left; transform: scaleX(var(--left, 1)); }
+.xclock.is-low .xclock__bar i { background: #c93636; }
+.xstart {
+  position: absolute; z-index: 3; inset: 0; margin: auto;
+  width: max-content; height: max-content;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 20px;
+  border: 0; border-radius: 999px;
+  background: #5c8bb0; color: #fff;
+  font: inherit; font-weight: 700; font-size: 16px;
+  box-shadow: 0 8px 24px rgba(28, 22, 16, 0.3);
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+.xstart:hover { background: #4d7a9d; transform: scale(1.04); }
+.xstart[hidden] { display: none; }
+.xb.is-waiting .xb__pc, .xb.is-waiting .xb__sq { filter: blur(3px) saturate(0.7); opacity: 0.8; }
+
+@media (max-width: 860px) {
+  .xcard { grid-template-columns: 1fr; gap: 18px; align-items: start; }
+  .xcard__top { margin-bottom: 14px; }
+  .xcard__top .move-badge { width: 38px; height: 38px; }
+  .xcard h3 { margin-bottom: 8px; }
+  .xcard__demo { grid-template-columns: minmax(0, 1fr); }
+  .xb { max-width: 300px; justify-self: center; }
+  .xcard__demo > :not(.xb) { max-width: 420px; }
+}
+/* Phones: board beside nothing, so it goes under the copy; everything a
+   little tighter so a card still fits the screen while it sticks. */
+@media (max-width: 560px) {
+  .xcard { padding: 20px 18px 18px; border-radius: var(--radius); }
+  .xcard__text p { font-size: 15px; line-height: 1.5; }
+  .xb { max-width: min(100%, 270px); }
+  .xmsg { font-size: 14px; min-height: 2.6em; }
+  .stack__item { top: calc(var(--bar-h) + 10px + var(--i) * 10px); }
+}
+/* A screen too short to hold a whole card: no sticking, just a list (the
+   script sets this after measuring — see readStackTops). */
+.stack.is-flat .stack__item { position: relative; top: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .xcard { transform: none !important; }
+  .xb__fx .badge, .xb__fx .arw, .xmoves button { animation: none !important; }
+  .xb__fx .halo { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. OPENINGS — a sticky walk-through around one repertoire tree
+   ══════════════════════════════════════════════════════════════════════════ */
+.os { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 0 clamp(36px, 5vw, 80px); }
+.os__steps { grid-column: 1; grid-row: 1; }
+.os-panel {
+  grid-column: 2; grid-row: 1;
+  align-self: start;
+  position: sticky;
+  top: calc(var(--bar-h) + max(24px, (100vh - var(--bar-h) - 460px) / 2));
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow-frame);
+  padding: 16px clamp(14px, 2vw, 22px) 18px;
+}
+.os-step {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  min-height: 40vh;
+  padding: 8vh 0;
+  transition: opacity 360ms ease;
+}
+.os-step:first-child { padding-top: 2vh; }
+.os-step:last-child { min-height: 0; padding-bottom: 10vh; }
+.os-step h3 { margin-bottom: 8px; font-size: clamp(20px, 2.4vw, 25px); }
+.os-step p { color: var(--text-muted); }
+.os-step .tile { transition: background-color 300ms ease, color 300ms ease, transform 300ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+html.js .os.is-live .os-step { opacity: 0.32; }
+html.js .os.is-live .os-step.is-on { opacity: 1; }
+html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: var(--on-primary); transform: scale(1.08); }
+
+.os-panel__bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px 12px; border-bottom: 1px solid var(--hairline); }
+.os-panel__name { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+.os-panel__name .ico { width: 17px; height: 17px; color: var(--accent); }
+.os-panel__step {
+  font: 700 11.5px/1 'Chakra Petch', ui-monospace, monospace;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--accent-active);
+  padding: 6px 10px; border-radius: 999px;
+  background: var(--accent-soft);
+}
+@media (prefers-color-scheme: dark) { .os-panel__step { color: var(--accent); } }
+.os-legend {
+  min-height: 3em;
+  padding: 10px 4px 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 14.5px; line-height: 1.45;
+  color: var(--text-muted);
+}
+.os-legend b { color: var(--text); }
+
+/* The tree itself. */
+.os-tree { display: block; width: 100%; height: auto; margin: 8px 0 6px; overflow: visible; }
+.os-tree text { font: 700 14px 'Chakra Petch', ui-monospace, monospace; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.os-tree .e { fill: none; stroke: var(--border); stroke-width: 2; transition: stroke 300ms ease, opacity 300ms ease, stroke-width 300ms ease; }
+.os-tree .n rect { transition: fill 300ms ease, stroke 300ms ease, opacity 300ms ease; }
+.os-tree .n, .os-tree .e, .os-tree .res, .os-tree .due, .os-tree .warn, .os-tree .opp-tag { transition: opacity 320ms ease; }
+.os-tree .n--w rect { fill: var(--primary); }
+.os-tree .n--w text { fill: var(--on-primary); }
+.os-tree .n--b rect { fill: var(--bg-card); stroke: var(--border); stroke-width: 1.5; }
+.os-tree .n--b text { fill: var(--text-muted); }
+.os-tree .leaf { cursor: pointer; outline: none; }
+.os-tree .leaf:focus-visible rect { stroke: var(--text); stroke-width: 3; }
+.os-tree .res__w { fill: #5a9e3f; }
+.os-tree .res__d { fill: #b9b29e; }
+.os-tree .res__l { fill: #c93636; }
+.os-tree .due { fill: none; stroke: var(--arrow); stroke-width: 2.5; stroke-dasharray: 6 5; }
+.os-tree .warn circle { fill: #e0822f; stroke: var(--bg-card); stroke-width: 2; }
+.os-tree .warn text { fill: #fff; font: 800 11px system-ui, sans-serif; }
+.os-tree .opp-tag rect { fill: var(--accent); }
+.os-tree .opp-tag text { fill: #fff; font: 700 9.5px 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.1em; }
+
+/* Extras are hidden until their step asks for them. */
+.os-tree .res, .os-tree .due, .os-tree .warn, .os-tree .opp-tag { opacity: 0; }
+.os-tree .res rect { transform-box: fill-box; transform-origin: left; }
+.os-panel[data-step="2"] .res, .os-panel[data-step="2"] .warn { opacity: 1; }
+.os-panel[data-step="3"] .due { opacity: 1; }
+.os-panel[data-step="5"] .opp-tag { opacity: 1; }
+/* A traced line (step 4, or any leaf tapped): everything off the path fades. */
+.os-panel.is-tracing .n:not(.on), .os-panel.is-tracing .e:not(.on) { opacity: 0.28; }
+.os-panel.is-tracing .e.on { stroke: var(--accent); stroke-width: 3; }
+.os-panel[data-step="5"] .n:not(.opp), .os-panel[data-step="5"] .e:not(.opp) { opacity: 0.25; }
+.os-panel[data-step="5"] .e.opp { stroke: var(--accent); stroke-width: 3; }
+.os-panel[data-step="5"] .n--b.opp rect { stroke: var(--accent); stroke-width: 2.5; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html.js .os-panel .n { opacity: 0; transform: translateX(-8px); transition: opacity 360ms ease calc(var(--dp) * 130ms + 100ms), transform 420ms cubic-bezier(0.2, 0.7, 0.3, 1) calc(var(--dp) * 130ms + 100ms); }
+  html.js .os-panel .e { stroke-dasharray: 120; stroke-dashoffset: 120; transition: stroke-dashoffset 420ms ease calc(var(--dp) * 130ms), stroke 300ms ease, opacity 300ms ease, stroke-width 300ms ease; }
+  html.js .os-panel.is-grown .n { opacity: 1; transform: none; }
+  html.js .os-panel.is-grown .e { stroke-dashoffset: 0; }
+  html.js .os-panel.is-grown.is-tracing .n:not(.on), html.js .os-panel.is-grown.is-tracing .e:not(.on),
+  html.js .os-panel.is-grown[data-step="5"] .n:not(.opp), html.js .os-panel.is-grown[data-step="5"] .e:not(.opp) { opacity: 0.28; transition-delay: 0ms; }
+  .os-panel[data-step="2"] .res rect { animation: res-grow 600ms cubic-bezier(0.2, 0.7, 0.3, 1) both; animation-delay: calc(var(--dp) * 90ms); }
+  .os-panel[data-step="3"] .due { animation: due-march 1.2s linear infinite, due-pulse 1.6s ease-in-out infinite; }
+  .os-panel[data-step="2"] .warn, .os-panel[data-step="5"] .opp-tag { animation: tag-pop 420ms cubic-bezier(0.3, 1.6, 0.5, 1) 300ms both; transform-box: fill-box; transform-origin: center; }
+}
+@keyframes res-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes due-march { to { stroke-dashoffset: -22; } }
+@keyframes due-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes tag-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+@media (max-width: 860px) {
+  /* Block, not grid, so the panel's containing block is the whole walk-
+     through and it stays pinned while every note passes beneath it. */
+  .os { display: block; }
+  .os-panel { top: calc(var(--bar-h) + 8px); z-index: 3; padding: 12px 12px 12px; box-shadow: var(--shadow-lift); }
+  .os-panel__bar { padding-bottom: 8px; }
+  .os-tree { margin: 4px 0 2px; }
+  .os-tree text { font-size: 17px; }
+  .os-tree .opp-tag text { font-size: 10.5px; }
+  .os-legend { font-size: 13.5px; min-height: 2.9em; padding-top: 8px; }
+  .os-step { min-height: 46vh; padding: 5vh 0; gap: 14px; }
+  .os-step:first-child { padding-top: 32px; }
+  .os-step .tile { width: 38px; height: 38px; border-radius: 11px; }
+  .os-step p { font-size: 16px; }
+}
+@media (max-height: 640px) and (max-width: 860px) {
+  .os-panel { position: relative; top: auto; }
+  html.js .os.is-live .os-step { opacity: 1; }
+  .os-step { min-height: 0; padding: 22px 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. PUZZLES — four modes in a row
+   ══════════════════════════════════════════════════════════════════════════ */
+.pz-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(14px, 2vw, 22px); }
+.pz {
+  position: relative;
+  padding: 26px 22px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease, border-color 260ms ease;
+}
+/* A faint corner of a board in the top-right of every tile. */
+.pz::before {
+  content: "";
+  position: absolute; top: -1px; right: -1px;
+  width: 96px; height: 96px;
+  background: repeating-conic-gradient(var(--fill-faint) 0% 25%, transparent 0% 50%) 0 0 / 48px 48px;
+  background-color: transparent;
+  -webkit-mask-image: radial-gradient(circle at 100% 0, #000 30%, transparent 72%);
+  mask-image: radial-gradient(circle at 100% 0, #000 30%, transparent 72%);
+  opacity: 1;
+}
+.pz__ico {
+  position: relative;
+  display: grid; place-items: center;
+  width: 54px; height: 54px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  color: #fff;
+  background: var(--pz, var(--primary));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--pz, var(--primary)) 32%, transparent);
+}
+.pz__ico .ico { width: 26px; height: 26px; transition: transform 420ms cubic-bezier(0.3, 1.4, 0.5, 1); }
+.pz--daily { --pz: #3e6650; }
+.pz--focus { --pz: #c07a2a; }
+.pz--clock { --pz: #5c8bb0; }
+.pz--again { --pz: #1d9e8f; }
+.pz h3 { margin-bottom: 8px; font-size: 19px; }
+.pz p { color: var(--text-muted); font-size: 16px; }
+.pz__hand { transform-origin: 12px 13px; transform-box: view-box; }
+@media (hover: hover) and (pointer: fine) {
+  .pz:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); border-color: var(--border); }
+  .pz--daily:hover .ico { transform: rotate(-12deg) scale(1.08); }
+  .pz--focus:hover .ico { transform: scale(1.14); }
+  .pz--clock:hover .pz__hand { animation: hand-spin 900ms cubic-bezier(0.4, 0, 0.2, 1); }
+  .pz--again:hover .ico { transform: rotate(-200deg); }
+}
+@keyframes hand-spin { to { transform: rotate(360deg); } }
+@media (max-width: 980px) { .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) {
+  .pz-grid { grid-template-columns: 1fr; }
+  .pz { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; padding: 20px 18px; }
+  .pz__ico { grid-row: span 2; width: 48px; height: 48px; margin: 0; }
+  .pz h3 { margin-bottom: 4px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. DAILY CHALLENGE — the felt panel and a working copy of the card
+   ══════════════════════════════════════════════════════════════════════════ */
+.daily-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+  padding: clamp(28px, 5vw, 64px);
+  border-radius: 30px;
+  color: #fff;
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(255, 255, 255, 0.10), transparent 55%),
+    repeating-conic-gradient(rgba(255, 255, 255, 0.035) 0% 25%, transparent 0% 50%) 0 0 / 56px 56px,
+    #3e6650;
+  box-shadow: 0 30px 60px rgba(28, 40, 32, 0.22);
+  overflow: hidden;
+}
+@media (prefers-color-scheme: dark) { .daily-panel { background-color: #2f4f3d; box-shadow: none; border: 1px solid rgba(255, 255, 255, 0.08); } }
+.daily-panel h2, .daily-panel h3 { color: #fff; }
+.daily-panel .lede { margin-top: 18px; color: rgba(255, 255, 255, 0.86); }
+.daily-points { display: grid; gap: 20px; margin-top: 30px; }
+.daily-points article { display: flex; gap: 16px; align-items: flex-start; }
+.daily-points h3 { font-size: 18px; margin-bottom: 4px; }
+.daily-points p { color: rgba(255, 255, 255, 0.8); font-size: 16px; }
+
+/* The card. Light in both themes on purpose: it is the app's own surface
+   lifted onto the felt, the way a screenshot would sit there. */
+.daily-demo { perspective: 1200px; }
+.dc {
+  --dc-bg: #faf8f5; --dc-text: #1c1610; --dc-muted: #5c4838; --dc-line: rgba(28, 22, 16, 0.09);
+  background: var(--dc-bg);
+  color: var(--dc-text);
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 26px 50px rgba(10, 20, 14, 0.32), 0 4px 12px rgba(10, 20, 14, 0.16);
+  transform: rotateY(-5deg) rotateX(2deg);
+  transition: transform 600ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.dc:hover, .dc:focus-within { transform: none; }
+@media (prefers-color-scheme: dark) {
+  .dc { --dc-bg: #2c261e; --dc-text: #efe6d6; --dc-muted: #c4b49c; --dc-line: rgba(239, 230, 214, 0.10); }
+}
+.dc__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dc__title { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; }
+.dc__title .ico { width: 18px; height: 18px; color: #c07a2a; }
+.dc__sum { font-size: 13px; font-weight: 600; color: var(--dc-muted); }
+.dc__week { list-style: none; display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 16px 0 14px; }
+.dc__week li {
+  display: grid; place-items: center;
+  height: 30px;
+  border-radius: 999px;
+  font: 700 11px/1 'Chakra Petch', ui-monospace, monospace;
+  color: var(--dc-muted);
+  background: var(--dc-line);
+}
+.dc__week li.is-today { background: transparent; box-shadow: inset 0 0 0 2px #c07a2a; color: #c07a2a; }
+@media (prefers-reduced-motion: no-preference) { .dc__week li.is-today { animation: today 2.2s ease-in-out infinite; } }
+@keyframes today { 50% { box-shadow: inset 0 0 0 2px #c07a2a, 0 0 0 4px rgba(192, 122, 42, 0.18); } }
+.dc__list { list-style: none; display: grid; gap: 8px; }
+.dc-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border-radius: 14px;
+  background: var(--dc-bg);
+  box-shadow: inset 0 0 0 1px var(--dc-line);
+  transition: opacity 200ms ease, box-shadow 200ms ease;
+}
+.dc-row.is-off { opacity: 0.5; }
+.dc-row.is-off .dc-row__label { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.dc-row__ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(62, 102, 80, 0.12); color: #3e6650; }
+@media (prefers-color-scheme: dark) { .dc-row__ico { background: rgba(156, 199, 172, 0.14); color: #9cc7ac; } }
+.dc-row__ico .ico { width: 18px; height: 18px; }
+.dc-row__label { font-size: 15px; font-weight: 600; min-width: 0; }
+.dc-row__count, .dc-row__move { display: inline-flex; align-items: center; gap: 2px; }
+.dc-row__move { border-left: 1px solid var(--dc-line); padding-left: 4px; }
+.dc-row button {
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  border: 0; border-radius: 9px;
+  background: transparent;
+  color: var(--dc-muted);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, transform 120ms ease;
+}
+.dc-row button:hover:not(:disabled) { background: var(--dc-line); color: var(--dc-text); }
+.dc-row button:active:not(:disabled) { transform: scale(0.9); }
+.dc-row button:disabled { opacity: 0.3; cursor: default; }
+.dc-row button .ico { width: 16px; height: 16px; }
+.dc-row.is-moved { box-shadow: inset 0 0 0 2px #c07a2a; }
+.dc__go { width: 100%; margin-top: 16px; }
+@media (prefers-color-scheme: dark) { .dc__go { background: #3e6650; } }
+
+@media (max-width: 860px) {
+  .daily-panel { grid-template-columns: 1fr; border-radius: 24px; }
+  .dc { transform: none; }
+}
+@media (max-width: 420px) {
+  .dc { padding: 14px; border-radius: 18px; }
+  /* Label across the top, the two button pairs under it on the right. */
+  .dc-row { grid-template-columns: 30px minmax(0, 1fr) auto auto; padding: 8px; gap: 4px 8px; }
+  .dc-row__ico { width: 30px; height: 30px; grid-row: span 2; align-self: start; }
+  .dc-row__label { font-size: 14px; grid-column: 2 / -1; padding-top: 5px; }
+  .dc-row__count { grid-column: 3; grid-row: 2; }
+  .dc-row__move { grid-column: 4; grid-row: 2; }
+  .dc-row button { width: 28px; height: 28px; }
+}
+
+@media (max-width: 860px) {
+  .journey { grid-template-columns: 1fr; gap: 16px; }
+  .jcard { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); align-items: stretch; }
+  .jscene { height: auto; min-height: 150px; margin: 10px 0 10px 10px; }
+  .jcard + .jcard::before { top: -23px; left: 50%; margin-left: -15px; transform: rotate(90deg); }
+}
+@media (max-width: 560px) {
+  .jcard { grid-template-columns: 1fr; }
+  .jscene { margin: 10px 10px 0; min-height: 0; height: 130px; }
+  .jcard__body { padding: 18px 20px 22px; }
+}
 
 /* Tactile wooden illustrations. Transparent assets share the page's own surface. */
 :root {
@@ -1917,35 +2230,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 /* No scripted animation is required for this art to be visible. */
 
 
-/* Clear, theme-aware chess symbols; no platform-dependent emoji. */
-.journey__symbol svg,.exercise-symbol svg { display:block; width:44px; height:44px; }
-.exercise-symbol { width:48px; height:48px; }
-.line-title { margin:22px 0 4px; font-size:clamp(25px,3vw,34px); }
-.line-colour { margin:0 0 24px; color:var(--text-muted); font-size:14px; }
-.line-moves { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
-.line-moves li { display:grid; grid-template-columns:30px 1fr 1fr; align-items:center; gap:12px; padding:14px; border:1px solid var(--border); border-radius:12px; background:var(--bg-page); }
-.line-moves small { color:var(--text-muted); }
-.line-moves strong,.line-moves span { font:600 20px 'Chakra Petch',monospace; }
-.line-moves strong { color:var(--primary); }
-.line-review { display:flex; gap:14px; margin-top:24px; padding-top:22px; border-top:1px solid var(--border); }
-.line-review__icon { flex:0 0 32px; color:var(--primary); }
-.line-review__icon svg { width:32px; height:32px; }
-.line-review strong { font-size:16px; }
-.line-review p { font-size:14px; color:var(--text-muted); line-height:1.6; margin:8px 0 0; }
-@media(prefers-reduced-motion:no-preference) {
- html.js .line-moves li { opacity:0; transform:translateY(8px); transition:opacity 440ms ease,transform 440ms ease; }
- html.js .repertoire-visual.in .line-moves li { opacity:1; transform:none; }
- .line-moves li:nth-child(1) { transition-delay:100ms !important; }
- .line-moves li:nth-child(2) { transition-delay:200ms !important; }
- .line-moves li:nth-child(3) { transition-delay:300ms !important; }
- html.js .journey article::before { content:''; display:block; position:absolute; top:-3px; left:0; width:100%; height:3px; background:var(--primary); transform:scaleX(0); transform-origin:left; transition:transform 650ms ease var(--d,0ms); }
- html.js .journey article { position:relative; }
- html.js .journey article.in::before { transform:scaleX(1); }
-}
-
-/* Match the app's classIcon discs and CLASS_COLOR palette (src/icons.ts).
-   Explicit fills keep the white glyphs and class colours in both themes. */
-.exercise-symbol--badge .move-badge { stroke:none; }
+.move-badge { display: block; flex: none; }
 </style>
 
 <!-- Analytics — Umami, cookieless, this page only. data-domains restricts the
@@ -1968,6 +2253,28 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
      highlight), not a photo trace, so it stays a few kB. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
+    <!-- Line icons, copied from the app's own set (src/icons.ts, Lucide paths)
+         so a feature carries the same picture here as on its screen there.
+         Stroke and fill come from the .ico rule, never from the symbol. -->
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+    <symbol id="i-review" viewBox="0 0 24 24"><circle cx="10" cy="11.5" r="6"/><path d="m14.3 15.8 3.7 3.7"/><path d="M18 2l.95 2.25 2.25.95-2.25.95L18 8.4l-.95-2.25-2.25-.95 2.25-.95z" fill="currentColor" stroke="none"/><path d="M21.4 9.3l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-tree" viewBox="0 0 24 24"><circle cx="12" cy="19" r="2.5"/><circle cx="6" cy="5" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M18 7.5v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2"/><path d="M12 11.5v5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></symbol>
+    <symbol id="i-scout" viewBox="0 0 24 24"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></symbol>
+    <symbol id="i-order" viewBox="0 0 24 24"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5.2-1.35a.5.5 0 0 1 0-.96L8.5 8.94A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+
     <linearGradient id="pieceBody" x1="0" y1="0" x2="1" y2="1">
       <stop id="piece-sprite-a-0" offset="0" />
       <stop id="piece-sprite-a-1" offset="0.45" />
@@ -2140,15 +2447,345 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     </div>
   </section>
 
-  <section class="band band--parchment" id="your-games" aria-labelledby="your-games-title"><div class="inner"><div class="story-head reveal"><h2 id="your-games-title">Your games show you what to practise</h2><p class="lede">Every game leaves something to learn. Bito helps you find it and work on it.</p></div><div class="journey"><article class="reveal"><span class="journey__symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M9 29v10h30V29M24 6v23m-8-8 8 8 8-8"/><path d="M8 10h7m18 0h7"/></svg></span><h3>Bring in your games</h3><p>Import games from Chess.com or Lichess to build your personal game library.</p></article><article class="reveal"><span class="journey__symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><circle cx="21" cy="21" r="13"/><path d="m31 31 10 10M21 13v9m0 6h.01"/></svg></span><h3>Discover the turning points</h3><p>Find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.</p></article><article class="reveal"><span class="journey__symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M9 18a16 16 0 1 1 0 14M9 7v11h11"/><path d="m18 25 5 5 9-11"/></svg></span><h3>Turn analysis into practice</h3><p>Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.</p></article></div></div></section>
+  <!-- ───────────────────────── YOUR GAMES ─────────────────────────
+       Three steps, each a card with a small drawn scene on top — the import
+       list, the evaluation graph with its turning point, the position you get
+       to try again. The scenes are illustrations, not screenshots: no names,
+       no numbers, nothing that pretends to be somebody's real game. -->
+  <section class="band band--parchment" id="your-games" aria-labelledby="your-games-title">
+    <div class="inner">
+      <div class="story-head reveal">
+        <p class="kicker">Game analysis</p>
+        <h2 id="your-games-title">Your games show you what to practise</h2>
+        <p class="lede">Every game leaves something to learn. Bito helps you find it and work on it.</p>
+      </div>
+      <ol class="journey">
+        <li class="jcard reveal">
+          <div class="jscene jscene--import" aria-hidden="true">
+            <span class="jrow"><b class="jres jres--w">1–0</b><i></i><i></i></span>
+            <span class="jrow"><b class="jres jres--l">0–1</b><i></i><i></i></span>
+            <span class="jrow"><b class="jres jres--d">½</b><i></i><i></i></span>
+          </div>
+          <div class="jcard__body">
+            <span class="jcard__tag"><span class="tile"><svg class="ico"><use href="#i-download"/></svg></span><span class="jcard__n">Step 1</span></span>
+            <h3>Bring in your games</h3>
+            <p>Import games from Chess.com or Lichess to build your personal game library.</p>
+          </div>
+        </li>
+        <li class="jcard reveal">
+          <div class="jscene jscene--eval" aria-hidden="true">
+            <svg viewBox="0 0 240 110" preserveAspectRatio="none" focusable="false">
+              <path class="jeval__mid" d="M0 55H240"/>
+              <path class="jeval__area" d="M0 55 L0 50 C18 46 30 40 46 42 S76 30 92 34 S112 26 124 30 L134 84 C150 90 168 80 184 86 S216 92 240 88 L240 55Z"/>
+              <path class="jeval__line" d="M0 50 C18 46 30 40 46 42 S76 30 92 34 S112 26 124 30 L134 84 C150 90 168 80 184 86 S216 92 240 88"/>
+            </svg>
+            <span class="jeval__dot"><svg viewBox="0 0 24 24" width="30" height="30" focusable="false"><circle cx="12" cy="12" r="12" fill="#c93636"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>??</text></svg></span>
+          </div>
+          <div class="jcard__body">
+            <span class="jcard__tag"><span class="tile"><svg class="ico"><use href="#i-review"/></svg></span><span class="jcard__n">Step 2</span></span>
+            <h3>Discover the turning points</h3>
+            <p>Find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.</p>
+          </div>
+        </li>
+        <li class="jcard reveal">
+          <div class="jscene jscene--practice" aria-hidden="true">
+            <span class="jboard">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <span class="jboard__pc pc pc-wn"></span>
+              <svg class="jboard__arrow" viewBox="0 0 4 3" focusable="false"><line x1="0.5" y1="2.5" x2="1.25" y2="1.05"/><polygon points="1.5,0.55 1.03,0.93 1.47,1.16"/></svg>
+              <span class="jboard__badge"><svg viewBox="0 0 24 24" width="26" height="26" focusable="false"><circle cx="12" cy="12" r="12" fill="#5a9e3f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>★</text></svg></span>
+            </span>
+          </div>
+          <div class="jcard__body">
+            <span class="jcard__tag"><span class="tile"><svg class="ico"><use href="#i-target"/></svg></span><span class="jcard__n">Step 3</span></span>
+            <h3>Turn analysis into practice</h3>
+            <p>Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
 
-  <section class="band" id="personal-exercises" aria-labelledby="personal-exercises-title"><div class="inner"><div class="art-heading"><div class="story-head reveal"><h2 id="personal-exercises-title">Exercises from games you actually played</h2><p class="lede">Recognising a mistake in analysis is a start. Finding the better move yourself is the next step.</p></div><div class="study-art" aria-hidden="true"><div class="wood-motion" data-wood-speed="-28"><img src="art/flying-chess.webp" srcset="art/flying-chess-small.webp 500w, art/flying-chess.webp 1000w" sizes="(max-width: 800px) 280px, 360px" alt="" width="1000" height="1000" loading="lazy" decoding="async" draggable="false" /></div></div></div><div class="exercise-grid"><article class="exercise-card reveal"><span class="exercise-symbol exercise-symbol--badge" aria-hidden="true"><svg class="move-badge move-badge--mistake" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#e0822f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>?</text></svg></span><h3>Try your mistakes again</h3><p>Revisit a position where you went wrong and play a stronger move. Practise keeping a winning advantage and punishing your opponent’s mistakes.</p></article><article class="exercise-card reveal"><span class="exercise-symbol exercise-symbol--badge" aria-hidden="true"><svg class="move-badge move-badge--blunder" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#c93636"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>??</text></svg></span><h3>Become a blunder detective</h3><p>Watch a short sequence from one of your games. Spot the move that changed everything, then find what should have been played.</p></article><article class="exercise-card reveal"><span class="exercise-symbol exercise-symbol--badge" aria-hidden="true"><svg class="move-badge move-badge--best" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#5a9e3f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>★</text></svg></span><h3>Choose the better move</h3><p>Compare your original move with an engine alternative. Decide which is stronger before revealing the answer.</p></article><article class="exercise-card reveal"><span class="exercise-symbol exercise-symbol--badge" aria-hidden="true"><svg class="move-badge move-badge--clock" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#5c8bb0"/><g fill="none" stroke="#fff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"><path d="M5.3 8.5h13.4l1.1 9.2H4.2l1.1-9.2ZM7.4 5.8h3m3.2 0h3M8.9 5.8v2.7m6.2-2.7v2.7M12 8.5v9.2"/><path d="M7 11.4h2.6v3.5H7zM14.4 11.4H17v3.5h-2.6z"/></g></svg></span><h3>Think under time pressure</h3><p>Work through positions from your games against the clock. Practise making decisions when there’s little time to spare.</p></article><article class="exercise-card reveal"><span class="exercise-symbol exercise-symbol--badge" aria-hidden="true"><svg class="move-badge move-badge--brilliant" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#1d9e8f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>!!</text></svg></span><h3>Rediscover your best moves</h3><p>Find your own strong and brilliant moves again, and practise recognising the ideas behind them.</p></article></div></div></section>
+  <!-- ───────────────────── PERSONAL EXERCISES ─────────────────────
+       Five stacking cards. Each one sticks a little lower than the last, so the
+       next card slides up over it as you scroll, and the one underneath sinks
+       back (section 10 of the script). Every card carries a small playable
+       position of the exercise it describes — example positions, not anybody's
+       game. Without JavaScript the boards are hidden and the cards are a plain
+       list, which is still the complete copy. -->
+  <section class="band" id="personal-exercises" aria-labelledby="personal-exercises-title">
+    <div class="inner">
+      <div class="art-heading">
+        <div class="story-head reveal">
+          <p class="kicker">Personal exercises</p>
+          <h2 id="personal-exercises-title">Exercises from games you actually played</h2>
+          <p class="lede">Recognising a mistake in analysis is a start. Finding the better move yourself is the next step.</p>
+        </div>
+        <div class="study-art" aria-hidden="true"><div class="wood-motion" data-wood-speed="-28"><img src="art/flying-chess.webp" srcset="art/flying-chess-small.webp 500w, art/flying-chess.webp 1000w" sizes="(max-width: 800px) 280px, 360px" alt="" width="1000" height="1000" loading="lazy" decoding="async" draggable="false" /></div></div>
+      </div>
 
-  <section class="band band--parchment" id="openings" aria-labelledby="openings-title"><div class="inner"><div class="showcase"><div><div class="story-head reveal"><h2 id="openings-title">Build openings you can rely on</h2><p class="lede">Choose what you want to play, explore your options and remember your moves when you need them.</p></div><div class="compact-copy reveal"><article><h3>Create your own repertoire</h3><p>Enter moves on the board, browse thousands of named openings or begin with a starter pack. Explore famous traps and investigate alternatives with the engine.</p></article><article><h3>Learn from your opening results</h3><p>See which openings bring good results and which keep causing problems. Turn positions from your games into lines you can practise.</p></article></div></div><figure class="product-shot repertoire-visual reveal"><div class="visual-label">FROM A LINE TO A HABIT</div><h3 class="line-title">Italian Game</h3><p class="line-colour">An example line for White</p><ol class="line-moves" aria-label="Italian Game opening moves"><li><small>1.</small><strong>e4</strong><span>e5</span></li><li><small>2.</small><strong>Nf3</strong><span>Nc6</span></li><li><small>3.</small><strong>Bc4</strong><span>Bc5</span></li></ol><div class="line-review"><span class="line-review__icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M9 18a16 16 0 1 1 0 14M9 7v11h11"/><path d="m18 25 5 5 9-11"/></svg></span><div><strong>Build it. Play it. Remember it.</strong><p>Practise your chosen moves on the board. The ones you miss come back for review.</p></div></div><figcaption>Your own lines, reviewed with spaced repetition.</figcaption></figure></div><div class="opening-notes reveal"><article><h3>Remember with spaced repetition</h3><p>Play through your lines, then review them over time. Moves you struggle with return more often, so practice follows what you need to remember.</p></article><article><h3>See how your lines connect</h3><p>Explore your repertoire as a visual tree, with your variations and branches together.</p></article><article><h3>Prepare for an opponent</h3><p>Explore an opponent’s games, discover what they tend to play and build your preparation around the positions you might meet. Available with Full Access.</p></article></div></div></section>
+      <ol class="stack">
+        <li class="stack__item" style="--i:0">
+          <article class="xcard" style="--tone:#e0822f">
+            <div class="xcard__text">
+              <div class="xcard__top">
+                <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#e0822f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>?</text></svg>
+                <span class="xcard__n">01 <span>/ 05</span></span>
+              </div>
+              <h3>Try your mistakes again</h3>
+              <p>Revisit a position where you went wrong and play a stronger move. Practise keeping a winning advantage and punishing your opponent’s mistakes.</p>
+            </div>
+            <div class="xcard__demo">
+              <div class="xb" data-x="retry"></div>
+              <p class="xmsg" aria-live="polite"></p>
+              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Reset</button></div>
+            </div>
+          </article>
+        </li>
+        <li class="stack__item" style="--i:1">
+          <article class="xcard" style="--tone:#c93636">
+            <div class="xcard__text">
+              <div class="xcard__top">
+                <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#c93636"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>??</text></svg>
+                <span class="xcard__n">02 <span>/ 05</span></span>
+              </div>
+              <h3>Become a blunder detective</h3>
+              <p>Watch a short sequence from one of your games. Spot the move that changed everything, then find what should have been played.</p>
+            </div>
+            <div class="xcard__demo">
+              <div class="xb" data-x="detective"></div>
+              <ol class="xmoves" aria-label="The sequence"></ol>
+              <p class="xmsg" aria-live="polite"></p>
+              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Watch again</button></div>
+            </div>
+          </article>
+        </li>
+        <li class="stack__item" style="--i:2">
+          <article class="xcard" style="--tone:#5a9e3f">
+            <div class="xcard__text">
+              <div class="xcard__top">
+                <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#5a9e3f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>★</text></svg>
+                <span class="xcard__n">03 <span>/ 05</span></span>
+              </div>
+              <h3>Choose the better move</h3>
+              <p>Compare your original move with an engine alternative. Decide which is stronger before revealing the answer.</p>
+            </div>
+            <div class="xcard__demo">
+              <div class="xb" data-x="choose"></div>
+              <div class="xpick" role="group" aria-label="Pick the stronger move"></div>
+              <p class="xmsg" aria-live="polite"></p>
+              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Reset</button></div>
+            </div>
+          </article>
+        </li>
+        <li class="stack__item" style="--i:3">
+          <article class="xcard" style="--tone:#5c8bb0">
+            <div class="xcard__text">
+              <div class="xcard__top">
+                <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#5c8bb0"/><g fill="none" stroke="#fff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"><path d="M5.3 8.5h13.4l1.1 9.2H4.2l1.1-9.2ZM7.4 5.8h3m3.2 0h3M8.9 5.8v2.7m6.2-2.7v2.7M12 8.5v9.2"/><path d="M7 11.4h2.6v3.5H7zM14.4 11.4H17v3.5h-2.6z"/></g></svg>
+                <span class="xcard__n">04 <span>/ 05</span></span>
+              </div>
+              <h3>Think under time pressure</h3>
+              <p>Work through positions from your games against the clock. Practise making decisions when there’s little time to spare.</p>
+            </div>
+            <div class="xcard__demo">
+              <div class="xclock" aria-hidden="true"><span class="xclock__face">0:10</span><span class="xclock__bar"><i></i></span></div>
+              <div class="xb" data-x="clock"><button type="button" class="xstart">Start the clock</button></div>
+              <p class="xmsg" aria-live="polite"></p>
+              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Go again</button></div>
+            </div>
+          </article>
+        </li>
+        <li class="stack__item" style="--i:4">
+          <article class="xcard" style="--tone:#1d9e8f">
+            <div class="xcard__text">
+              <div class="xcard__top">
+                <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#1d9e8f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>!!</text></svg>
+                <span class="xcard__n">05 <span>/ 05</span></span>
+              </div>
+              <h3>Rediscover your best moves</h3>
+              <p>Find your own strong and brilliant moves again, and practise recognising the ideas behind them.</p>
+            </div>
+            <div class="xcard__demo">
+              <div class="xb" data-x="brilliant"></div>
+              <p class="xmsg" aria-live="polite"></p>
+              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Reset</button></div>
+            </div>
+          </article>
+        </li>
+      </ol>
+    </div>
+  </section>
 
-  <section class="band" id="tactics" aria-labelledby="tactics-title"><div class="inner"><div class="tactics-layout"><div class="story-head reveal"><h2 id="tactics-title">Sharpen your tactics</h2><p class="lede">Practise spotting threats, finding combinations and making the most of your chances.</p></div><div class="tactics-grid"><article class="tactic-tile reveal"><span class="exercise-symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M12 39h26M15 34h20l-3-8 3-8-8-9-2-5-5 6-9 9 6 5 7-5-2 8-7 7Z"/><path d="M26 15h.01"/></svg></span><h3>A daily rated mix</h3><p>Solve a mix of puzzles informed by your repertoire and games, and track your Bito puzzle rating as you practise.</p></article><article class="tactic-tile reveal"><span class="exercise-symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><circle cx="24" cy="24" r="17"/><circle cx="24" cy="24" r="8"/><path d="M24 3v6m0 30v6M3 24h6m30 0h6"/></svg></span><h3>Focus your practice</h3><p>Choose puzzles by opening or tactical theme to work on specific ideas.</p></article><article class="tactic-tile reveal"><span class="exercise-symbol exercise-symbol--badge" aria-hidden="true"><svg class="move-badge move-badge--clock" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#5c8bb0"/><g fill="none" stroke="#fff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"><path d="M5.3 8.5h13.4l1.1 9.2H4.2l1.1-9.2ZM7.4 5.8h3m3.2 0h3M8.9 5.8v2.7m6.2-2.7v2.7M12 8.5v9.2"/><path d="M7 11.4h2.6v3.5H7zM14.4 11.4H17v3.5h-2.6z"/></g></svg></span><h3>Race the clock</h3><p>Challenge yourself in Time Attack and try to beat your personal best.</p></article><article class="tactic-tile reveal"><span class="exercise-symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M9 18a16 16 0 1 1 0 14M9 7v11h11"/><path d="m18 25 5 5 9-11"/></svg></span><h3>Revisit missed puzzles</h3><p>Puzzles you get wrong return over time, giving you another chance to recognise the pattern.</p></article></div></div></div></section>
+  <!-- ───────────────────────── OPENINGS ─────────────────────────
+       A sticky-scroll walk-through: the five feature notes scroll on the left
+       while one repertoire tree stays pinned on the right and changes to show
+       each of them in turn (section 11 of the script sets data-step). On a
+       phone the tree pins to the top of the screen instead and the notes pass
+       underneath it. Without JavaScript all five notes are simply shown in full
+       next to the plain tree. -->
+  <section class="band band--parchment" id="openings" aria-labelledby="openings-title">
+    <div class="inner">
+      <div class="story-head reveal">
+        <p class="kicker">Opening repertoire</p>
+        <h2 id="openings-title">Build openings you can rely on</h2>
+        <p class="lede">Choose what you want to play, explore your options and remember your moves when you need them.</p>
+      </div>
+      <div class="os" id="os">
+        <figure class="os-panel" id="os-panel">
+          <div class="os-panel__bar">
+            <span class="os-panel__name"><svg class="ico"><use href="#i-tree"/></svg>My White lines</span>
+            <span class="os-panel__step" id="os-label" aria-hidden="true">Example</span>
+          </div>
+<svg class="os-tree" viewBox="0 0 512 252" role="group" aria-labelledby="os-tree-title">
+<title id="os-tree-title">An example repertoire tree for White: 1.e4 with answers to 1…e5, 1…c5 and 1…e6, branching into four lines.</title>
+<g class="os-edges">
+<path class="e" data-to="B" style="--dp:1" d="M80 125C98 125 94 65 112 65"/>
+<path class="e" data-to="C" style="--dp:1" d="M80 125C98 125 94 155 112 155"/>
+<path class="e" data-to="D" style="--dp:1" d="M80 125C98 125 94 215 112 215"/>
+<path class="e" data-to="E" style="--dp:2" d="M184 65C202 65 198 65 216 65"/>
+<path class="e" data-to="F" style="--dp:2" d="M184 155C202 155 198 155 216 155"/>
+<path class="e" data-to="G" style="--dp:2" d="M184 215C202 215 198 215 216 215"/>
+<path class="e" data-to="H" style="--dp:3" d="M288 65C306 65 302 35 320 35"/>
+<path class="e" data-to="I" style="--dp:3" d="M288 65C306 65 302 95 320 95"/>
+<path class="e" data-to="J" style="--dp:3" d="M288 155C306 155 302 155 320 155"/>
+<path class="e" data-to="K" style="--dp:3" d="M288 215C306 215 302 215 320 215"/>
+<path class="e" data-to="L" style="--dp:4" d="M392 35C410 35 406 35 424 35"/>
+<path class="e" data-to="M" style="--dp:4" d="M392 95C410 95 406 95 424 95"/>
+<path class="e" data-to="N" style="--dp:4" d="M392 155C410 155 406 155 424 155"/>
+<path class="e" data-to="O" style="--dp:4" d="M392 215C410 215 406 215 424 215"/>
+</g><g class="os-res">
+<g class="res" style="--dp:1"><rect class="res__w" x="112" y="84" width="40.3" height="5" rx="1"/><rect class="res__d" x="152.3" y="84" width="17.3" height="5"/><rect class="res__l" x="169.6" y="84" width="14.4" height="5" rx="1"/></g>
+<g class="res" style="--dp:1"><rect class="res__w" x="112" y="174" width="15.8" height="5" rx="1"/><rect class="res__d" x="127.8" y="174" width="11.5" height="5"/><rect class="res__l" x="139.4" y="174" width="44.6" height="5" rx="1"/></g>
+<g class="res" style="--dp:1"><rect class="res__w" x="112" y="234" width="33.1" height="5" rx="1"/><rect class="res__d" x="145.1" y="234" width="21.6" height="5"/><rect class="res__l" x="166.7" y="234" width="17.3" height="5" rx="1"/></g>
+<g class="res" style="--dp:3"><rect class="res__w" x="320" y="54" width="43.2" height="5" rx="1"/><rect class="res__d" x="363.2" y="54" width="15.8" height="5"/><rect class="res__l" x="379.0" y="54" width="13.0" height="5" rx="1"/></g>
+<g class="res" style="--dp:3"><rect class="res__w" x="320" y="114" width="36.0" height="5" rx="1"/><rect class="res__d" x="356.0" y="114" width="21.6" height="5"/><rect class="res__l" x="377.6" y="114" width="14.4" height="5" rx="1"/></g>
+<g class="res" style="--dp:3"><rect class="res__w" x="320" y="174" width="18.7" height="5" rx="1"/><rect class="res__d" x="338.7" y="174" width="10.1" height="5"/><rect class="res__l" x="348.8" y="174" width="43.2" height="5" rx="1"/></g>
+<g class="res" style="--dp:3"><rect class="res__w" x="320" y="234" width="31.7" height="5" rx="1"/><rect class="res__d" x="351.7" y="234" width="24.5" height="5"/><rect class="res__l" x="376.2" y="234" width="15.8" height="5" rx="1"/></g>
+</g><g class="os-nodes">
+<g class="n n--w" data-id="A" data-path="A" style="--dp:0"><rect x="8" y="110" width="72" height="30" rx="15"/><text x="44" y="125">1.e4</text></g>
+<g class="n n--b" data-id="B" data-path="AB" style="--dp:1"><rect x="112" y="50" width="72" height="30" rx="15"/><text x="148" y="65">1…e5</text></g>
+<g class="n n--b" data-id="C" data-path="AC" style="--dp:1"><rect x="112" y="140" width="72" height="30" rx="15"/><text x="148" y="155">1…c5</text></g>
+<g class="n n--b" data-id="D" data-path="AD" style="--dp:1"><rect x="112" y="200" width="72" height="30" rx="15"/><text x="148" y="215">1…e6</text></g>
+<g class="n n--w" data-id="E" data-path="ABE" style="--dp:2"><rect x="216" y="50" width="72" height="30" rx="15"/><text x="252" y="65">2.Nf3</text></g>
+<g class="n n--w" data-id="F" data-path="ACF" style="--dp:2"><rect x="216" y="140" width="72" height="30" rx="15"/><text x="252" y="155">2.Nf3</text></g>
+<g class="n n--w" data-id="G" data-path="ADG" style="--dp:2"><rect x="216" y="200" width="72" height="30" rx="15"/><text x="252" y="215">2.d4</text></g>
+<g class="n n--b" data-id="H" data-path="ABEH" style="--dp:3"><rect x="320" y="20" width="72" height="30" rx="15"/><text x="356" y="35">2…Nc6</text></g>
+<g class="n n--b" data-id="I" data-path="ABEI" style="--dp:3"><rect x="320" y="80" width="72" height="30" rx="15"/><text x="356" y="95">2…d6</text></g>
+<g class="n n--b" data-id="J" data-path="ACFJ" style="--dp:3"><rect x="320" y="140" width="72" height="30" rx="15"/><text x="356" y="155">2…d6</text></g>
+<g class="n n--b" data-id="K" data-path="ADGK" style="--dp:3"><rect x="320" y="200" width="72" height="30" rx="15"/><text x="356" y="215">2…d5</text></g>
+<g class="n n--w leaf" data-id="L" data-path="ABEHL" data-name="Italian Game" style="--dp:4" tabindex="0" role="button" aria-label="Trace the Italian Game line"><rect x="424" y="20" width="72" height="30" rx="15"/><text x="460" y="35">3.Bc4</text></g>
+<g class="n n--w leaf" data-id="M" data-path="ABEIM" data-name="Philidor Defence" style="--dp:4" tabindex="0" role="button" aria-label="Trace the Philidor Defence line"><rect x="424" y="80" width="72" height="30" rx="15"/><text x="460" y="95">3.d4</text></g>
+<g class="n n--w leaf" data-id="N" data-path="ACFJN" data-name="Open Sicilian" style="--dp:4" tabindex="0" role="button" aria-label="Trace the Open Sicilian line"><rect x="424" y="140" width="72" height="30" rx="15"/><text x="460" y="155">3.d4</text></g>
+<g class="n n--w leaf" data-id="O" data-path="ADGKO" data-name="French, Advance" style="--dp:4" tabindex="0" role="button" aria-label="Trace the French, Advance line"><rect x="424" y="200" width="72" height="30" rx="15"/><text x="460" y="215">3.e5</text></g>
+</g>
+<rect class="due" x="212" y="136" width="80" height="38" rx="19"/>
+<rect class="due" x="420" y="76" width="80" height="38" rx="19"/>
+<g class="warn"><circle cx="181" cy="141" r="8"/><text x="181" y="141">!</text></g>
+<g class="opp-tag"><rect x="98" y="109" width="100" height="20" rx="10"/><text x="148" y="119">THEIR FAVOURITE</text></g>
+</svg>
+          <figcaption class="os-legend" id="os-legend">An example repertoire: your moves in green, the replies you expect in outline.</figcaption>
+        </figure>
+        <div class="os__steps">
+          <article class="os-step" data-step="1">
+            <span class="tile"><svg class="ico"><use href="#i-book"/></svg></span>
+            <div><h3>Create your own repertoire</h3><p>Enter moves on the board, browse thousands of named openings or begin with a starter pack. Explore famous traps and investigate alternatives with the engine.</p></div>
+          </article>
+          <article class="os-step" data-step="2">
+            <span class="tile"><svg class="ico"><use href="#i-chart"/></svg></span>
+            <div><h3>Learn from your opening results</h3><p>See which openings bring good results and which keep causing problems. Turn positions from your games into lines you can practise.</p></div>
+          </article>
+          <article class="os-step" data-step="3">
+            <span class="tile"><svg class="ico"><use href="#i-brain"/></svg></span>
+            <div><h3>Remember with spaced repetition</h3><p>Play through your lines, then review them over time. Moves you struggle with return more often, so practice follows what you need to remember.</p></div>
+          </article>
+          <article class="os-step" data-step="4">
+            <span class="tile"><svg class="ico"><use href="#i-tree"/></svg></span>
+            <div><h3>See how your lines connect</h3><p>Explore your repertoire as a visual tree, with your variations and branches together.</p></div>
+          </article>
+          <article class="os-step" data-step="5">
+            <span class="tile"><svg class="ico"><use href="#i-scout"/></svg></span>
+            <div><h3>Prepare for an opponent</h3><p>Explore an opponent’s games, discover what they tend to play and build your preparation around the positions you might meet. Available with Full Access.</p></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<section class="band" id="daily-practice" aria-labelledby="daily-practice-title"><div class="inner"><div class="daily-panel reveal"><div><h2 id="daily-practice-title">Make improvement a daily habit</h2><p class="lede">Build a daily challenge around opening lines, tactics, endgames and exercises from your own games.</p><div class="compact-copy"><article><h3>Choose your daily practice</h3><p>Pick the activities, their order and how much you want to practise.</p></article><article><h3>Keep your learning moving</h3><p>Track your streak, revisit previous sessions and keep working on positions that need attention.</p></article></div></div><div><ul class="daily-list" aria-label="Activities you can include in your daily challenge"><li><span aria-hidden="true">✓</span>Opening lines</li><li><span aria-hidden="true">✓</span>Tactics</li><li><span aria-hidden="true">✓</span>Endgames</li><li><span aria-hidden="true">✓</span>Exercises from your games</li></ul><p class="daily-caption">Your choice of activities. Your own pace.</p></div></div></div></section>
+  <!-- ───────────────────────── PUZZLES ─────────────────────────
+       Its own short section now, four modes in a row. The icons are the app's
+       own (src/icons.ts) set in the same tile as everywhere else on the page,
+       each with a small motion of its own on hover. -->
+  <section class="band" id="tactics" aria-labelledby="tactics-title">
+    <div class="inner">
+      <div class="story-head story-head--center reveal">
+        <p class="kicker">Puzzles</p>
+        <h2 id="tactics-title">Sharpen your tactics</h2>
+        <p class="lede">Practise spotting threats, finding combinations and making the most of your chances.</p>
+      </div>
+      <div class="pz-grid">
+        <article class="pz pz--daily reveal">
+          <span class="pz__ico" aria-hidden="true"><svg class="ico"><use href="#i-puzzle"/></svg></span>
+          <h3>A daily rated mix</h3>
+          <p>Solve a mix of puzzles informed by your repertoire and games, and track your Bito puzzle rating as you practise.</p>
+        </article>
+        <article class="pz pz--focus reveal">
+          <span class="pz__ico" aria-hidden="true"><svg class="ico"><use href="#i-target"/></svg></span>
+          <h3>Focus your practice</h3>
+          <p>Choose puzzles by opening or tactical theme to work on specific ideas.</p>
+        </article>
+        <article class="pz pz--clock reveal">
+          <span class="pz__ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8.5"/><path d="M12 2.5h0M9.5 2.5h5"/><path class="pz__hand" d="M12 13V8.5"/><path d="m18.5 5.5 1.4-1.4"/></svg></span>
+          <h3>Race the clock</h3>
+          <p>Challenge yourself in Time Attack and try to beat your personal best.</p>
+        </article>
+        <article class="pz pz--again reveal">
+          <span class="pz__ico" aria-hidden="true"><svg class="ico"><use href="#i-reset"/></svg></span>
+          <h3>Revisit missed puzzles</h3>
+          <p>Puzzles you get wrong return over time, giving you another chance to recognise the pattern.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── DAILY CHALLENGE ─────────────────────────
+       The copy on the felt, and beside it a working copy of the app's daily
+       challenge card: the same parts, the same labels (TASK_META in
+       src/daily-challenge.ts), counts you can change and rows you can move —
+       exactly the three choices the copy talks about. Nothing is saved, and
+       there is no invented streak or score. -->
+  <section class="band" id="daily-practice" aria-labelledby="daily-practice-title">
+    <div class="inner">
+      <div class="daily-panel reveal">
+        <div class="daily-copy">
+          <p class="kicker kicker--on-felt">Daily challenge</p>
+          <h2 id="daily-practice-title">Make improvement a daily habit</h2>
+          <p class="lede">Build a daily challenge around opening lines, tactics, endgames and exercises from your own games.</p>
+          <div class="daily-points">
+            <article><span class="tile tile--felt"><svg class="ico"><use href="#i-order"/></svg></span><div><h3>Choose your daily practice</h3><p>Pick the activities, their order and how much you want to practise.</p></div></article>
+            <article><span class="tile tile--felt"><svg class="ico"><use href="#i-sparkles"/></svg></span><div><h3>Keep your learning moving</h3><p>Track your streak, revisit previous sessions and keep working on positions that need attention.</p></div></article>
+          </div>
+        </div>
+        <div class="daily-demo">
+          <div class="dc" role="group" aria-labelledby="dc-title">
+            <div class="dc__head">
+              <span class="dc__title" id="dc-title"><svg class="ico"><use href="#i-sparkles"/></svg>Daily challenge</span>
+              <span class="dc__sum" id="dc-sum" aria-live="polite">5 parts</span>
+            </div>
+            <ol class="dc__week" id="dc-week" aria-hidden="true"><li>M</li><li>T</li><li>W</li><li>T</li><li>F</li><li>S</li><li>S</li></ol>
+            <ul class="dc__list" id="dc-list">
+              <li class="dc-row" data-count="3" data-one="line to remember" data-many="lines to remember" data-steps="0,1,2,3,4,5"><span class="dc-row__ico"><svg class="ico"><use href="#i-tree"/></svg></span><span class="dc-row__label">3 lines to remember</span></li>
+              <li class="dc-row" data-count="3" data-one="puzzle to solve" data-many="puzzles to solve" data-steps="0,1,2,3,4,5"><span class="dc-row__ico"><svg class="ico"><use href="#i-puzzle"/></svg></span><span class="dc-row__label">3 puzzles to solve</span></li>
+              <li class="dc-row" data-count="3" data-one="endgame puzzle" data-many="endgame puzzles" data-steps="0,1,2,3,4,5"><span class="dc-row__ico"><svg class="ico"><use href="#i-flag"/></svg></span><span class="dc-row__label">3 endgame puzzles</span></li>
+              <li class="dc-row" data-count="2" data-one="mistake to fix" data-many="mistakes to fix" data-steps="0,1,2,3,4,5"><span class="dc-row__ico"><svg class="ico"><use href="#i-reset"/></svg></span><span class="dc-row__label">2 mistakes to fix</span></li>
+              <li class="dc-row" data-count="2" data-one="minute under pressure" data-many="minutes under pressure" data-steps="0,2,3,5"><span class="dc-row__ico"><svg class="ico"><use href="#i-clock"/></svg></span><span class="dc-row__label">2 minutes under pressure</span></li>
+            </ul>
+            <a class="btn dc__go js-app" href="/app/" data-umami-event="cta-daily-demo">Try Bito Chess →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
 <!-- ────────────────────────── THE TWO PLANS ──────────────────────────
        One section, one column, two boxes of the same size — free above, paid
@@ -2252,9 +2889,11 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       <div class="feature__head reveal"><h2>Why I made Bito Chess</h2></div>
       <div class="feature__body">
         <div class="bubble reveal">
-          <p>Bito Chess began as a tool to help me remember my openings. But the more I played, the more I wanted to learn from everything happening in my games.</p>
-          <p>So it grew: game analysis, exercises from my own mistakes, tactics, endgames and preparation for real opponents.</p>
-          <p>I’m Marçal, a designer and chess player, and the whole team behind Bito Chess. I built it to help me improve. I hope it helps you enjoy the process, too.</p>
+          <p>I’m a passionate chess player, but not a particularly strong one. 🥹</p>
+          <p>I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn.</p>
+          <p>I wanted something where I could build and store my own repertoire, practise the things I actually forgot, learn from my own games, and prepare for real opponents.</p>
+          <p>So I built the tool I wanted to use — and I got +200 rating points in the first month!</p>
+          <p>If it helps other players enjoy studying chess as much as I do, even better.</p>
         </div>
 
         <div class="who reveal">
@@ -2478,6 +3117,15 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     if (signin) { signin.textContent = 'Open app'; signin.setAttribute('href', appUrl('/app/')); }
   }
 
+  /* ── 2b. The arrow on every button gets its own span, so it can nudge
+     forward on hover. After the relabel above, which rewrites the text. */
+  Array.prototype.forEach.call(document.querySelectorAll('.btn'), function (btn) {
+    var t = btn.lastChild;
+    if (!t || t.nodeType !== 3 || !/→\s*$/.test(t.nodeValue)) return;
+    t.nodeValue = t.nodeValue.replace(/\s*→\s*$/, ' ');
+    btn.insertAdjacentHTML('beforeend', '<span class="arr" aria-hidden="true">→</span>');
+  });
+
   /* ── 3. Top bar: shrink the app icon once the page moves ─────────────────
      A sentinel at the top of the document rather than a scroll listener, so
      there is no work on the main thread while scrolling. */
@@ -2583,9 +3231,55 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     if (boardCol) boardCol.style.setProperty('--pin', '0px');
   }
 
+  /* The stacking exercise cards (section 10). Each card sinks — shrinks and
+     shades — as the next one slides up over it: --sink runs 0 → 1 over the
+     last card-height of the next card's travel to its own sticky line. The
+     sticky lines are read once per resize, not per frame. */
+  var stackItems = Array.prototype.slice.call(document.querySelectorAll('.stack__item'));
+  var stackTops = null;
+  function readStackTops() {
+    /* A card that sticks has to fit whole between the top bar and the bottom
+       of the screen (less the phone's sticky CTA bar), or its buttons would
+       be covered before anyone could reach them. If any card doesn't fit, the
+       whole stack lies flat and scrolls as a plain list. */
+    var list = stackItems[0].parentNode;
+    list.classList.remove('is-flat');
+    var room = (window.innerHeight || 1) - (ctaBar && window.innerWidth < 900 ? ctaBar.offsetHeight || 84 : 0);
+    var fits = stackItems.every(function (it) {
+      var cs = getComputedStyle(it);
+      return cs.position !== 'sticky' || parseFloat(cs.top) + it.offsetHeight <= room;
+    });
+    list.classList.toggle('is-flat', !fits);
+    stackTops = stackItems.map(function (it) {
+      var cs = getComputedStyle(it);
+      return cs.position === 'sticky' ? parseFloat(cs.top) || 0 : null;
+    });
+  }
+  function placeStacks(vh) {
+    if (!stackItems.length) return;
+    if (!stackTops) readStackTops();
+    var box = stackItems[0].parentNode.getBoundingClientRect();
+    if (box.bottom < 0 || box.top > vh) return;
+    stackItems.forEach(function (it, k) {
+      var next = stackItems[k + 1];
+      var card = it.firstElementChild;
+      var sink = 0;
+      if (next && stackTops[k + 1] !== null && !calm) {
+        var h = card.offsetHeight || 1;
+        sink = Math.max(0, Math.min(1, 1 - (next.getBoundingClientRect().top - stackTops[k + 1]) / h));
+      }
+      card.style.setProperty('--sink', sink.toFixed(3));
+    });
+  }
+
   function placeArt() {
     queued = false;
-    if (calm || document.hidden) return;
+    if (document.hidden) return;
+    /* Layout state first: it has to follow the scroll even for visitors who
+       asked for less motion (the walk-through still has to change step). */
+    placeSteps();
+    placeStacks(window.innerHeight || 1);
+    if (calm) return;
     var vh = window.innerHeight || 1;
     var desktop = window.innerWidth >= PIN_FROM;
     floats.forEach(function (el) {
@@ -2624,7 +3318,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     }
   }
   function queueArt() {
-    if (queued || calm || document.hidden) return;
+    if (queued || document.hidden) return;
     queued = true; requestAnimationFrame(placeArt);
   }
   function syncMotionPreference() {
@@ -2632,79 +3326,14 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     resetArtMotion();
     if (!calm) queueArt();
   }
-  if (floats.length || woodPieces.length || boardCol) {
+  if (floats.length || woodPieces.length || boardCol || stackItems.length) {
     window.addEventListener('scroll', queueArt, { passive:true });
-    window.addEventListener('resize', queueArt, { passive:true });
+    window.addEventListener('resize', function () { stackTops = null; queueArt(); }, { passive:true });
     document.addEventListener('visibilitychange', queueArt);
     if (motionQuery) {
       if (motionQuery.addEventListener) motionQuery.addEventListener('change', syncMotionPreference);
       else if (motionQuery.addListener) motionQuery.addListener(syncMotionPreference);
     }
-    syncMotionPreference();
-  }
-
-  /* ── 7. The carousel ─────────────────────────────────────────────────────
-     Native scroll-snap does the scrolling; this only adds the arrows, the dots
-     and their state. */
-  var track = document.getElementById('more-track');
-
-  if (track) {
-    var cards = Array.prototype.slice.call(track.children);
-    var dotsBox = document.getElementById('car-dots');
-    var prev = document.getElementById('car-prev');
-    var next = document.getElementById('car-next');
-    var dots = [];
-
-    cards.forEach(function (card, i) {
-      var dot = document.createElement('button');
-      dot.type = 'button';
-      dot.className = 'carousel__dot';
-      dot.setAttribute('aria-label', 'Card ' + (i + 1) + ' of ' + cards.length);
-      dot.addEventListener('click', function () { goTo(i); });
-      dotsBox.appendChild(dot);
-      dots.push(dot);
-    });
-
-    function current() {
-      /* The card whose centre is nearest the track's centre. */
-      var mid = track.scrollLeft + track.clientWidth / 2;
-      var best = 0;
-      var bestD = Infinity;
-      cards.forEach(function (c, i) {
-        var d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
-        if (d < bestD) { bestD = d; best = i; }
-      });
-      return best;
-    }
-
-    function goTo(i) {
-      var c = cards[Math.max(0, Math.min(cards.length - 1, i))];
-      track.scrollTo({
-        left: c.offsetLeft - (track.clientWidth - c.offsetWidth) / 2,
-        behavior: calm ? 'auto' : 'smooth'
-      });
-    }
-
-    function syncDots() {
-      var i = current();
-      dots.forEach(function (d, n) { d.classList.toggle('on', n === i); });
-      /* Disabled at the ends rather than wrapping — wrapping in a scroll
-         container fights the snap and reads as a glitch. */
-      prev.disabled = track.scrollLeft <= 2;
-      next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
-    }
-
-    prev.addEventListener('click', function () { goTo(current() - 1); });
-    next.addEventListener('click', function () { goTo(current() + 1); });
-
-    var scrollQueued = false;
-    track.addEventListener('scroll', function () {
-      if (scrollQueued) return;
-      scrollQueued = true;
-      requestAnimationFrame(function () { scrollQueued = false; syncDots(); });
-    }, { passive: true });
-
-    syncDots();
   }
 
   /* ── 8. The price card and the buy button ────────────────────────────────
@@ -3212,6 +3841,581 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
        other five are one tap away. */
     load(0);
   }
+  /* ── 10. The exercise cards: five small playable boards ──────────────────
+     One tiny board builder and five scripts on top of it. Like the hero board
+     there is no rules engine: each card knows the one answer it is waiting
+     for, which is the whole idea — a taste of each exercise, not a game.
+
+     The boards draw the way the app's do: cburnett pieces (the .pc classes
+     above), the last move washed in the board's highlight colour, and the
+     move-classification disc tucked into the top-right of the square, in the
+     same colours as src/icons.ts (classBoardSvg). Squares are buttons only on
+     the cards that take a move, with one roving tab stop and the arrow keys to
+     move it — 64 tab stops would be a wall, and tabbing straight to the two
+     right squares would give the answer away. */
+  var XFILES = 'abcdefgh';
+  var PIECE_NAME = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
+  var XCLASS = {
+    mistake: ['#e0822f', '?'], blunder: ['#c93636', '??'], best: ['#5a9e3f', '★'],
+    great: ['#5c8bb0', '!'], brilliant: ['#1d9e8f', '!!']
+  };
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function xf(sq) { return XFILES.indexOf(sq[0]); }
+  function xr(sq) { return 8 - parseInt(sq[1], 10); }
+
+  function makeBoard(host, playable) {
+    host.insertAdjacentHTML('afterbegin',
+      '<div class="xb__sq"></div><svg class="xb__wash" viewBox="0 0 800 800" aria-hidden="true"></svg>' +
+      '<div class="xb__pc"></div><svg class="xb__fx" viewBox="0 0 800 800" aria-hidden="true"></svg>');
+    var sqBox = host.querySelector('.xb__sq');
+    var wash = host.querySelector('.xb__wash');
+    var pcBox = host.querySelector('.xb__pc');
+    var fx = host.querySelector('.xb__fx');
+    var squares = {}, pieces = {}, focusSq = 'e2';
+    var b = { host: host, onTap: null, pieces: pieces };
+
+    for (var r = 0; r < 8; r++) {
+      for (var f = 0; f < 8; f++) {
+        var name = XFILES[f] + (8 - r);
+        var el = document.createElement(playable ? 'button' : 'span');
+        if (playable) { el.type = 'button'; el.tabIndex = -1; }
+        el.dataset.sq = name;
+        sqBox.appendChild(el);
+        squares[name] = el;
+      }
+    }
+    if (playable) {
+      squares[focusSq].tabIndex = 0;
+      host.setAttribute('role', 'group');
+      sqBox.addEventListener('click', function (e) {
+        var t = e.target.closest ? e.target.closest('[data-sq]') : null;
+        if (t && b.onTap) b.onTap(t.dataset.sq);
+      });
+      /* Arrow keys walk the board; Enter and Space are the button's own click. */
+      sqBox.addEventListener('keydown', function (e) {
+        var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+        if (!d) return;
+        e.preventDefault();
+        var nf = Math.max(0, Math.min(7, xf(focusSq) + d[0]));
+        var nr = Math.max(0, Math.min(7, xr(focusSq) + d[1]));
+        rove(XFILES[nf] + (8 - nr), true);
+      });
+    }
+
+    function label(sq) {
+      var p = pieces[sq] && pieces[sq].dataset.pc;
+      return sq + (p ? ', ' + (p[0] === 'w' ? 'white ' : 'black ') + PIECE_NAME[p[1]] : '');
+    }
+    function rove(sq, focus) {
+      if (!playable) return;
+      if (squares[focusSq]) squares[focusSq].tabIndex = -1;
+      focusSq = sq;
+      squares[sq].tabIndex = 0;
+      if (focus) squares[sq].focus();
+    }
+    function relabel() {
+      if (!playable) return;
+      Object.keys(squares).forEach(function (sq) { squares[sq].setAttribute('aria-label', label(sq)); });
+    }
+    function put(sq, code) {
+      var el = document.createElement('div');
+      el.className = 'pc pc-' + code;
+      el.dataset.pc = code;
+      el.style.setProperty('--f', String(xf(sq)));
+      el.style.setProperty('--r', String(xr(sq)));
+      pcBox.appendChild(el);
+      pieces[sq] = el;
+    }
+    function rect(sq, fill, opacity, cls) {
+      var n = document.createElementNS(SVGNS, 'rect');
+      n.setAttribute('x', xf(sq) * 100); n.setAttribute('y', xr(sq) * 100);
+      n.setAttribute('width', 100); n.setAttribute('height', 100);
+      n.setAttribute('fill', fill); n.setAttribute('opacity', opacity);
+      if (cls) n.setAttribute('class', cls);
+      wash.appendChild(n);
+    }
+
+    /* "g1:wk d1:wr f2:wp …" — square:piece pairs, the shortest thing to type. */
+    b.set = function (placement) {
+      pcBox.textContent = ''; wash.textContent = ''; fx.textContent = '';
+      Object.keys(pieces).forEach(function (k) { delete pieces[k]; });
+      placement.split(' ').forEach(function (pair) { var p = pair.split(':'); put(p[0], p[1]); });
+      relabel();
+      return b;
+    };
+    b.colourAt = function (sq) { return pieces[sq] ? pieces[sq].dataset.pc[0] : null; };
+    b.move = function (from, to) {
+      var el = pieces[from];
+      if (!el) return;
+      if (pieces[to]) {
+        var gone = pieces[to];
+        gone.classList.add('is-gone');
+        setTimeout(function () { gone.remove(); }, 220);
+      }
+      delete pieces[from];
+      pieces[to] = el;
+      el.style.setProperty('--f', String(xf(to)));
+      el.style.setProperty('--r', String(xr(to)));
+      Array.prototype.slice.call(wash.querySelectorAll('.last, .sel')).forEach(function (n) { n.remove(); });
+      rect(from, 'var(--board-lastmove)', 0.55, 'last');
+      rect(to, 'var(--board-lastmove)', 0.55, 'last');
+      relabel();
+    };
+    b.select = function (sq) {
+      Array.prototype.slice.call(wash.querySelectorAll('.sel')).forEach(function (n) { n.remove(); });
+      if (sq) rect(sq, 'rgba(227, 178, 90, 0.85)', 1, 'sel');
+    };
+    /* The classification disc, sized up from the app's (r 16 of 100) because
+       these boards are a third of the size of the app's. */
+    b.badge = function (sq, cls) {
+      var c = XCLASS[cls];
+      var x = xf(sq) * 100 + 74, y = xr(sq) * 100 + 26, rr = 22;
+      rect(sq, c[0], 0.32, 'cls');
+      var g = document.createElementNS(SVGNS, 'g');
+      g.innerHTML =
+        (cls === 'brilliant' ? '<circle class="halo" cx="' + x + '" cy="' + y + '" r="' + rr + '" fill="none" stroke="' + c[0] + '" stroke-width="4"/>' : '') +
+        '<g class="badge"><circle cx="' + x + '" cy="' + y + '" r="' + rr + '" fill="' + c[0] + '" stroke="#fff" stroke-width="4"/>' +
+        '<text x="' + x + '" y="' + y + '" text-anchor="middle" dominant-baseline="central" fill="#fff" font-weight="800" ' +
+        'font-size="' + (c[1].length > 1 ? rr : rr * 1.25) + '" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">' + c[1] + '</text></g>';
+      fx.appendChild(g);
+    };
+    /* Arrows in the hero board's geometry, scaled to a 0..800 viewBox. */
+    b.arrow = function (from, to, colour) {
+      var ax = xf(from) * 100 + 50, ay = xr(from) * 100 + 50;
+      var bx = xf(to) * 100 + 50, by = xr(to) * 100 + 50;
+      var dx = bx - ax, dy = by - ay, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var ux = dx / len, uy = dy / len, px = -uy, py = ux;
+      var sx = ax + ux * 30, sy = ay + uy * 30;
+      var hx = bx - ux * 31, hy = by - uy * 31, tx = bx - ux * 8, ty = by - uy * 8;
+      var g = document.createElementNS(SVGNS, 'g');
+      g.setAttribute('class', 'arw');
+      g.innerHTML =
+        '<line x1="' + sx.toFixed(1) + '" y1="' + sy.toFixed(1) + '" x2="' + hx.toFixed(1) + '" y2="' + hy.toFixed(1) +
+        '" stroke="' + colour + '" stroke-width="15.6" stroke-linecap="round"/>' +
+        '<polygon fill="' + colour + '" points="' + tx.toFixed(1) + ',' + ty.toFixed(1) + ' ' +
+        (hx + px * 18).toFixed(1) + ',' + (hy + py * 18).toFixed(1) + ' ' + (hx - px * 18).toFixed(1) + ',' + (hy - py * 18).toFixed(1) + '"/>';
+      fx.appendChild(g);
+      return g;
+    };
+    b.clearFx = function () { fx.textContent = ''; };
+    b.shake = function () {
+      host.classList.remove('shake'); void host.offsetWidth; host.classList.add('shake');
+      setTimeout(function () { host.classList.remove('shake'); }, 320);
+    };
+    b.rove = rove;
+    return b;
+  }
+
+  /* Plays a scripted line against the visitor: their move, the reply, their
+     next move. Pick a piece, then a square; any other try shakes the board.
+     hooks.step(i) fires after each of the visitor's moves, hooks.wrong(n) on
+     each miss, hooks.done() when the line is finished. */
+  function playLine(b, steps, hooks) {
+    var i = 0, sel = null, busy = false, misses = 0;
+    var side = b.colourAt(steps[0].you[0]);
+    b.onTap = function (sq) {
+      if (busy || !steps[i] || (hooks.ready && !hooks.ready())) return;
+      var s = steps[i];
+      if (b.colourAt(sq) === side) { sel = sq; b.select(sq); b.rove(sq); return; }
+      if (!sel) return;
+      if (sel === s.you[0] && sq === s.you[1]) {
+        busy = true; sel = null;
+        b.move(s.you[0], s.you[1]);
+        if (s.cls) b.badge(s.you[1], s.cls);
+        if (hooks.step) hooks.step(i);
+        var last = !steps[i + 1];
+        setTimeout(function () {
+          if (s.reply) b.move(s.reply[0], s.reply[1]);
+          i++;
+          busy = false;
+          if (last && hooks.done) hooks.done();
+          else if (hooks.ask) hooks.ask(i);
+        }, s.reply ? 650 : 250);
+        return;
+      }
+      sel = null; b.select(null);
+      misses++;
+      b.shake();
+      if (hooks.wrong) hooks.wrong(misses, s);
+    };
+    return {
+      stop: function () { b.onTap = null; },
+      hint: function () { b.arrow(steps[i].you[0], steps[i].you[1], 'var(--arrow)'); }
+    };
+  }
+
+  var MK = function (cls, t) { return '<span class="mk mk--' + cls + '">' + t + '</span>'; };
+  var xcards = Array.prototype.slice.call(document.querySelectorAll('.xb[data-x]'));
+
+  var EXERCISES = {
+    /* A back-rank mate missed for a nervous h3. Black has a queen for the
+       rook, but nothing guards d8 and nothing can block on e8 or f8. */
+    retry: function (host, msg) {
+      var pos = 'g1:wk d1:wr a2:wp f2:wp g2:wp h2:wp g8:bk c2:bq a7:bp f7:bp g7:bp h7:bp';
+      var b = makeBoard(host, true), run;
+      host.setAttribute('aria-label', 'Example position, White to move');
+      function start() {
+        b.set(pos);
+        msg.innerHTML = 'In the game you played <b>h3</b>' + MK('dubious', '?') + ' here. White to move — find the stronger move.';
+        run = playLine(b, [{ you: ['d1', 'd8'], cls: 'best' }], {
+          wrong: function (n) {
+            msg.innerHTML = n < 2 ? 'Not that one. Look at Black’s back rank.' : 'The rook can reach the eighth rank — follow the arrow.';
+            if (n >= 2) run.hint();
+          },
+          done: function () { msg.innerHTML = '<b>Rd8#</b>' + MK('good', '★') + ' Checkmate — the move you missed, found.'; }
+        });
+      }
+      start();
+      return start;
+    },
+
+    /* Légal's mate. Black grabs the queen and walks into mate in two. */
+    detective: function (host, msg, card) {
+      var pos = 'a1:wr c1:wb d1:wq e1:wk h1:wr c3:wn f3:wn c4:wb a2:wp b2:wp c2:wp d2:wp e4:wp f2:wp g2:wp h2:wp ' +
+        'a8:br b8:bn d8:bq e8:bk f8:bb g8:bn h8:br g4:bb a7:bp b7:bp c7:bp d6:bp e5:bp f7:bp g6:bp h7:bp';
+      var SEQ = [['f3', 'e5', '5.Nxe5'], ['g4', 'd1', '5…Bxd1'], ['c4', 'f7', '6.Bxf7+'], ['e8', 'e7', '6…Ke7'], ['c3', 'd5', '7.Nd5#']];
+      var WHY = ['That was strong — White’s knight is happy there.', '', 'Strong, but only because of what came before.', 'That one was forced.', 'The finish, not the turning point.'];
+      var list = card.querySelector('.xmoves');
+      var b = makeBoard(host, false), timers = [];
+      host.setAttribute('role', 'img');
+      host.setAttribute('aria-label', 'A short sequence from an example game: 5.Nxe5 Bxd1 6.Bxf7+ Ke7 7.Nd5 mate');
+      function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+      function start() {
+        timers.forEach(clearTimeout); timers = [];
+        b.set(pos);
+        list.textContent = ''; list.classList.remove('is-asking');
+        msg.innerHTML = 'Watch the sequence…';
+        SEQ.forEach(function (m, k) {
+          later(function () {
+            b.move(m[0], m[1]);
+            var li = document.createElement('li');
+            li.innerHTML = '<button type="button" disabled>' + m[2] + '</button>';
+            list.appendChild(li);
+          }, 700 + k * (calm ? 350 : 900));
+        });
+        later(ask, 700 + SEQ.length * (calm ? 350 : 900));
+      }
+      function ask() {
+        msg.innerHTML = 'Checkmate. Which move changed everything? Tap it.';
+        list.classList.add('is-asking');
+        Array.prototype.forEach.call(list.querySelectorAll('button'), function (btn, k) {
+          btn.disabled = false;
+          btn.onclick = function () {
+            if (k !== 1) { btn.classList.add('is-wrong'); msg.innerHTML = WHY[k]; return; }
+            btn.classList.add('is-right');
+            list.classList.remove('is-asking');
+            Array.prototype.forEach.call(list.querySelectorAll('button'), function (x) { x.disabled = true; });
+            /* Back to the moment it went wrong, with what should have been played. */
+            b.set(pos); b.move('f3', 'e5');
+            b.arrow('d6', 'e5', '#5a9e3f');
+            b.badge('d1', 'blunder');
+            msg.innerHTML = '<b>5…Bxd1</b>' + MK('bad', '??') + ' took the queen and walked into mate. Better was <b>5…dxe5</b>.';
+          };
+        });
+      }
+      /* It starts playing the first time the card is properly on screen. */
+      if ('IntersectionObserver' in window) {
+        var seen = new IntersectionObserver(function (en) {
+          if (!en[0].isIntersecting) return;
+          seen.disconnect(); start();
+        }, { threshold: 0.6 });
+        seen.observe(host);
+        b.set(pos);
+      } else start();
+      return start;
+    },
+
+    /* The knight on d5 can retreat, or fork the king and queen from e7. */
+    choose: function (host, msg, card) {
+      var pos = 'g1:wk d5:wn a2:wp b2:wp f2:wp g2:wp h2:wp g8:bk c8:bq f8:br a7:bp b7:bp f7:bp g7:bp h7:bp';
+      var pick = card.querySelector('.xpick');
+      var b = makeBoard(host, false), preview = null;
+      host.setAttribute('role', 'img');
+      host.setAttribute('aria-label', 'Example position, White to move: knight on d5, black king on g8 and queen on c8');
+      var OPTS = [
+        { from: 'd5', to: 'c3', san: 'Nc3', who: 'Your move', best: false },
+        { from: 'd5', to: 'e7', san: 'Ne7+', who: 'Engine', best: true }
+      ];
+      function start() {
+        b.set(pos);
+        msg.innerHTML = 'White to move. Which is stronger?';
+        pick.innerHTML = '';
+        OPTS.forEach(function (o) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.innerHTML = '<small>' + o.who + '</small><strong>' + o.san + '</strong>';
+          var show = function () { if (preview) preview.remove(); preview = b.arrow(o.from, o.to, 'var(--arrow)'); };
+          var hide = function () { if (preview) { preview.remove(); preview = null; } };
+          btn.addEventListener('mouseenter', show); btn.addEventListener('focus', show);
+          btn.addEventListener('mouseleave', hide); btn.addEventListener('blur', hide);
+          btn.addEventListener('click', function () { reveal(o); });
+          o.btn = btn;
+          pick.appendChild(btn);
+        });
+      }
+      function reveal(choice) {
+        if (preview) { preview.remove(); preview = null; }
+        OPTS.forEach(function (o) {
+          o.btn.disabled = true;
+          o.btn.classList.add(o.best ? 'is-best' : 'is-worse');
+          o.btn.querySelector('strong').insertAdjacentHTML('beforeend', o.best ? MK('good', '★') : MK('dubious', '?'));
+        });
+        b.move('d5', 'e7');
+        b.badge('e7', 'best');
+        setTimeout(function () { b.arrow('e7', 'g8', '#c93636'); b.arrow('e7', 'c8', '#c93636'); }, 300);
+        msg.innerHTML = choice.best
+          ? 'Right. <b>Ne7+</b> forks the king and the queen.'
+          : 'Your <b>Nc3</b> just retreats. <b>Ne7+</b> forks the king and the queen.';
+      }
+      start();
+      return start;
+    },
+
+    /* Ten seconds to find the pawn fork d5. */
+    clock: function (host, msg, card) {
+      var pos = 'g1:wk d4:wp a2:wp f2:wp g2:wp h2:wp g8:bk c6:bn e6:bn a7:bp f7:bp g7:bp h7:bp';
+      var clock = card.querySelector('.xclock');
+      var face = clock.querySelector('.xclock__face');
+      var bar = clock.querySelector('.xclock__bar i');
+      var go = host.querySelector('.xstart');
+      var b = makeBoard(host, true), run, t0 = 0, raf = 0, LIMIT = 10000, running = false;
+      host.setAttribute('aria-label', 'Example position, White to move against the clock');
+      function show(left) {
+        var s = Math.ceil(left / 1000);
+        face.textContent = '0:' + (s < 10 ? '0' : '') + s;
+        bar.style.setProperty('--left', (left / LIMIT).toFixed(3));
+        clock.classList.toggle('is-low', left < 3500);
+      }
+      function tick() {
+        var left = Math.max(0, LIMIT - (Date.now() - t0));
+        show(left);
+        if (left <= 0) { timeUp(); return; }
+        raf = requestAnimationFrame(tick);
+      }
+      function timeUp() {
+        running = false; run.stop();
+        b.arrow('d4', 'd5', 'var(--arrow)');
+        msg.innerHTML = 'Time! <b>d5</b> forks both knights.';
+      }
+      function start() {
+        cancelAnimationFrame(raf); running = false;
+        b.set(pos);
+        show(LIMIT);
+        host.classList.add('is-waiting');
+        go.hidden = false;
+        msg.innerHTML = 'White to move. Win material before the flag falls.';
+        run = playLine(b, [{ you: ['d4', 'd5'], cls: 'great' }], {
+          ready: function () { return running; },
+          wrong: function () { msg.innerHTML = 'Not that one — the clock is still running.'; },
+          done: function () {
+            running = false; cancelAnimationFrame(raf);
+            var left = Math.max(0, LIMIT - (Date.now() - t0));
+            b.arrow('d5', 'c6', '#c93636'); b.arrow('d5', 'e6', '#c93636');
+            msg.innerHTML = '<b>d5</b>' + MK('great', '!') + ' forks both knights, with ' + Math.ceil(left / 1000) + ' seconds to spare.';
+          }
+        });
+      }
+      go.addEventListener('click', function () {
+        go.hidden = true;
+        host.classList.remove('is-waiting');
+        running = true; t0 = Date.now();
+        raf = requestAnimationFrame(tick);
+        var first = host.querySelector('[data-sq="d4"]');
+        if (first) { first.tabIndex = 0; first.focus(); }
+      });
+      start();
+      return start;
+    },
+
+    /* Philidor's legacy: the queen sacrifice and the smothered mate. */
+    brilliant: function (host, msg) {
+      var pos = 'g1:wk d5:wq h6:wn a2:wp b2:wp f2:wp g2:wp h2:wp h8:bk f8:br b6:bq c8:bb a7:bp b7:bp g7:bp h7:bp';
+      var b = makeBoard(host, true), run;
+      host.setAttribute('aria-label', 'Example position, White to move');
+      function start() {
+        b.set(pos);
+        msg.innerHTML = 'You found something special here once. White to move — find it again.';
+        run = playLine(b, [
+          { you: ['d5', 'g8'], reply: ['f8', 'g8'], cls: 'brilliant' },
+          { you: ['h6', 'f7'], cls: 'best' }
+        ], {
+          ask: function () { msg.innerHTML = 'Black has to take with the rook. Now finish it.'; },
+          wrong: function (n) {
+            msg.innerHTML = n < 2 ? 'Not quite. The black king has almost no room.' : 'Give up the queen — follow the arrow.';
+            if (n >= 2) run.hint();
+          },
+          done: function () { msg.innerHTML = '<b>Qg8+</b>' + MK('great', '!!') + ' then <b>Nf7#</b>: a smothered mate. Your best move, found again.'; }
+        });
+      }
+      start();
+      return start;
+    }
+  };
+
+  xcards.forEach(function (host) {
+    var card = host.closest('.xcard');
+    var msg = card.querySelector('.xmsg');
+    var restart = EXERCISES[host.getAttribute('data-x')](host, msg, card);
+    var reset = card.querySelector('[data-x-reset]');
+    if (reset) reset.addEventListener('click', restart);
+  });
+
+  /* ── 11. The openings walk-through ───────────────────────────────────────
+     The notes on the left are the steps; whichever one crosses the reading
+     line sets data-step on the pinned tree, and the CSS does the rest. The
+     reading line is the middle of the screen on a desktop, and the middle of
+     what is left under the pinned tree on a phone. Leaves are buttons: tap
+     one and the tree traces that line from the root. */
+  var os = document.getElementById('os');
+  var osPanel = document.getElementById('os-panel');
+  var osSteps = os ? Array.prototype.slice.call(os.querySelectorAll('.os-step')) : [];
+  var osLabel = document.getElementById('os-label');
+  var osLegend = document.getElementById('os-legend');
+  var osNow = 0;
+  var OS_STEPS = [
+    null,
+    ['1 · Build', 'Your moves in green, the replies you expect in outline. Add a move and the line grows.'],
+    ['2 · Results', 'Each reply carries how it has gone in your games. <b>1…c5</b> keeps causing problems.'],
+    ['3 · Review', 'Dashed rings mark the moves due today. The ones you miss come back sooner.'],
+    ['4 · Connect', 'Every line end is a line you train. Tap one to trace it.'],
+    ['5 · Prepare', 'Your opponent’s favourite reply, lit up — so you know which branch to prepare.']
+  ];
+
+  function trace(pathIds, cls) {
+    if (!osPanel) return;
+    Array.prototype.forEach.call(osPanel.querySelectorAll('.n, .e'), function (el) {
+      var id = el.getAttribute('data-id') || el.getAttribute('data-to');
+      el.classList.toggle(cls, pathIds.indexOf(id) !== -1);
+    });
+  }
+  function leafName(leaf) {
+    return '<b>' + leaf.getAttribute('data-name') + '</b>: ' + leaf.getAttribute('data-path').split('').map(function (id) {
+      return osPanel.querySelector('.n[data-id="' + id + '"] text').textContent;
+    }).join(' ');
+  }
+  function setStep(n) {
+    if (!osPanel || n === osNow) return;
+    osNow = n;
+    osPanel.setAttribute('data-step', String(n));
+    osSteps.forEach(function (s) { s.classList.toggle('is-on', +s.getAttribute('data-step') === n); });
+    osLabel.textContent = OS_STEPS[n][0];
+    osLegend.innerHTML = OS_STEPS[n][1];
+    osPanel.classList.toggle('is-tracing', n === 4);
+    if (n === 4) trace('ABEHL'.split(''), 'on');
+  }
+  function placeSteps() {
+    if (!os || !osSteps.length) return;
+    var vh = window.innerHeight || 1;
+    var pinned = window.innerWidth <= 860 && getComputedStyle(osPanel).position === 'sticky';
+    var line = pinned ? osPanel.getBoundingClientRect().bottom + (vh - osPanel.getBoundingClientRect().bottom) * 0.35 : vh * 0.55;
+    var n = 1;
+    osSteps.forEach(function (s, k) { if (s.getBoundingClientRect().top < line) n = k + 1; });
+    setStep(n);
+  }
+  if (os && osPanel) {
+    os.classList.add('is-live');
+    trace('ACFJN'.split(''), 'opp');
+    if ('IntersectionObserver' in window) {
+      var grow = new IntersectionObserver(function (en) {
+        if (!en[0].isIntersecting) return;
+        grow.disconnect(); osPanel.classList.add('is-grown');
+      }, { threshold: 0.35 });
+      grow.observe(osPanel);
+    } else osPanel.classList.add('is-grown');
+    Array.prototype.forEach.call(osPanel.querySelectorAll('.leaf'), function (leaf) {
+      function pick() {
+        osPanel.classList.add('is-tracing');
+        trace(leaf.getAttribute('data-path').split(''), 'on');
+        osLegend.innerHTML = leafName(leaf);
+      }
+      leaf.addEventListener('click', pick);
+      leaf.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    });
+    placeSteps();
+  }
+
+  /* ── 12. The daily challenge card ────────────────────────────────────────
+     The app's own three choices — which parts, how many, what order — with
+     the same labels and the same count steps (0 is off, as in the app's
+     daily-challenge.ts). Nothing is stored; it is a card to play with. */
+  var dcList = document.getElementById('dc-list');
+  if (dcList) {
+    var dcSum = document.getElementById('dc-sum');
+    var today = (new Date().getDay() + 6) % 7;      /* Monday first */
+    var week = document.getElementById('dc-week');
+    if (week && week.children[today]) week.children[today].classList.add('is-today');
+
+    var icon = function (id) { return '<svg class="ico"><use href="#' + id + '"/></svg>'; };
+    var dcRows = function () { return Array.prototype.slice.call(dcList.children); };
+
+    var paint = function () {
+      var on = 0;
+      dcRows().forEach(function (li, k, all) {
+        var n = +li.getAttribute('data-count');
+        var steps = li.getAttribute('data-steps').split(',').map(Number);
+        li.querySelector('.dc-row__label').textContent = n === 0
+          ? li.getAttribute('data-many').replace(/^\w/, function (c) { return c.toUpperCase(); }) + ' — off'
+          : n + ' ' + li.getAttribute(n === 1 ? 'data-one' : 'data-many');
+        li.classList.toggle('is-off', n === 0);
+        li.querySelector('[data-d="-1"]').disabled = n === steps[0];
+        li.querySelector('[data-d="1"]').disabled = n === steps[steps.length - 1];
+        li.querySelector('[data-m="-1"]').disabled = k === 0;
+        li.querySelector('[data-m="1"]').disabled = k === all.length - 1;
+        if (n) on++;
+      });
+      dcSum.textContent = on + (on === 1 ? ' part today' : ' parts today');
+    };
+
+    dcRows().forEach(function (li) {
+      var name = li.getAttribute('data-many');
+      li.insertAdjacentHTML('beforeend',
+        '<span class="dc-row__count"><button type="button" data-d="-1" aria-label="Fewer ' + name + '">' + icon('i-minus') + '</button>' +
+        '<button type="button" data-d="1" aria-label="More ' + name + '">' + icon('i-plus') + '</button></span>' +
+        '<span class="dc-row__move"><button type="button" data-m="-1" aria-label="Move ' + name + ' up">' + icon('i-up') + '</button>' +
+        '<button type="button" data-m="1" aria-label="Move ' + name + ' down">' + icon('i-down') + '</button></span>');
+    });
+
+    dcList.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('button') : null;
+      if (!btn || btn.disabled) return;
+      var li = btn.closest('.dc-row');
+      if (btn.hasAttribute('data-d')) {
+        var steps = li.getAttribute('data-steps').split(',').map(Number);
+        var ix = steps.indexOf(+li.getAttribute('data-count'));
+        li.setAttribute('data-count', String(steps[Math.max(0, Math.min(steps.length - 1, ix + +btn.getAttribute('data-d')))]));
+        paint();
+        return;
+      }
+      /* Move a row, and slide every row that changed place (FLIP). */
+      var rows = dcRows();
+      var before = rows.map(function (r) { return r.getBoundingClientRect().top; });
+      var k = rows.indexOf(li), d = +btn.getAttribute('data-m');
+      if (d < 0) dcList.insertBefore(li, rows[k - 1]); else dcList.insertBefore(rows[k + 1], li);
+      if (!calm) {
+        rows.forEach(function (r, i) {
+          var dy = before[i] - r.getBoundingClientRect().top;
+          if (!dy) return;
+          r.style.transition = 'none';
+          r.style.transform = 'translateY(' + dy + 'px)';
+          requestAnimationFrame(function () {
+            r.style.transition = 'transform 280ms cubic-bezier(0.2, 0.7, 0.3, 1)';
+            r.style.transform = '';
+          });
+        });
+      }
+      li.classList.add('is-moved');
+      setTimeout(function () { li.classList.remove('is-moved'); }, 600);
+      paint();
+      /* Keep focus on the same button so up, up, up works from the keyboard. */
+      var again = li.querySelector('[data-m="' + d + '"]');
+      (again && !again.disabled ? again : li.querySelector('[data-m="' + (-d) + '"]')).focus();
+    });
+    paint();
+  }
+
+
+  /* Everything the scroll handler drives now exists: place it all once. */
+  if (motionQuery || floats.length || woodPieces.length || boardCol || stackItems.length) syncMotionPreference();
 })();
 </script>
 

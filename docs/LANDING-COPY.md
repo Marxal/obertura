@@ -242,13 +242,21 @@ then hand off.
 
 ## [WHY] — set as a comic speech bubble
 
-**H2:** Built by a player who wanted a better way to learn
+**H2:** Why I made Bito Chess
 
-Bito Chess began as a tool to help me remember my openings. But the more I played, the more I wanted to learn from everything happening in my games.
+I’m a passionate chess player, but not a particularly strong one. 🥹
 
-So it grew: game analysis, exercises from my own mistakes, tactics, endgames and preparation for real opponents.
+I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn.
 
-I’m Marçal, a designer and chess player, and the whole team behind Bito Chess. I built it to help me improve. I hope it helps you enjoy the process, too.
+I wanted something where I could build and store my own repertoire, practise the things I actually forgot, learn from my own games, and prepare for real opponents.
+
+So I built the tool I wanted to use — and I got +200 rating points in the first month!
+
+If it helps other players enjoy studying chess as much as I do, even better.
+
+> Restored 2026-10-30: this is Marçal's own copy. A rewrite on 2026-10-24
+> ("Built by a player who wanted a better way to learn…") replaced it and was
+> reverted at his request — keep this wording.
 
 **Signature:** Marçal — Designer, chess player, and the whole team behind Bito Chess.
 
@@ -350,3 +358,72 @@ Timed game exercises and Time Attack use a white two-sided chess clock inside a 
 ## Scroll-driven wooden pieces — 2026-10-25
 
 Wooden images now follow a shallow horizontal arc with vertical drift, rotation, a slight perspective tilt and gentle scaling as their stationary container crosses the viewport. The light pool moves in the opposite direction for layered depth. Desktop movement is bounded to 26px horizontal, 72px vertical and 12 degrees rotation; phones use 38% of the movement. Transforms ease over 180ms, without an idle animation loop. Reduced motion disables all piece and halo transforms/transitions. Live preference changes reset the new variables. Validation: inline script syntax and executable checks of the actual transform block at multiple viewport positions for desktop/mobile bounds and scale.
+
+
+## Landing presentation pass — 2026-10-30
+
+Supersedes the layout notes in every dated section above (2026-10-24 and
+2026-10-25). Feature copy is unchanged; what is new is the short labels and the
+microcopy inside the interactive demos, listed here so they have a home.
+
+**Section labels (kickers, above each H2):** Game analysis · Personal
+exercises · Opening repertoire · Puzzles · Daily challenge.
+
+**Your games:** three cards labelled Step 1 / Step 2 / Step 3, each with a
+small drawn scene (import list with result chips, an evaluation graph with a ??
+turning point, a board corner with the better move). Illustrations only — no
+names, ratings or numbers.
+
+**Exercises:** five stacking cards (each sticks a little lower than the last
+and the one underneath sinks back). Each carries a playable example position —
+example positions, not anyone's game:
+
+1. *Try your mistakes again* — back-rank mate. “In the game you played h3?
+   here. White to move — find the stronger move.” → “Rd8#★ Checkmate — the
+   move you missed, found.” Misses: “Not that one. Look at Black’s back rank.”,
+   then “The rook can reach the eighth rank — follow the arrow.”
+2. *Become a blunder detective* — Légal’s mate plays itself (5.Nxe5 Bxd1
+   6.Bxf7+ Ke7 7.Nd5#). “Checkmate. Which move changed everything? Tap it.” →
+   “5…Bxd1?? took the queen and walked into mate. Better was 5…dxe5.” Button:
+   Watch again.
+3. *Choose the better move* — Your move Nc3 vs Engine Ne7+. “Right. Ne7+ forks
+   the king and the queen.” / “Your Nc3 just retreats. Ne7+ forks the king and
+   the queen.”
+4. *Think under time pressure* — “Start the clock”, ten seconds. “White to
+   move. Win material before the flag falls.” → “d5! forks both knights, with N
+   seconds to spare.” / “Time! d5 forks both knights.” Button: Go again.
+5. *Rediscover your best moves* — Qg8+!! Rxg8 Nf7#. “You found something
+   special here once. White to move — find it again.” → “Qg8+!! then Nf7#: a
+   smothered mate. Your best move, found again.”
+
+**Openings:** a sticky walk-through. The five feature notes scroll past one
+pinned example tree (“My White lines”, 1.e4 against e5 / c5 / e6, four line
+ends), which changes per note. Legend lines:
+
+1. Build — “Your moves in green, the replies you expect in outline. Add a move
+   and the line grows.”
+2. Results — “Each reply carries how it has gone in your games. 1…c5 keeps
+   causing problems.” (win/draw/loss bars, shapes only, no numbers)
+3. Review — “Dashed rings mark the moves due today. The ones you miss come back
+   sooner.”
+4. Connect — “Every line end is a line you train. Tap one to trace it.”
+   (tapping a line end shows its name and moves)
+5. Prepare — “Your opponent’s favourite reply, lit up — so you know which
+   branch to prepare.” Tag on the tree: THEIR FAVOURITE.
+
+The Italian Game box is gone.
+
+**Puzzles:** the old “Sharpen your tactics” section, now a short puzzles-only
+section: centred heading, four mode tiles with the app's own icons (puzzle
+piece, target, stopwatch, reset arrow), each with its own hover motion.
+
+**Daily challenge:** the felt panel, with a working copy of the app's daily
+card beside the copy: “Daily challenge” · “N parts today” · a Monday-first week
+row with today ringed (no invented streak) · five rows using the app's own
+labels (TASK_META in `src/daily-challenge.ts`): 3 lines to remember, 3 puzzles
+to solve, 3 endgame puzzles, 2 mistakes to fix, 2 minutes under pressure. − / +
+change the count (0 is off, shown as “Lines to remember — off”), ↑ / ↓ move the
+row. Nothing is saved. Button: Try Bito Chess →.
+
+**Buttons:** the → on every button nudges forward on hover.
+
