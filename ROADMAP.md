@@ -2414,3 +2414,43 @@ locked Middlegame card, and the Settings reset. Not checked with imported
 games, since that needs a real scan: the Middlegame sections were only seen
 locked. Selftest 1697/1699, the same two date-dependent scheduler tests failing
 before this round.
+
+
+## 2026-10-30 — App: where to start, which colour, which arrow
+
+- **Blunder detective:** until a case's first step, the next-move arrow is
+  filled green and breathes (`.dt-nav-btn--start`, `stepped` in
+  `detective-run.ts`), so it's clear the case starts there. Gone after one tap;
+  still (no motion) under reduced motion.
+- **Puzzles:** the solver's pieces glow twice as each puzzle is handed over
+  (`flashYourPieces` in `puzzle-run.ts`, `.pz-yours--white/black`), so your
+  colour is obvious at a glance. Not in Time Attack (`timed`), and the separate
+  time-pressure exercise is untouched.
+- **Which move:** the two candidates now have one colour per slot, blue
+  (`#2f8bf0`) left and purple (`#8b5cf6`) right, arrow and button alike
+  (`PICK_COLORS`, `.wm-pick--0/1`). Still neutral: the moves are shuffled
+  between slots, so neither colour means "the good one". Info sheet updated.
+
+Validation: a throwaway harness page drove all three sessions in Chromium at
+412×915 with an example game (Légal's mate): the start class on the ▶ button
+and its removal after a step, the two border/arrow colours, and the glow class
+present in count mode and absent in Time Attack. No console errors. Build
+passes; selftest unchanged at 1697/1699 (the two date-dependent scheduler
+tests).
+
+
+## 2026-10-30 — Phone spacing: openings walk-through and daily card
+
+- Chess.com profile is now `marxal_bitochess` (landing links and
+  `worker/rating.ts`).
+- **Openings on a phone:** the White/Black switch is icons only (the words stay
+  for screen readers), so "My White lines" never wraps; the legend sentence is
+  replaced by one row of the five steps (numbers only below 400px wide, the
+  current one named), each jumping to its note; once pinned the panel tucks in
+  (`.is-pinned`: tighter padding, tree at 84% — 243 → 205px at 360×740), with
+  hysteresis measured on the walk-through's own top and scroll anchoring off;
+  notes sit closer (36vh); the sticky CTA bar hides over the walk-through like
+  it does over the exercise stack.
+- **Daily challenge on a phone:** less panel padding, tighter copy, a slimmer
+  week strip, and one-line rows (up/down stacked in one narrow column): the
+  card went from about 520px to 381px tall at 360px wide.

@@ -20,7 +20,7 @@
 
 import { json, problem } from './stripe-env';
 
-const PLAYER = 'marxal87';
+const PLAYER = 'marxal_bitochess';
 const TTL_MS = 6 * 60 * 60 * 1000;
 let cached: { rating: number; best: number | null; at: number } | null = null;
 

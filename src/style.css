@@ -21938,6 +21938,21 @@ html.picker-open body {
 }
 .dt-nav-btn:not(:disabled):active { background: var(--bg-elevated); }
 
+/* Where a case starts: until the first step, the next-move arrow is filled
+   and breathes, nudging toward the board's first move. Gone after one tap
+   (detective-run.ts `stepped`), and still under reduced motion. */
+.dt-nav-btn--start {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  animation: dt-start 1.6s ease-in-out infinite;
+}
+@keyframes dt-start {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(62, 102, 80, 0.45); transform: translateX(0); }
+  50% { box-shadow: 0 0 0 8px rgba(62, 102, 80, 0); transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) { .dt-nav-btn--start { animation: none; } }
+
 /* The move currently on the board, named — the thing the accuse button below
    is about, so it reads as the subject of the sentence. */
 .dt-move-label {
@@ -22051,8 +22066,8 @@ html.picker-open body {
 
 /* ── Better or blunder: the two picks ── */
 .wm-picks {
-  /* The one candidate colour, matching the arrows (HINT_COLOR in
-     board-brushes.ts — keep the two in step). */
+  /* One colour per slot, matching that slot's arrow (PICK_COLORS in
+     which-move-run.ts — keep the two in step): blue left, purple right. */
   --wm-pick-color: #2f8bf0;
   display: flex;
   gap: 0.5rem;
@@ -22060,9 +22075,9 @@ html.picker-open body {
 }
 .wm-picks[hidden] { display: none; }
 
-/* Both picks wear the same colour as both arrows — see which-move-run.ts. A
-   button that looked different from its neighbour would be answering the
-   question before the user does. */
+/* Each pick wears its own arrow's colour. The colour belongs to the slot, and
+   the moves are shuffled between slots, so it never hints at the answer. */
+.wm-pick--1 { --wm-pick-color: #8b5cf6; }
 /* Before the answer this is just a move name; after, fillEvalContent
    (eval-chip.ts) fills it with the same head+why stack the reveal chips use
    — the column layout holds both without changing shape. */
@@ -22382,3 +22397,17 @@ html.picker-open body {
   color: var(--text-faint);
   font-size: 0.72rem;
 }
+
+/* Puzzles: the solver's pieces glow twice when a puzzle is handed over
+   (puzzle-run.ts flashYourPieces; never in Time Attack). A warm halo, not a
+   colour change, so the pieces still look like themselves. */
+.pz-yours--white cg-board piece.white,
+.pz-yours--black cg-board piece.black { animation: pz-yours 1.1s ease-in-out 2; }
+@keyframes pz-yours {
+  0%, 100% { filter: none; }
+  45% { filter: drop-shadow(0 0 4px rgba(255, 196, 80, 1)) drop-shadow(0 0 9px rgba(255, 196, 80, 0.6)) brightness(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-yours--white cg-board piece.white, .pz-yours--black cg-board piece.black { animation: none; }
+}
+

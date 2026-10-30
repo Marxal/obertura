@@ -526,7 +526,7 @@ rating card:
 > 1900–2000 club · **Since** The daily challenge keeps me there
 >
 > I play every day on Chess.com and train every day on Bito Chess.
-> **My Chess.com profile ↗** (chess.com/member/marxal87)
+> **My Chess.com profile ↗** (chess.com/member/marxal_bitochess)
 > *Blitz rating, traced from my Chess.com stats.*
 
 **[ABOUT]:** kicker “About”, the paragraph unchanged, then three chips: One

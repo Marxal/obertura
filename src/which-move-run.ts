@@ -48,10 +48,13 @@ import type { SpotRef } from './mistake-scan';
 import type { OpenGameCtx } from './mistake-run';
 import type { ImportedGame } from './import-core';
 
-// The one candidate colour, shared by both arrows and both buttons: the app's
-// hint blue, which every board in the app already uses for "look here". Both
-// candidates wear it, so it points without judging.
-export const PICK_COLOR = HINT_COLOR;
+// One colour per CANDIDATE SLOT, shared by that slot's arrow and its button:
+// the left pick is the app's hint blue, the right one purple. They used to
+// share the one blue, which kept them neutral but made "which arrow is which
+// button?" a puzzle of its own on a busy board. Two colours keep them just as
+// neutral — the colour belongs to the slot, and loadSpot shuffles which move
+// lands in which slot, so neither colour ever means "the good one".
+export const PICK_COLORS = [HINT_COLOR, '#8b5cf6'] as const;
 
 export interface WhichMoveSessionOptions {
   refs: SpotRef[];
@@ -77,11 +80,11 @@ export function openWhichMoveInfo(): void {
       + 'the one the engine wanted. Say which is which.',
     entries: [
       {
-        icon: Icons.merge(18), accent: PICK_COLOR,
+        icon: Icons.merge(18), accent: PICK_COLORS[0],
         label: 'Two moves, one question',
-        detail: 'Tap the move you think is better — or just play it on the board. Both arrows '
-          + 'are the same colour and they swap sides every time, so nothing but the chess '
-          + 'tells you which is which.',
+        detail: 'Tap the move you think is better — or just play it on the board. Each arrow '
+          + 'matches its button, blue or purple, and the two moves swap sides every time, so '
+          + 'nothing but the chess tells you which is which.',
       },
       {
         icon: Icons.alert(18), accent: '#c93636',
@@ -270,7 +273,8 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     events: { move(from, to) { onUserMove(from as Key, to as Key); } },
   });
   registerBrushes(cg, {
-    pick: { color: PICK_COLOR, opacity: 0.9, lineWidth: 11 },
+    pick0: { color: PICK_COLORS[0], opacity: 0.9, lineWidth: 11 },
+    pick1: { color: PICK_COLORS[1], opacity: 0.9, lineWidth: 11 },
   });
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
@@ -376,7 +380,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     paintCandidates();
 
     pickBtns.forEach((btn, side) => {
-      btn.className = 'wm-pick';
+      btn.className = 'wm-pick wm-pick--' + side;
       btn.textContent = formatMove(options[side].san);
     });
     setStatus('Choose the best move', 'pt-status--prompt');
@@ -390,9 +394,9 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   }
 
   function paintCandidates(): void {
-    const shapes: DrawShape[] = options.map((o) => {
+    const shapes: DrawShape[] = options.map((o, side) => {
       const { from, to } = uciParts(o.uci);
-      return { orig: from, dest: to, brush: 'pick' };
+      return { orig: from, dest: to, brush: side ? 'pick1' : 'pick0' };
     });
     requestAnimationFrame(() => { if (!isCleaned) cg.setAutoShapes(shapes); });
   }

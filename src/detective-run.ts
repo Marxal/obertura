@@ -134,6 +134,10 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   let sans: string[] = [];
   let ucis: string[] = [];
   let cursor = 0;                 // 0 = the run's opening position, k = after move k
+  // Has this case been stepped through yet? Until it has, the next-move arrow
+  // pulses (.dt-nav-btn--start) — that arrow is where every case starts, and
+  // a still board with four greyed buttons gave no hint of it.
+  let stepped = false;
   let blunderIdx = 0;             // the blunder's index inside the run
   const accused = new Set<number>();
   let phase: 'browse' | 'answer' | 'done' = 'browse';
@@ -423,6 +427,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
 
   // ── Loading a case ─────────────────────────────────────────────────────────
   function loadCase(): void {
+    stepped = false;
     current = opts.refs[index];
     const { game, spot } = current;
     accused.clear();
@@ -548,6 +553,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   function renderNav(): void {
     prevBtn.disabled = cursor <= 0;
     nextMoveBtn.disabled = cursor >= sans.length;
+    nextMoveBtn.classList.toggle('dt-nav-btn--start', !stepped && cursor === 0);
     const i = cursor - 1;
     if (i < 0) {
       // Before the first move there is no move to name, so the slot carries the
@@ -588,6 +594,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
 
   function step(delta: number): void {
     if (phase !== 'browse') return;
+    stepped = true;
     goTo(cursor + delta);
   }
 

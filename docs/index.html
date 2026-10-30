@@ -2168,6 +2168,57 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
   .os-step > div { padding: 12px 14px; margin-top: -12px; }
 }
 
+
+/* ── The walk-through on a phone, round three: every pixel of height ──────
+   The colour switch drops its words (the white and black squares say it, and
+   "My White lines" no longer wraps), the legend sentence becomes one row of
+   the five steps, the notes sit closer, and once pinned the panel tucks in. */
+.os-dots { display: none; }
+@media (max-width: 860px) {
+  .os { overflow-anchor: none; }   /* the pinned collapse must not trigger scroll anchoring */
+  .os-switch__t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .os-switch button { padding: 6px 9px; }
+  .os-switch i { width: 13px; height: 13px; }
+  .os-panel__name { font-size: 14px; white-space: nowrap; }
+  .os-panel { padding: 10px 10px 8px; transition: padding 260ms ease; }
+  .os-panel__bar { padding: 0 2px 6px; }
+  .os-tree { margin: 2px auto 0; width: 100%; transition: width 280ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+  .os-legend { display: none; }
+  .os-dots {
+    list-style: none;
+    display: flex; justify-content: space-between; gap: 2px;
+    margin-top: 4px; padding-top: 6px;
+    border-top: 1px solid var(--hairline);
+  }
+  .os-dots button {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 5px; border: 0; border-radius: 999px;
+    background: transparent; color: var(--text-faint);
+    font: 700 11px/1 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+  .os-dots b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 99px; background: var(--border-card); color: var(--text-muted); font-size: 10px; transition: inherit; }
+  .os-dots button.is-on { background: var(--accent-soft); color: var(--accent-active); }
+  .os-dots button.is-on b { background: var(--accent); color: #fff; }
+  /* Pinned: a smaller tree and tighter edges. */
+  .os-panel.is-pinned { padding: 6px 8px 6px; }
+  .os-panel.is-pinned .os-panel__bar { padding-bottom: 2px; border-bottom-color: transparent; }
+  .os-panel.is-pinned .os-tree { width: 84%; }
+  .os-panel.is-pinned .os-dots { margin-top: 0; padding-top: 4px; }
+  .os-step { min-height: 36vh; padding: 3vh 0; }
+  .os-step:first-child { padding-top: 20px; }
+  .os-step:last-child { padding-bottom: 6vh; }
+}
+/* Narrow phones: five names don't fit on one line, so only the current step
+   keeps its name and the others are just their numbers. */
+@media (max-width: 400px) {
+  .os-dots { justify-content: center; gap: 4px; }
+  .os-dots button { font-size: 0; gap: 0; padding: 3px; }
+  .os-dots button.is-on { font-size: 11px; gap: 5px; padding: 3px 9px 3px 3px; }
+  .os-dots b { width: 20px; height: 20px; font-size: 10.5px; }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    ANALYSE NOW — the felt band with the app's first question
    ══════════════════════════════════════════════════════════════════════════ */
@@ -2531,15 +2582,32 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
   .daily-panel { grid-template-columns: 1fr; border-radius: 24px; }
   .dc { transform: none; }
 }
-@media (max-width: 420px) {
-  .dc { padding: 14px; border-radius: 18px; }
-  /* Label across the top, the two button pairs under it on the right. */
-  .dc-row { grid-template-columns: 30px minmax(0, 1fr) auto auto; padding: 8px; gap: 4px 8px; }
-  .dc-row__ico { width: 30px; height: 30px; grid-row: span 2; align-self: start; }
-  .dc-row__label { font-size: 14px; grid-column: 2 / -1; padding-top: 5px; }
-  .dc-row__count { grid-column: 3; grid-row: 2; }
-  .dc-row__move { grid-column: 4; grid-row: 2; }
-  .dc-row button { width: 28px; height: 28px; }
+@media (max-width: 560px) {
+  /* Phones: the felt panel gives its padding back, the copy tightens, and
+     every row of the card stays ONE line — icon, label, the two button
+     pairs — instead of the two-line rows that made the card twice as tall. */
+  .daily-panel { padding: 24px 16px 16px; gap: 22px; border-radius: 22px; }
+  .daily-panel .lede { margin-top: 12px; }
+  .daily-points { gap: 14px; margin-top: 20px; }
+  .daily-points .tile { width: 36px; height: 36px; border-radius: 11px; }
+  .daily-points h3 { font-size: 16.5px; }
+  .daily-points p { font-size: 15px; }
+  .dc { padding: 12px; border-radius: 18px; }
+  .dc__title { font-size: 15.5px; }
+  .dc__week { margin: 10px 0 8px; gap: 4px; }
+  .dc__week li { height: 22px; font-size: 10px; }
+  .dc__list { gap: 5px; }
+  .dc-row { grid-template-columns: 26px minmax(0, 1fr) auto auto; gap: 6px; padding: 4px 4px 4px 6px; border-radius: 11px; }
+  .dc-row__ico { width: 26px; height: 26px; border-radius: 8px; }
+  .dc-row__ico .ico { width: 15px; height: 15px; }
+  .dc-row__label { font-size: 13.5px; line-height: 1.25; }
+  /* Up and down stack in one narrow column, which leaves the label room to
+     stay on a single line. */
+  .dc-row__move { flex-direction: column; gap: 0; padding-left: 2px; }
+  .dc-row button { width: 26px; height: 30px; border-radius: 7px; }
+  .dc-row .dc-row__move button { height: 16px; }
+  .dc-row button .ico { width: 14px; height: 14px; }
+  .dc__go { margin-top: 10px; min-height: 48px; }
 }
 
 @media (max-width: 860px) {
@@ -3090,8 +3158,8 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
           <div class="os-panel__bar">
             <span class="os-panel__name"><svg class="ico"><use href="#i-tree"/></svg><span id="os-name">My White lines</span></span>
             <span class="os-switch" role="group" aria-label="Which book to show">
-              <button type="button" data-colour="white" aria-pressed="true"><i class="os-switch__w"></i>White</button>
-              <button type="button" data-colour="black" aria-pressed="false"><i class="os-switch__b"></i>Black</button>
+              <button type="button" data-colour="white" aria-pressed="true"><i class="os-switch__w"></i><span class="os-switch__t">White</span></button>
+              <button type="button" data-colour="black" aria-pressed="false"><i class="os-switch__b"></i><span class="os-switch__t">Black</span></button>
             </span>
           </div>
 <svg class="os-tree" data-tree="white" data-trace="ABEHL" data-opp="ACFJN" viewBox="0 0 512 252" role="group" aria-labelledby="os-tree-white">
@@ -3184,6 +3252,15 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 <g class="warn" data-for="D"><circle cx="285" cy="81" r="8"/><text x="285" y="81">!</text></g>
 <g class="opp-tag"><rect x="410" y="109" width="100" height="20" rx="10"/><text x="460" y="119">THEIR FAVOURITE</text></g>
 </svg>
+          <!-- Phones: the five steps as one row instead of a sentence (the notes
+               under the tree say the rest). Each jumps to its note. -->
+          <ol class="os-dots" id="os-dots" aria-label="Steps">
+            <li><button type="button" data-go="1"><b>1</b>Build</button></li>
+            <li><button type="button" data-go="2"><b>2</b>Results</button></li>
+            <li><button type="button" data-go="3"><b>3</b>Review</button></li>
+            <li><button type="button" data-go="4"><b>4</b>Connect</button></li>
+            <li><button type="button" data-go="5"><b>5</b>Prepare</button></li>
+          </ol>
           <figcaption class="os-legend"><span class="os-panel__step" id="os-label" aria-hidden="true">Example</span><span id="os-legend">An example repertoire: your moves in green, the replies you expect in outline.</span></figcaption>
         </figure>
         <div class="os__steps">
@@ -3448,7 +3525,7 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
               <p class="rc__big"><svg class="ico"><use href="#i-trending"/></svg>+200</p>
               <p class="rc__sub">in my first month with Bito Chess</p>
             </div>
-            <a class="rc__live" id="rc-live" href="https://www.chess.com/member/marxal87" target="_blank" rel="noopener noreferrer" hidden>
+            <a class="rc__live" id="rc-live" href="https://www.chess.com/member/marxal_bitochess" target="_blank" rel="noopener noreferrer" hidden>
               <span class="rc__dot" aria-hidden="true"></span>Blitz today <b id="rc-rating"></b>
             </a>
           </div>
@@ -3480,7 +3557,7 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
           </ol>
           <figcaption class="rc__foot">
             <p>I play every day on Chess.com and train every day on Bito Chess.</p>
-            <a class="rc__link" href="https://www.chess.com/member/marxal87" target="_blank" rel="noopener noreferrer">My Chess.com profile <span aria-hidden="true">↗</span></a>
+            <a class="rc__link" href="https://www.chess.com/member/marxal_bitochess" target="_blank" rel="noopener noreferrer">My Chess.com profile <span aria-hidden="true">↗</span></a>
             <p class="rc__note">Blitz rating, traced from my Chess.com stats.</p>
           </figcaption>
         </figure>
@@ -3751,12 +3828,17 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 
     /* Out of the way over the stacking exercise cards, too: on a phone those
        cards need every pixel of height to stick whole (readStackTops). */
-    var stackList = document.querySelector('.stack');
-    if (stackList) {
-      new IntersectionObserver(function (entries) {
-        atStack = entries[0].isIntersecting;
+    /* …and over the openings walk-through, whose pinned tree needs the
+       same room. One observer, either region counts. */
+    var roomy = [document.querySelector('.stack'), document.getElementById('os')].filter(Boolean);
+    var inRoomy = {};
+    if (roomy.length) {
+      var roomyIo = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { inRoomy[en.target.className + en.target.id] = en.isIntersecting; });
+        atStack = Object.keys(inRoomy).some(function (k) { return inRoomy[k]; });
         sync();
-      }, { rootMargin: '-40% 0px -40% 0px' }).observe(stackList);
+      }, { rootMargin: '-40% 0px -40% 0px' });
+      roomy.forEach(function (el) { roomyIo.observe(el); });
     }
 
     new IntersectionObserver(function (entries) {
@@ -5242,6 +5324,10 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     if (!osPanel || n === osNow) return;
     osNow = n;
     osSteps.forEach(function (s) { s.classList.toggle('is-on', +s.getAttribute('data-step') === n); });
+    Array.prototype.forEach.call(osPanel.querySelectorAll('[data-go]'), function (d) {
+      d.classList.toggle('is-on', +d.getAttribute('data-go') === n);
+      d.setAttribute('aria-current', +d.getAttribute('data-go') === n ? 'step' : 'false');
+    });
     var on = osSteps[n - 1], first = osSteps[0];
     if (on && first) os.style.setProperty('--os-fill', (on.offsetTop - first.offsetTop + 22) + 'px');
     paintStep(n);
@@ -5252,6 +5338,16 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     var pinned = window.innerWidth <= 860 && getComputedStyle(osPanel).position === 'sticky';
     var bottom = osPanel.getBoundingClientRect().bottom;
     var line = pinned ? bottom + (vh - bottom) * 0.35 : vh * 0.55;
+    /* Phones: once the tree is pinned it tucks in (.is-pinned) — smaller
+       padding and a slightly smaller tree — to leave more of the screen to
+       the notes. Measured on the walk-through's own top, which the panel's
+       change of height can't move, with 40px of hysteresis either way. */
+    if (pinned) {
+      var osTop = os.getBoundingClientRect().top, stick = parseFloat(getComputedStyle(osPanel).top) || 0;
+      var osBottom = os.getBoundingClientRect().bottom;
+      if (!osPanel.classList.contains('is-pinned') && osTop < stick - 40 && osBottom > vh * 0.6) osPanel.classList.add('is-pinned');
+      else if (osPanel.classList.contains('is-pinned') && (osTop > stick || osBottom < vh * 0.4)) osPanel.classList.remove('is-pinned');
+    } else osPanel.classList.remove('is-pinned');
     var n = 1;
     osSteps.forEach(function (s, k) { if (s.getBoundingClientRect().top < line) n = k + 1; });
     setStep(n);
@@ -5287,6 +5383,15 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     } else osPanel.classList.add('is-grown');
     Array.prototype.forEach.call(osPanel.querySelectorAll('[data-colour]'), function (btn) {
       btn.addEventListener('click', function () { useTree(btn.getAttribute('data-colour')); });
+    });
+    /* A step in the phone's row scrolls its note to the reading line. */
+    Array.prototype.forEach.call(osPanel.querySelectorAll('[data-go]'), function (d) {
+      d.addEventListener('click', function () {
+        var note = osSteps[+d.getAttribute('data-go') - 1];
+        if (!note) return;
+        var bottom = osPanel.getBoundingClientRect().bottom;
+        window.scrollTo({ top: note.getBoundingClientRect().top + window.pageYOffset - bottom - 16, behavior: calm ? 'auto' : 'smooth' });
+      });
     });
     Array.prototype.forEach.call(osPanel.querySelectorAll('.leaf'), function (leaf) {
       function pick() {
