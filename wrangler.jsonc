@@ -16,6 +16,12 @@
   // The server code. Everything it doesn't answer is handed back to the static
   // assets below.
   "main": "./worker/index.ts",
+  // Runs before every `wrangler deploy`: stops a Workers Build of any branch
+  // but main, so a pushed working branch can't replace the live site
+  // (scripts/deploy-guard.mjs says why).
+  "build": {
+    "command": "node scripts/deploy-guard.mjs"
+  },
   // Points at the DEPLOY_TARGET=cloudflare build output root: dist/index.html
   // is the landing page, dist/app/ is the trainer (see vite.config.ts).
   "assets": {

@@ -2141,6 +2141,22 @@ the dashboard, since it is not in `.github/workflows` (no wrangler step there)
 and the versions it creates carry no git metadata for the CLI to attribute. If
 you ever get dashboard confirmation, say so here and delete this paragraph.
 
+**Only `main` may go live — and the Workers Build doesn't know that.** It
+builds and runs `wrangler deploy` for EVERY branch pushed, and the newest deploy
+becomes the live site (the dashboard lists `claude/…` and `dev` builds alongside
+`main`). On 2026-10-30 a second Claude session pushed its working branch a minute
+after `main` went live, and that branch — which lacked the round just shipped —
+became bitochess.com. The guard is `scripts/deploy-guard.mjs`, run by
+`wrangler.jsonc`'s `build.command` before every deploy: when the build's
+`WORKERS_CI_BRANCH` is anything but `main` it exits 1, so a branch build shows as
+**Failed** in the dashboard and the live site is untouched. That failure is
+expected. When the variable is missing (a manual deploy, or Cloudflare dropping
+it) the guard lets the deploy through. Two caveats: a branch cut from a `main`
+older than the guard doesn't carry it, so rebase on `main` before pushing; and
+the cleaner fix is in the dashboard (Settings → Build → Branch control: no
+builds for non-production branches, or `npx wrangler versions upload` as their
+deploy command), which the guard makes optional rather than replaces.
+
 Separately, `.github/workflows/deploy.yml` still publishes the static
 `farewell/` page to GitHub Pages; it has nothing to do with the live app (see
 CLAUDE.md "Hosting targets").

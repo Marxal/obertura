@@ -143,6 +143,13 @@ serves a new `assets/index-*.js`, and that the file contains a string only this
 round could have produced. Note that the minifier strips spaces from CSS
 selectors, so grep for `html:has(>body>.pt-overlay)`, not the spaced version.
 
+**Pushing ANY branch used to deploy it.** Cloudflare's Workers Build deploys
+every pushed branch and the newest wins, so a working branch pushed after `main`
+replaced the live site once (2026-10-30). `scripts/deploy-guard.mjs` now fails
+any build that isn't `main` — a red "Failed" branch build in the dashboard is
+expected. A branch older than the guard doesn't have it: rebase on `main` before
+pushing anything.
+
 Keep `dev` and `main` identical after each round — they drifted once and the
 next merge could not fast-forward.
 
