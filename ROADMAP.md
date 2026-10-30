@@ -2373,3 +2373,26 @@ boards shrink to fit (220–300px, from the tallest card's non-board height); an
 a card that still doesn't fit sticks by its bottom edge (negative top) instead
 of flattening the stack. The flat fallback is gone. Checked sticky at 345×690,
 360×740, 390×844, 412×780 and 1280×720.
+
+
+## 2026-10-30 — App: where to start, which colour, which arrow
+
+- **Blunder detective:** until a case's first step, the next-move arrow is
+  filled green and breathes (`.dt-nav-btn--start`, `stepped` in
+  `detective-run.ts`), so it's clear the case starts there. Gone after one tap;
+  still (no motion) under reduced motion.
+- **Puzzles:** the solver's pieces glow twice as each puzzle is handed over
+  (`flashYourPieces` in `puzzle-run.ts`, `.pz-yours--white/black`), so your
+  colour is obvious at a glance. Not in Time Attack (`timed`), and the separate
+  time-pressure exercise is untouched.
+- **Which move:** the two candidates now have one colour per slot, blue
+  (`#2f8bf0`) left and purple (`#8b5cf6`) right, arrow and button alike
+  (`PICK_COLORS`, `.wm-pick--0/1`). Still neutral: the moves are shuffled
+  between slots, so neither colour means "the good one". Info sheet updated.
+
+Validation: a throwaway harness page drove all three sessions in Chromium at
+412×915 with an example game (Légal's mate): the start class on the ▶ button
+and its removal after a step, the two border/arrow colours, and the glow class
+present in count mode and absent in Time Attack. No console errors. Build
+passes; selftest unchanged at 1697/1699 (the two date-dependent scheduler
+tests).

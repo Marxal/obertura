@@ -772,10 +772,26 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       if (isCleaned) return;
       setStatus(`${solverColour === 'white' ? 'White' : 'Black'} to play — find the best move`, 'pt-status--prompt');
       handToSolver();
+      flashYourPieces();
       // Refresh chessground's cached bounds after the layout has settled, so drags
       // register from the right place even if anything nudged the board.
       requestAnimationFrame(() => { if (!isCleaned) cg.redrawAll(); });
     }, 360);
+  }
+
+  // "These are yours": the solver's pieces glow twice as the puzzle is handed
+  // over, so the colour you are playing is obvious before you have read the
+  // prompt — a flipped board alone is easy to miss. Not in Time Attack, where
+  // the next puzzle arrives the instant the last is solved and a glow on every
+  // one would be noise at speed. CSS: .pz-yours in style.css.
+  let yoursTimer: ReturnType<typeof setTimeout> | undefined;
+  function flashYourPieces(): void {
+    if (timed) return;
+    boardEl.classList.remove('pz-yours--white', 'pz-yours--black');
+    void boardEl.offsetWidth;   // restart the animation on back-to-back puzzles
+    boardEl.classList.add(`pz-yours--${solverColour}`);
+    if (yoursTimer) clearTimeout(yoursTimer);
+    yoursTimer = setTimeout(() => boardEl.classList.remove('pz-yours--white', 'pz-yours--black'), 2400);
   }
 
   // Show the arrow for the move the solver currently owes (used by the Hint
