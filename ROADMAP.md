@@ -2396,3 +2396,20 @@ and its removal after a step, the two border/arrow colours, and the glow class
 present in count mode and absent in Time Attack. No console errors. Build
 passes; selftest unchanged at 1697/1699 (the two date-dependent scheduler
 tests).
+
+
+## 2026-10-30 — Phone spacing: openings walk-through and daily card
+
+- Chess.com profile is now `marxal_bitochess` (landing links and
+  `worker/rating.ts`).
+- **Openings on a phone:** the White/Black switch is icons only (the words stay
+  for screen readers), so "My White lines" never wraps; the legend sentence is
+  replaced by one row of the five steps (numbers only below 400px wide, the
+  current one named), each jumping to its note; once pinned the panel tucks in
+  (`.is-pinned`: tighter padding, tree at 84% — 243 → 205px at 360×740), with
+  hysteresis measured on the walk-through's own top and scroll anchoring off;
+  notes sit closer (36vh); the sticky CTA bar hides over the walk-through like
+  it does over the exercise stack.
+- **Daily challenge on a phone:** less panel padding, tighter copy, a slimmer
+  week strip, and one-line rows (up/down stacked in one narrow column): the
+  card went from about 520px to 381px tall at 360px wide.
