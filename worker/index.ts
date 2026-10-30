@@ -30,6 +30,7 @@
 //
 // ── THE ENDPOINTS ───────────────────────────────────────────────────────────
 //   GET  /api/stripe/prices    what the unlock costs, per currency (stripe-prices.ts)
+//   GET  /api/founding         founding places taken, for the price card (founding.ts)
 //   POST /api/stripe/checkout  → a Stripe Checkout URL (stripe-checkout.ts)
 //   POST /api/stripe/webhook   Stripe → profiles.entitled (stripe-webhook.ts)
 //   POST /api/account/delete   remove an account for good (account-delete.ts)
@@ -46,6 +47,7 @@
 // Adding another endpoint later means adding a branch here, nothing more.
 
 import { handleStripePrices } from './stripe-prices';
+import { handleFounding } from './founding';
 import { handleStripeCheckout } from './stripe-checkout';
 import { handleStripeWebhook } from './stripe-webhook';
 import { handleAccountDelete } from './account-delete';
@@ -70,6 +72,8 @@ export interface Env extends StripeEnv {
 // Where Stripe is pointed. Changing the webhook path means changing the endpoint
 // URL in the Stripe dashboard too (STRIPE-SETUP.md).
 const PRICES_PATH = '/api/stripe/prices';
+// How many founding places are gone — public, cached, read by the price card.
+const FOUNDING_PATH = '/api/founding';
 const CHECKOUT_PATH = '/api/stripe/checkout';
 const WEBHOOK_PATH = '/api/stripe/webhook';
 // Not under /api/stripe/, because it has nothing to do with Stripe — it just
@@ -89,6 +93,7 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === PRICES_PATH) return handleStripePrices(request, env);
+    if (pathname === FOUNDING_PATH) return handleFounding(request, env);
     if (pathname === CHECKOUT_PATH) return handleStripeCheckout(request, env);
     if (pathname === WEBHOOK_PATH) return handleStripeWebhook(request, env);
     if (pathname === ACCOUNT_DELETE_PATH) return handleAccountDelete(request, env);

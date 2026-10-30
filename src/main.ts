@@ -127,6 +127,7 @@ import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './impor
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { showWherePicker } from './onboarding-where';
+import { takeImportLink } from './import-link';
 import { openLinePeek } from './line-peek';
 import type { ImportLoader } from './import-progress';
 import { FREE_GUEST_IMPORT } from './import-tier';
@@ -6934,7 +6935,13 @@ requestAnimationFrame(() => {
     // back up over the resumed bubbles, which is a second first run stacked on
     // top of the first one, still in progress.
     if (tourResumePending) return;
+    // Arrived from the landing page's "Analyse my games" box: the platform and
+    // username are already answered, so go straight to the import — as first
+    // run on a new install, as an ordinary import otherwise (import-link.ts).
+    const link = takeImportLink();
     void shouldShowFirstRun().then((show) => {
+      if (link && show) { hideAppSplash(); runFirstRunImport(link.platform, link.username); return; }
+      if (link) { openImportPanel({ platform: link.platform, username: link.username, autoScan: true }); return; }
       if (show) void showFirstRun();
     });
   };

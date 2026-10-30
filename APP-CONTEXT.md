@@ -2078,12 +2078,13 @@ page, script and image is served straight from the static assets in `dist/`.
 | Endpoint | File |
 |---|---|
 | `GET /api/stripe/prices` | `stripe-prices.ts` |
+| `GET /api/founding` | `founding.ts` — founding places taken (entitled profiles), for the landing price card |
 | `POST /api/stripe/checkout` | `stripe-checkout.ts` |
 | `POST /api/stripe/webhook` | `stripe-webhook.ts` → `profiles.entitled` |
 | `POST /api/account/delete` | `account-delete.ts` |
 | `POST /api/event` | `metrics.ts` → `bump_metric` (see §18) |
 
-No CORS headers anywhere, deliberately: all five are called from pages served by
+No CORS headers anywhere, deliberately: all six are called from pages served by
 this same Worker's assets, so every call is same-origin.
 
 `/api/event` is the only endpoint that takes `ctx` (for `waitUntil`) and the only

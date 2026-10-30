@@ -2296,3 +2296,36 @@ Validation: headless Chromium at 1400×900, 1280×720, 390×844 and 360×740, li
 and dark: no page errors; each demo driven to its solved state; stack and
 walk-through checked mid-scroll.
 
+
+
+## 2026-10-30 — Landing: richer exercises, Black book, analysis box, founding price
+
+- **Exercise boards:** squares are painted cells and each board is snapped to a
+  multiple of 8px, which removes the seams between squares. Your pieces lift on
+  hover, the board rings in the card's colour, mouse drag-to-move, and the side
+  to move glows twice on load. Each card has a "How it works" box in its empty
+  left half (desktop), two exercises with progress pills and Next / Start
+  again, and a confetti burst plus a ring when solved.
+- **Per card:** mistakes show the game's move as a red arrow with its disc; the
+  blunder detective has the app's move navigation, a pulsing ▶ to start, Mark
+  ??, then you play the fix as Black; choose-the-better-move draws both
+  candidates as blue and purple arrows matching their buttons and accepts the
+  move on the board; time pressure is three positions on one 30-second clock.
+- **Openings:** White/Black switch with a Black example book; a rail and a
+  notched "current note" card tie the notes to the pinned tree.
+- **Analyse now:** new felt band after "Your games" — platform + username,
+  a plain GET form to `/app/?import=…&user=…`. App side: `src/import-link.ts`
+  reads it once at boot (then strips it from the URL); first run goes straight
+  to `runFirstRunImport`, an existing install opens the import panel.
+- **Founding price:** plans side by side, "Founding price" ribbon and "For the
+  first 100 members." New `GET /api/founding` (`worker/founding.ts`) counts
+  entitled profiles, cached 10 min; the page shows "N of 100 founding places
+  left" only from 20 sold. Terms §5 now say it is a founding price and that
+  founders keep their unlock for life.
+
+Validation: headless Chromium, every exercise driven to solved (tap and mouse
+drag), detective wrong/right marks, both choose paths, the clock sequence,
+Black/White switch, form URL (with a pasted space), stack fit at 360–1400px
+wide, light and dark; `tsc` for app and Worker, cloudflare build. App selftest
+still 1697/1699 — the same two date-dependent scheduler tests failing before
+this round.

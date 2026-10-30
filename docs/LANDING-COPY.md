@@ -427,3 +427,85 @@ row. Nothing is saved. Button: Try Bito Chess →.
 
 **Buttons:** the → on every button nudges forward on hover.
 
+
+## Exercises, openings, analysis and founding price — 2026-10-30 (second pass)
+
+Supersedes the exercise and openings notes in the pass above where they differ.
+
+**[ANALYSE NOW] — new felt band straight after "Your games"**, the app's own
+first question (`src/onboarding-where.ts`), answered on this page:
+
+> **Kicker:** Try it with your games
+> **H2:** Where do you play?
+> **Sub:** We’ll read your games and show you the openings you actually play.
+> Tabs: Chess.com · Lichess · placeholder “Your Chess.com username” / “Your
+> Lichess username” · **Import my games →**
+> *Free, no signup. Your games stay on your device.*
+
+It opens `/app/?import=chesscom|lichess&user=NAME`; the app reads that once
+(`src/import-link.ts`) and goes straight into the import.
+
+**Exercises.** Every card now has a **How it works** box in its left half
+(desktop only), two exercises with progress pills and **Next exercise →** /
+**Start again** (the blunder detective has one, time pressure has three
+positions on one clock), a confetti burst and a ring when solved, hover cues
+(your pieces lift, the board rings in the card's colour), drag-to-move with a
+mouse, and the side to move glows twice on load.
+
+- *Try your mistakes again* — How it works: The red arrow is the move played in
+  the game. / Find a stronger move for White. / Tap a piece, then a square — or
+  drag it. Ex 1: red arrow h2–h3 with the ?? disc; “In the game, White played
+  h3?? — the red arrow. White to move: find what was missed.” → “Rd8#★
+  Checkmate — the move that was missed, found.” Ex 2: red arrow Nf4 with the ?
+  disc; “In the game, White played Nf4?. White to move: find the move that wins
+  material.” → “Check! And now the rook in the corner has nobody left to guard
+  it.” → “Nc7+ then Nxa8★ The fork wins a whole rook.”
+- *Become a blunder detective* — How it works: Step through the game with the
+  arrows, starting from ▶. / Stop on the move that changed everything and mark
+  it. / Then play what should have been played. The app's move navigation (first
+  · previous · next · last) plus **Mark ??**; ▶ pulses until first pressed.
+  “Press ▶ to step through the game.” · “Keep going — or mark this move if it’s
+  the one.” · “That’s the end of the game. Go back to the move that changed
+  everything and mark it.” → “5…Bxd1?? — that’s the one.” → “Now you’re Black,
+  just after 5.Nxe5. Play what should have been played.” → “5…dxe5★ A pawn down
+  instead of mated.” Wrong marks: “Strong, not a blunder — the knight is safe
+  there for now.” / “Strong — but only because of what came before.” / “That one
+  was forced.” / “The finish, not the turning point.”
+- *Choose the better move* — How it works: Two candidate moves, one blue and one
+  purple. / Pick the stronger one: tap its button or play it on the board. / See
+  why it wins. Buttons “Move A” (blue) and “Move B” (purple), relabelled “Your
+  move” / “Engine” on reveal. “White to move. Which is stronger — X or Y?” →
+  “Right. / Not this time. Ne7+ forks the king and the queen. In the game, Nc3
+  was played.” Ex 2: Rd1 vs Rxe8# — “… is mate on the back rank — the rook was
+  never really in danger.”
+- *Think under time pressure* — How it works: Start the clock: 30 seconds for
+  three positions. / Find the winning move in each one. / Beat the flag.
+  Positions: “Win a piece.” (d5 fork) · “Something is hanging.” (Nxd5) · “Mate in
+  one.” (Qxh7#) → “All three, with N seconds to spare.” / “Time! …”
+- *Rediscover your best moves* — How it works: A position where a brilliant move
+  was found. / Find it again — it may mean giving something up. / Finish the
+  combination. Ex 1 Qg8+!! Rxg8 Nf7#; ex 2 “White to move. Something bold wins
+  on the spot.” → “Qxd8+!! then Rxd8#: the queen goes so the rook can mate.”
+
+**Openings.** The tree panel has a **White · Black** switch (“My White lines” /
+“My Black lines”, the app's two default books). The Black example: 1…e5 against
+1.e4 (2.Nf3 Nc6 3.Bb5, 2.Bc4 Nf6) and 1…d5 against 1.d4 (2.c4 e6 3.Nc3, 2.Bf4
+Nf6). Step 2's legend is now “Each of their moves carries how it has gone in
+your games. 1…c5 / 2.Bc4 keeps causing problems.” and step 5's “Your opponent’s
+favourite line, lit up — so you know which branch to prepare.” The notes are
+joined by a rail that fills to the current one, and the current note is set as
+a card with a notch pointing at the tree.
+
+**[THE TWO PLANS] — now side by side**, a “Pricing” kicker, the paid card on
+the right with a **Founding price** ribbon and, under the price:
+
+> **For the first 100 members.**
+
+Once 20 founding places are gone a meter and “N of 100 founding places left”
+appear under it (`GET /api/founding`, `worker/founding.ts`, counting entitled
+profiles). Below 20 the count stays hidden on purpose — “99 of 100 left” after
+one sale reads as “nobody is buying”. The rest of both boxes is unchanged.
+
+Founding buyers keep Full Access for life; after the first 100, new buyers
+may move to a yearly subscription. `docs/terms.html` §5 says so.
+

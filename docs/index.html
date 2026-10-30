@@ -1859,6 +1859,129 @@ html:not(.js) .xcard { grid-template-columns: 1fr; }
   .xb__fx .halo { display: none; }
 }
 
+/* ── The boards, round two ──────────────────────────────────────────────────
+   Squares are painted cells, not a background gradient, and the script snaps
+   the board to a multiple of 8px, so no square edge falls between pixels. */
+.xb__sq > .l { background: var(--board-light); }
+.xb__sq > .d { background: var(--board-dark); }
+.xb { background: var(--board-light); justify-self: center; transition: box-shadow 220ms ease, transform 220ms ease; }
+.xb__sq > button { cursor: default; }
+.xb__sq > button.own { cursor: grab; }
+.xb__sq > button::after { content: ""; position: absolute; inset: 0; background: transparent; transition: background-color 120ms ease; }
+.xb .pc { transition: transform 260ms cubic-bezier(0.25, 0.8, 0.35, 1), filter 160ms ease; }
+.xb .pc.is-drag { transition: none; z-index: 5; cursor: grabbing; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.35)); }
+@media (hover: hover) and (pointer: fine) {
+  /* A playable board answers the pointer: a ring in the card's colour, a
+     light wash on the square under it, and your own piece lifting. */
+  .xcard:hover .xb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 55%, transparent), 0 14px 30px rgba(28, 22, 16, 0.18); }
+  .xb__sq > button:hover::after { background: rgba(255, 255, 255, 0.2); }
+  .xb .pc.is-hover { transform: translate(calc(var(--f) * 100%), calc(var(--r) * 100%)) translateY(-4%) scale(1.08); filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.28)); }
+}
+/* The side to move glows twice on load: "these are yours". */
+.xb .pc.is-mine { animation: mine 1.1s ease-in-out 2; }
+@keyframes mine {
+  0%, 100% { filter: none; }
+  45% { filter: drop-shadow(0 0 5px rgba(255, 196, 80, 1)) drop-shadow(0 0 9px rgba(255, 196, 80, 0.6)) brightness(1.08); }
+}
+
+/* How it works — the instructions in the card's empty left half. */
+.xhow {
+  margin-top: 26px;
+  padding: 18px 20px 18px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--tone) 7%, var(--bg-parchment));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 22%, transparent);
+  max-width: 460px;
+}
+.xhow__t { font: 700 11.5px/1 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tone); margin-bottom: 12px; }
+.xhow ol { list-style: none; counter-reset: how; display: grid; gap: 10px; }
+.xhow li { counter-increment: how; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: 15.5px; line-height: 1.45; color: var(--text); }
+.xhow li::before {
+  content: counter(how);
+  display: grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 999px;
+  background: var(--tone); color: #fff;
+  font: 700 12px/1 'Chakra Petch', ui-monospace, monospace;
+}
+@media (max-width: 860px) { .xhow { display: none; } }
+
+/* Progress pills and the Next button. */
+.xctl { align-items: center; }
+.xprog { display: inline-flex; align-items: center; gap: 5px; margin-right: auto; }
+.xprog:empty { display: none; }
+.xprog i { width: 18px; height: 6px; border-radius: 99px; background: var(--border-card); transition: background-color 240ms ease, width 240ms ease; }
+.xprog i.is-on { width: 26px; background: color-mix(in srgb, var(--tone) 55%, var(--border-card)); }
+.xprog i.is-done { background: var(--tone); }
+.xprog span { margin-left: 6px; font: 700 11.5px/1 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.08em; color: var(--text-faint); }
+.xbtn--next { background: var(--tone); border-color: var(--tone); color: #fff; animation: chip-in 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.xbtn--next:hover { color: #fff; filter: brightness(1.06); }
+@media (hover: hover) and (pointer: fine) { .xbtn--next:hover .arr { transform: translateX(3px); } }
+.xbtn .arr { display: inline-block; transition: transform 200ms ease; }
+
+/* Solved: a ring of the card's colour pulses out once. */
+.xcard__demo { position: relative; }
+.xcard.is-solved { animation: solved 900ms ease-out; }
+@keyframes solved {
+  0% { box-shadow: var(--shadow-frame), 0 0 0 0 color-mix(in srgb, var(--tone) 55%, transparent); }
+  100% { box-shadow: var(--shadow-frame), 0 0 0 18px color-mix(in srgb, var(--tone) 0%, transparent); }
+}
+
+/* Blunder detective: the app's move navigation and its move list. */
+.xnav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.xnav__b {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-card); color: var(--text);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
+}
+.xnav__b .ico { width: 18px; height: 18px; stroke-width: 2.4; }
+.xnav__b:hover:not(:disabled) { border-color: var(--tone); }
+.xnav__b:active:not(:disabled) { transform: scale(0.94); }
+.xnav__b:disabled { opacity: 0.35; cursor: default; }
+/* Start here: the ▶ button breathes until it is first pressed. */
+.xnav__b.is-hint { background: var(--tone); border-color: var(--tone); color: #fff; animation: next-hint 1.6s ease-in-out infinite; }
+@keyframes next-hint {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone) 50%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--tone) 0%, transparent); transform: translateX(2px); }
+}
+.xnav__mark {
+  margin-left: auto;
+  white-space: nowrap;
+  min-height: 36px; padding: 6px 10px;
+  border: 1px solid #c93636; border-radius: 10px;
+  background: color-mix(in srgb, #c93636 10%, var(--bg-card)); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+}
+.xnav__mark b { color: #c93636; margin-left: 2px; }
+.xnav__mark:disabled { opacity: 0.4; cursor: default; }
+.xmoves button { cursor: pointer; font-size: 13px; padding: 6px 8px; }
+.xcard[data-x="detective"] .xmoves { gap: 4px; min-height: 0; }
+/* Phones: the arrows alone step through the game; the chips would make this
+   card too tall to stick (see readStackTops). */
+@media (max-width: 560px) { .xcard[data-x="detective"] .xmoves { display: none; } }
+.xmoves button.is-current { border-color: var(--text); background: var(--bg-card); box-shadow: 0 2px 6px rgba(28, 22, 16, 0.12); }
+.xmoves button.is-blunder { background: #c93636; border-color: #c93636; color: #fff; }
+
+/* Choose the better move: one colour per candidate, arrow and button alike. */
+.xpick button.is-a { --c: #3b7fd4; }
+.xpick button.is-b { --c: #8b5cf6; }
+.xpick button.is-a, .xpick button.is-b {
+  border: 2px solid var(--c);
+  background: color-mix(in srgb, var(--c) 9%, var(--bg-card));
+}
+.xpick button.is-a small, .xpick button.is-b small { color: var(--c); }
+.xpick button.is-a:hover:not(:disabled), .xpick button.is-b:hover:not(:disabled) { background: color-mix(in srgb, var(--c) 16%, var(--bg-card)); border-color: var(--c); }
+.xpick button.is-best { --c: #5a9e3f; }
+.xmsg .tint-a { color: #3b7fd4; }
+.xmsg .tint-b { color: #8b5cf6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .xb .pc.is-mine, .xnav__b.is-hint, .xcard.is-solved, .xbtn--next { animation: none !important; }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    3. OPENINGS — a sticky walk-through around one repertoire tree
    ══════════════════════════════════════════════════════════════════════════ */
@@ -1918,10 +2041,10 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
 .os-tree .e { fill: none; stroke: var(--border); stroke-width: 2; transition: stroke 300ms ease, opacity 300ms ease, stroke-width 300ms ease; }
 .os-tree .n rect { transition: fill 300ms ease, stroke 300ms ease, opacity 300ms ease; }
 .os-tree .n, .os-tree .e, .os-tree .res, .os-tree .due, .os-tree .warn, .os-tree .opp-tag { transition: opacity 320ms ease; }
-.os-tree .n--w rect { fill: var(--primary); }
-.os-tree .n--w text { fill: var(--on-primary); }
-.os-tree .n--b rect { fill: var(--bg-card); stroke: var(--border); stroke-width: 1.5; }
-.os-tree .n--b text { fill: var(--text-muted); }
+.os-tree .n--y rect { fill: var(--primary); }
+.os-tree .n--y text { fill: var(--on-primary); }
+.os-tree .n--t rect { fill: var(--bg-card); stroke: var(--border); stroke-width: 1.5; }
+.os-tree .n--t text { fill: var(--text-muted); }
 .os-tree .leaf { cursor: pointer; outline: none; }
 .os-tree .leaf:focus-visible rect { stroke: var(--text); stroke-width: 3; }
 .os-tree .res__w { fill: #5a9e3f; }
@@ -1944,7 +2067,7 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
 .os-panel.is-tracing .e.on { stroke: var(--accent); stroke-width: 3; }
 .os-panel[data-step="5"] .n:not(.opp), .os-panel[data-step="5"] .e:not(.opp) { opacity: 0.25; }
 .os-panel[data-step="5"] .e.opp { stroke: var(--accent); stroke-width: 3; }
-.os-panel[data-step="5"] .n--b.opp rect { stroke: var(--accent); stroke-width: 2.5; }
+.os-panel[data-step="5"] .n--t.opp rect { stroke: var(--accent); stroke-width: 2.5; }
 
 @media (prefers-reduced-motion: no-preference) {
   html.js .os-panel .n { opacity: 0; transform: translateX(-8px); transition: opacity 360ms ease calc(var(--dp) * 130ms + 100ms), transform 420ms cubic-bezier(0.2, 0.7, 0.3, 1) calc(var(--dp) * 130ms + 100ms); }
@@ -1981,6 +2104,166 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
   .os-panel { position: relative; top: auto; }
   html.js .os.is-live .os-step { opacity: 1; }
   .os-step { min-height: 0; padding: 22px 0; }
+}
+
+/* ── The walk-through, round two: the colour switch and the rail ───────────
+   The switch is the app's own segmented control in miniature. The rail runs
+   down the notes behind their icon tiles and fills to the current one, and
+   the current note becomes a card whose notch points at the tree. */
+.os-switch { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--bg-parchment); box-shadow: inset 0 0 0 1px var(--border-card); }
+.os-switch button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text-muted);
+  font: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+.os-switch button[aria-pressed="true"] { background: var(--bg-card); color: var(--text); box-shadow: 0 1px 3px rgba(28, 22, 16, 0.14); }
+.os-switch i { width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #5d4a38; }
+.os-switch__w { background: #f6efe2; }
+.os-switch__b { background: #2a2018; }
+.os-tree[hidden] { display: none; }
+.os-legend { display: flex; gap: 10px; align-items: baseline; }
+.os-legend .os-panel__step { flex: none; }
+
+.os__steps { position: relative; }
+.os__steps::before, .os__steps::after {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: calc(2vh + 22px);
+  width: 2px;
+  border-radius: 2px;
+  background: var(--border-card);
+}
+.os__steps::before { bottom: calc(10vh + 40px); }
+html.js .os.is-live .os__steps::after { height: var(--os-fill, 0px); background: var(--accent); transition: height 420ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+.os-step { position: relative; z-index: 1; }
+.os-step > div {
+  position: relative;
+  flex: 1;
+  padding: 16px 20px;
+  margin: -16px 0 0 -4px;
+  border-radius: 18px;
+  transition: background-color 300ms ease, box-shadow 300ms ease;
+}
+.os-step .tile { background-color: var(--bg-parchment); background-image: linear-gradient(var(--accent-soft), var(--accent-soft)); }
+html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--border-card); }
+@media (min-width: 861px) {
+  /* The notch: a small diamond on the card's right edge, toward the tree. */
+  html.js .os.is-live .os-step > div::after {
+    content: "";
+    position: absolute;
+    right: -7px; top: 26px;
+    width: 14px; height: 14px;
+    background: var(--bg-card);
+    box-shadow: 1px -1px 0 var(--border-card);
+    transform: rotate(45deg) scale(0);
+    transition: transform 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+  html.js .os.is-live .os-step.is-on > div::after { transform: rotate(45deg) scale(1); }
+}
+@media (max-width: 860px) {
+  .os__steps::before, .os__steps::after { left: 18px; top: calc(32px + 19px); }
+  .os-step > div { padding: 12px 14px; margin-top: -12px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ANALYSE NOW — the felt band with the app's first question
+   ══════════════════════════════════════════════════════════════════════════ */
+.band--felt {
+  color: #fff;
+  background:
+    radial-gradient(70% 120% at 85% 0%, rgba(255, 255, 255, 0.10), transparent 60%),
+    repeating-conic-gradient(rgba(255, 255, 255, 0.035) 0% 25%, transparent 0% 50%) 0 0 / 64px 64px,
+    #3e6650;
+  padding: clamp(64px, 9vw, 104px) 0;
+}
+@media (prefers-color-scheme: dark) { .band--felt { background-color: #2f4f3d; } }
+.an { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: clamp(28px, 5vw, 72px); align-items: center; }
+.an h2 { color: #fff; }
+.an .lede { margin-top: 16px; color: rgba(255, 255, 255, 0.86); max-width: 34ch; }
+.an__form {
+  display: grid; gap: 12px;
+  padding: 18px;
+  border-radius: 24px;
+  background: #faf8f5;
+  color: #1c1610;
+  box-shadow: 0 26px 50px rgba(10, 20, 14, 0.32), 0 4px 12px rgba(10, 20, 14, 0.16);
+}
+@media (prefers-color-scheme: dark) { .an__form { background: #2c261e; color: #efe6d6; } }
+.an__tabs { border: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(28, 22, 16, 0.05); }
+.an__tabs label { position: relative; }
+.an__tabs input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.an__tabs span {
+  display: block; text-align: center;
+  padding: 10px 8px; border-radius: 11px;
+  font-weight: 700; font-size: 15px;
+  color: inherit; opacity: 0.75;
+  transition: background-color 160ms ease, box-shadow 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+.an__tabs input:checked + span { opacity: 1; background: #fff4e6; color: #a0621f; box-shadow: inset 0 0 0 1.5px #c07a2a; }
+@media (prefers-color-scheme: dark) { .an__tabs input:checked + span { background: rgba(212, 137, 44, 0.18); color: #e8a957; } }
+.an__tabs input:focus-visible + span { outline: 3px solid currentColor; outline-offset: 2px; }
+.an__input {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(28, 22, 16, 0.16);
+  background: rgba(255, 255, 255, 0.7);
+  color: inherit;
+  font: inherit; font-size: 17px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+@media (prefers-color-scheme: dark) { .an__input { background: rgba(0, 0, 0, 0.2); border-color: rgba(239, 230, 214, 0.18); } }
+.an__input:focus { outline: none; border-color: #c07a2a; box-shadow: 0 0 0 4px rgba(192, 122, 42, 0.2); }
+.an__go { width: 100%; }
+.an__note { font-size: 14px; text-align: center; opacity: 0.7; max-width: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 860px) { .an { grid-template-columns: 1fr; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PRICING, round two — side by side, the founding offer on the right
+   ══════════════════════════════════════════════════════════════════════════ */
+.plans { max-width: 960px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, 2.4vw, 28px); align-items: stretch; }
+.plans > div { display: flex; }
+.plan { display: flex; flex-direction: column; width: 100%; }
+.plan .ticks { flex: 1; align-content: start; }
+.plan--pro {
+  position: relative;
+  background:
+    radial-gradient(100% 70% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--bg-card);
+  border-width: 2px;
+}
+.plan .plan__ribbon {
+  max-width: none;
+  position: absolute;
+  top: -14px; left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  margin: 0;
+  font: 700 12px/1 'Chakra Petch', ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(192, 122, 42, 0.35);
+}
+.founding { margin-top: 12px; }
+.founding__text { font-weight: 700; color: var(--accent-active) !important; }
+@media (prefers-color-scheme: dark) { .founding__text { color: var(--accent) !important; } }
+.founding__count { display: grid; gap: 6px; margin-top: 10px !important; font-size: 14px; color: var(--text-muted); }
+.founding__count[hidden] { display: none; }
+.founding__meter { display: block; height: 8px; border-radius: 99px; background: var(--fill-faint); box-shadow: inset 0 0 0 1px var(--border-card); overflow: hidden; }
+.founding__meter i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width 900ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+#price .story-head { margin-bottom: clamp(36px, 4vw, 52px); }
+@media (max-width: 760px) {
+  .plans { grid-template-columns: 1fr; max-width: 560px; gap: 30px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -2506,6 +2789,35 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
     </div>
   </section>
 
+  <!-- ───────────────────────── ANALYSE NOW ─────────────────────────
+       Straight to the analysis: the same question the app asks first ("Where
+       do you play?", src/onboarding-where.ts), answered here, so the app opens
+       already importing (src/import-link.ts reads ?import=…&user=…). A plain
+       GET form, so it works with JavaScript off too; the script only adds the
+       GitHub-mirror path fix and the placeholder swap. -->
+  <section class="band band--felt" id="analyse" aria-labelledby="analyse-title">
+    <div class="inner">
+      <div class="an">
+        <div class="an__copy reveal">
+          <p class="kicker kicker--on-felt">Try it with your games</p>
+          <h2 id="analyse-title">Where do you play?</h2>
+          <p class="lede">We’ll read your games and show you the openings you actually play.</p>
+        </div>
+        <form class="an__form reveal" id="an-form" action="/app/" method="get" data-umami-event="cta-analyse">
+          <fieldset class="an__tabs">
+            <legend class="sr-only">Your platform</legend>
+            <label><input type="radio" name="import" value="chesscom" checked /><span>Chess.com</span></label>
+            <label><input type="radio" name="import" value="lichess" /><span>Lichess</span></label>
+          </fieldset>
+          <label class="sr-only" for="an-user">Your username</label>
+          <input class="an__input" id="an-user" name="user" type="text" required minlength="2" maxlength="30" pattern="\s*[A-Za-z0-9_\-]{2,30}\s*" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="Your Chess.com username" />
+          <button class="btn an__go" type="submit">Import my games →</button>
+          <p class="an__note">Free, no signup. Your games stay on your device.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
   <!-- ───────────────────── PERSONAL EXERCISES ─────────────────────
        Five stacking cards. Each one sticks a little lower than the last, so the
        next card slides up over it as you scroll, and the one underneath sinks
@@ -2526,7 +2838,7 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
 
       <ol class="stack">
         <li class="stack__item" style="--i:0">
-          <article class="xcard" style="--tone:#e0822f">
+          <article class="xcard" data-x="retry" style="--tone:#e0822f">
             <div class="xcard__text">
               <div class="xcard__top">
                 <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#e0822f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>?</text></svg>
@@ -2534,16 +2846,22 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
               </div>
               <h3>Try your mistakes again</h3>
               <p>Revisit a position where you went wrong and play a stronger move. Practise keeping a winning advantage and punishing your opponent’s mistakes.</p>
+              <div class="xhow">
+                <p class="xhow__t">How it works</p>
+                <ol><li>The red arrow is the move played in the game.</li><li>Find a stronger move for White.</li><li>Tap a piece, then a square — or drag it.</li></ol>
+              </div>
             </div>
             <div class="xcard__demo">
-              <div class="xb" data-x="retry"></div>
+              
+              <div class="xb"></div>
+              
               <p class="xmsg" aria-live="polite"></p>
-              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Reset</button></div>
+              <div class="xctl"><span class="xprog" aria-hidden="true"></span><button type="button" class="xbtn xbtn--next" data-x-next hidden>Next exercise <span class="arr">→</span></button><button type="button" class="xbtn" data-x-reset>Reset</button></div>
             </div>
           </article>
         </li>
         <li class="stack__item" style="--i:1">
-          <article class="xcard" style="--tone:#c93636">
+          <article class="xcard" data-x="detective" style="--tone:#c93636">
             <div class="xcard__text">
               <div class="xcard__top">
                 <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#c93636"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>??</text></svg>
@@ -2551,17 +2869,28 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
               </div>
               <h3>Become a blunder detective</h3>
               <p>Watch a short sequence from one of your games. Spot the move that changed everything, then find what should have been played.</p>
+              <div class="xhow">
+                <p class="xhow__t">How it works</p>
+                <ol><li>Step through the game with the arrows, starting from ▶.</li><li>Stop on the move that changed everything and mark it.</li><li>Then play what should have been played.</li></ol>
+              </div>
             </div>
             <div class="xcard__demo">
-              <div class="xb" data-x="detective"></div>
-              <ol class="xmoves" aria-label="The sequence"></ol>
+              
+              <div class="xb"></div>
+              <div class="xnav" role="group" aria-label="Move through the game">
+                <button type="button" class="xnav__b" data-nav="first" aria-label="First move"><svg class="ico" viewBox="0 0 24 24"><path d="M6 5v14"/><path d="m18 6-7 6 7 6"/></svg></button>
+                <button type="button" class="xnav__b" data-nav="prev" aria-label="Previous move"><svg class="ico" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+                <button type="button" class="xnav__b xnav__b--next" data-nav="next" aria-label="Next move"><svg class="ico" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+                <button type="button" class="xnav__b" data-nav="last" aria-label="Last move"><svg class="ico" viewBox="0 0 24 24"><path d="M18 5v14"/><path d="m6 6 7 6-7 6"/></svg></button>
+                <button type="button" class="xnav__mark" data-nav="mark" disabled>Mark <b>??</b></button>
+              </div>
               <p class="xmsg" aria-live="polite"></p>
-              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Watch again</button></div>
+              <div class="xctl"><span class="xprog" aria-hidden="true"></span><button type="button" class="xbtn xbtn--next" data-x-next hidden>Next exercise <span class="arr">→</span></button><button type="button" class="xbtn" data-x-reset>Reset</button></div>
             </div>
           </article>
         </li>
         <li class="stack__item" style="--i:2">
-          <article class="xcard" style="--tone:#5a9e3f">
+          <article class="xcard" data-x="choose" style="--tone:#5a9e3f">
             <div class="xcard__text">
               <div class="xcard__top">
                 <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#5a9e3f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>★</text></svg>
@@ -2569,17 +2898,22 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
               </div>
               <h3>Choose the better move</h3>
               <p>Compare your original move with an engine alternative. Decide which is stronger before revealing the answer.</p>
+              <div class="xhow">
+                <p class="xhow__t">How it works</p>
+                <ol><li>Two candidate moves, one blue and one purple.</li><li>Pick the stronger one: tap its button or play it on the board.</li><li>See why it wins.</li></ol>
+              </div>
             </div>
             <div class="xcard__demo">
-              <div class="xb" data-x="choose"></div>
+              
+              <div class="xb"></div>
               <div class="xpick" role="group" aria-label="Pick the stronger move"></div>
               <p class="xmsg" aria-live="polite"></p>
-              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Reset</button></div>
+              <div class="xctl"><span class="xprog" aria-hidden="true"></span><button type="button" class="xbtn xbtn--next" data-x-next hidden>Next exercise <span class="arr">→</span></button><button type="button" class="xbtn" data-x-reset>Reset</button></div>
             </div>
           </article>
         </li>
         <li class="stack__item" style="--i:3">
-          <article class="xcard" style="--tone:#5c8bb0">
+          <article class="xcard" data-x="clock" style="--tone:#5c8bb0">
             <div class="xcard__text">
               <div class="xcard__top">
                 <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#5c8bb0"/><g fill="none" stroke="#fff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"><path d="M5.3 8.5h13.4l1.1 9.2H4.2l1.1-9.2ZM7.4 5.8h3m3.2 0h3M8.9 5.8v2.7m6.2-2.7v2.7M12 8.5v9.2"/><path d="M7 11.4h2.6v3.5H7zM14.4 11.4H17v3.5h-2.6z"/></g></svg>
@@ -2587,17 +2921,22 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
               </div>
               <h3>Think under time pressure</h3>
               <p>Work through positions from your games against the clock. Practise making decisions when there’s little time to spare.</p>
+              <div class="xhow">
+                <p class="xhow__t">How it works</p>
+                <ol><li>Start the clock: 30 seconds for three positions.</li><li>Find the winning move in each one.</li><li>Beat the flag.</li></ol>
+              </div>
             </div>
             <div class="xcard__demo">
-              <div class="xclock" aria-hidden="true"><span class="xclock__face">0:10</span><span class="xclock__bar"><i></i></span></div>
-              <div class="xb" data-x="clock"><button type="button" class="xstart">Start the clock</button></div>
+              <div class="xclock" aria-hidden="true"><span class="xclock__face">0:30</span><span class="xclock__bar"><i></i></span></div>
+              <div class="xb"><button type="button" class="xstart">Start the clock</button></div>
+              
               <p class="xmsg" aria-live="polite"></p>
-              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Go again</button></div>
+              <div class="xctl"><span class="xprog" aria-hidden="true"></span><button type="button" class="xbtn xbtn--next" data-x-next hidden>Next exercise <span class="arr">→</span></button><button type="button" class="xbtn" data-x-reset>Reset</button></div>
             </div>
           </article>
         </li>
         <li class="stack__item" style="--i:4">
-          <article class="xcard" style="--tone:#1d9e8f">
+          <article class="xcard" data-x="brilliant" style="--tone:#1d9e8f">
             <div class="xcard__text">
               <div class="xcard__top">
                 <svg class="move-badge" viewBox="0 0 24 24" width="44" height="44" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#1d9e8f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>!!</text></svg>
@@ -2605,11 +2944,17 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
               </div>
               <h3>Rediscover your best moves</h3>
               <p>Find your own strong and brilliant moves again, and practise recognising the ideas behind them.</p>
+              <div class="xhow">
+                <p class="xhow__t">How it works</p>
+                <ol><li>A position where a brilliant move was found.</li><li>Find it again — it may mean giving something up.</li><li>Finish the combination.</li></ol>
+              </div>
             </div>
             <div class="xcard__demo">
-              <div class="xb" data-x="brilliant"></div>
+              
+              <div class="xb"></div>
+              
               <p class="xmsg" aria-live="polite"></p>
-              <div class="xctl"><button type="button" class="xbtn" data-x-reset>Reset</button></div>
+              <div class="xctl"><span class="xprog" aria-hidden="true"></span><button type="button" class="xbtn xbtn--next" data-x-next hidden>Next exercise <span class="arr">→</span></button><button type="button" class="xbtn" data-x-reset>Reset</button></div>
             </div>
           </article>
         </li>
@@ -2632,13 +2977,16 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
         <p class="lede">Choose what you want to play, explore your options and remember your moves when you need them.</p>
       </div>
       <div class="os" id="os">
-        <figure class="os-panel" id="os-panel">
+        <figure class="os-panel" id="os-panel" data-colour="white">
           <div class="os-panel__bar">
-            <span class="os-panel__name"><svg class="ico"><use href="#i-tree"/></svg>My White lines</span>
-            <span class="os-panel__step" id="os-label" aria-hidden="true">Example</span>
+            <span class="os-panel__name"><svg class="ico"><use href="#i-tree"/></svg><span id="os-name">My White lines</span></span>
+            <span class="os-switch" role="group" aria-label="Which book to show">
+              <button type="button" data-colour="white" aria-pressed="true"><i class="os-switch__w"></i>White</button>
+              <button type="button" data-colour="black" aria-pressed="false"><i class="os-switch__b"></i>Black</button>
+            </span>
           </div>
-<svg class="os-tree" viewBox="0 0 512 252" role="group" aria-labelledby="os-tree-title">
-<title id="os-tree-title">An example repertoire tree for White: 1.e4 with answers to 1…e5, 1…c5 and 1…e6, branching into four lines.</title>
+<svg class="os-tree" data-tree="white" data-trace="ABEHL" data-opp="ACFJN" viewBox="0 0 512 252" role="group" aria-labelledby="os-tree-white">
+<title id="os-tree-white">An example repertoire for White: 1.e4 with answers to 1…e5, 1…c5 and 1…e6, branching into four lines.</title>
 <g class="os-edges">
 <path class="e" data-to="B" style="--dp:1" d="M80 125C98 125 94 65 112 65"/>
 <path class="e" data-to="C" style="--dp:1" d="M80 125C98 125 94 155 112 155"/>
@@ -2663,28 +3011,71 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
 <g class="res" style="--dp:3"><rect class="res__w" x="320" y="174" width="18.7" height="5" rx="1"/><rect class="res__d" x="338.7" y="174" width="10.1" height="5"/><rect class="res__l" x="348.8" y="174" width="43.2" height="5" rx="1"/></g>
 <g class="res" style="--dp:3"><rect class="res__w" x="320" y="234" width="31.7" height="5" rx="1"/><rect class="res__d" x="351.7" y="234" width="24.5" height="5"/><rect class="res__l" x="376.2" y="234" width="15.8" height="5" rx="1"/></g>
 </g><g class="os-nodes">
-<g class="n n--w" data-id="A" data-path="A" style="--dp:0"><rect x="8" y="110" width="72" height="30" rx="15"/><text x="44" y="125">1.e4</text></g>
-<g class="n n--b" data-id="B" data-path="AB" style="--dp:1"><rect x="112" y="50" width="72" height="30" rx="15"/><text x="148" y="65">1…e5</text></g>
-<g class="n n--b" data-id="C" data-path="AC" style="--dp:1"><rect x="112" y="140" width="72" height="30" rx="15"/><text x="148" y="155">1…c5</text></g>
-<g class="n n--b" data-id="D" data-path="AD" style="--dp:1"><rect x="112" y="200" width="72" height="30" rx="15"/><text x="148" y="215">1…e6</text></g>
-<g class="n n--w" data-id="E" data-path="ABE" style="--dp:2"><rect x="216" y="50" width="72" height="30" rx="15"/><text x="252" y="65">2.Nf3</text></g>
-<g class="n n--w" data-id="F" data-path="ACF" style="--dp:2"><rect x="216" y="140" width="72" height="30" rx="15"/><text x="252" y="155">2.Nf3</text></g>
-<g class="n n--w" data-id="G" data-path="ADG" style="--dp:2"><rect x="216" y="200" width="72" height="30" rx="15"/><text x="252" y="215">2.d4</text></g>
-<g class="n n--b" data-id="H" data-path="ABEH" style="--dp:3"><rect x="320" y="20" width="72" height="30" rx="15"/><text x="356" y="35">2…Nc6</text></g>
-<g class="n n--b" data-id="I" data-path="ABEI" style="--dp:3"><rect x="320" y="80" width="72" height="30" rx="15"/><text x="356" y="95">2…d6</text></g>
-<g class="n n--b" data-id="J" data-path="ACFJ" style="--dp:3"><rect x="320" y="140" width="72" height="30" rx="15"/><text x="356" y="155">2…d6</text></g>
-<g class="n n--b" data-id="K" data-path="ADGK" style="--dp:3"><rect x="320" y="200" width="72" height="30" rx="15"/><text x="356" y="215">2…d5</text></g>
-<g class="n n--w leaf" data-id="L" data-path="ABEHL" data-name="Italian Game" style="--dp:4" tabindex="0" role="button" aria-label="Trace the Italian Game line"><rect x="424" y="20" width="72" height="30" rx="15"/><text x="460" y="35">3.Bc4</text></g>
-<g class="n n--w leaf" data-id="M" data-path="ABEIM" data-name="Philidor Defence" style="--dp:4" tabindex="0" role="button" aria-label="Trace the Philidor Defence line"><rect x="424" y="80" width="72" height="30" rx="15"/><text x="460" y="95">3.d4</text></g>
-<g class="n n--w leaf" data-id="N" data-path="ACFJN" data-name="Open Sicilian" style="--dp:4" tabindex="0" role="button" aria-label="Trace the Open Sicilian line"><rect x="424" y="140" width="72" height="30" rx="15"/><text x="460" y="155">3.d4</text></g>
-<g class="n n--w leaf" data-id="O" data-path="ADGKO" data-name="French, Advance" style="--dp:4" tabindex="0" role="button" aria-label="Trace the French, Advance line"><rect x="424" y="200" width="72" height="30" rx="15"/><text x="460" y="215">3.e5</text></g>
+<g class="n n--y" data-id="A" data-path="A" style="--dp:0"><rect x="8" y="110" width="72" height="30" rx="15"/><text x="44" y="125">1.e4</text></g>
+<g class="n n--t" data-id="B" data-path="AB" style="--dp:1"><rect x="112" y="50" width="72" height="30" rx="15"/><text x="148" y="65">1…e5</text></g>
+<g class="n n--t" data-id="C" data-path="AC" style="--dp:1"><rect x="112" y="140" width="72" height="30" rx="15"/><text x="148" y="155">1…c5</text></g>
+<g class="n n--t" data-id="D" data-path="AD" style="--dp:1"><rect x="112" y="200" width="72" height="30" rx="15"/><text x="148" y="215">1…e6</text></g>
+<g class="n n--y" data-id="E" data-path="ABE" style="--dp:2"><rect x="216" y="50" width="72" height="30" rx="15"/><text x="252" y="65">2.Nf3</text></g>
+<g class="n n--y" data-id="F" data-path="ACF" style="--dp:2"><rect x="216" y="140" width="72" height="30" rx="15"/><text x="252" y="155">2.Nf3</text></g>
+<g class="n n--y" data-id="G" data-path="ADG" style="--dp:2"><rect x="216" y="200" width="72" height="30" rx="15"/><text x="252" y="215">2.d4</text></g>
+<g class="n n--t" data-id="H" data-path="ABEH" style="--dp:3"><rect x="320" y="20" width="72" height="30" rx="15"/><text x="356" y="35">2…Nc6</text></g>
+<g class="n n--t" data-id="I" data-path="ABEI" style="--dp:3"><rect x="320" y="80" width="72" height="30" rx="15"/><text x="356" y="95">2…d6</text></g>
+<g class="n n--t" data-id="J" data-path="ACFJ" style="--dp:3"><rect x="320" y="140" width="72" height="30" rx="15"/><text x="356" y="155">2…d6</text></g>
+<g class="n n--t" data-id="K" data-path="ADGK" style="--dp:3"><rect x="320" y="200" width="72" height="30" rx="15"/><text x="356" y="215">2…d5</text></g>
+<g class="n n--y leaf" data-id="L" data-path="ABEHL" style="--dp:4" data-name="Italian Game" tabindex="0" role="button" aria-label="Trace the Italian Game line"><rect x="424" y="20" width="72" height="30" rx="15"/><text x="460" y="35">3.Bc4</text></g>
+<g class="n n--y leaf" data-id="M" data-path="ABEIM" style="--dp:4" data-name="Philidor Defence" tabindex="0" role="button" aria-label="Trace the Philidor Defence line"><rect x="424" y="80" width="72" height="30" rx="15"/><text x="460" y="95">3.d4</text></g>
+<g class="n n--y leaf" data-id="N" data-path="ACFJN" style="--dp:4" data-name="Open Sicilian" tabindex="0" role="button" aria-label="Trace the Open Sicilian line"><rect x="424" y="140" width="72" height="30" rx="15"/><text x="460" y="155">3.d4</text></g>
+<g class="n n--y leaf" data-id="O" data-path="ADGKO" style="--dp:4" data-name="French, Advance" tabindex="0" role="button" aria-label="Trace the French, Advance line"><rect x="424" y="200" width="72" height="30" rx="15"/><text x="460" y="215">3.e5</text></g>
 </g>
 <rect class="due" x="212" y="136" width="80" height="38" rx="19"/>
 <rect class="due" x="420" y="76" width="80" height="38" rx="19"/>
-<g class="warn"><circle cx="181" cy="141" r="8"/><text x="181" y="141">!</text></g>
+<g class="warn" data-for="C"><circle cx="181" cy="141" r="8"/><text x="181" y="141">!</text></g>
 <g class="opp-tag"><rect x="98" y="109" width="100" height="20" rx="10"/><text x="148" y="119">THEIR FAVOURITE</text></g>
 </svg>
-          <figcaption class="os-legend" id="os-legend">An example repertoire: your moves in green, the replies you expect in outline.</figcaption>
+<svg class="os-tree" data-tree="black" data-trace="ABCEG" data-opp="PQRTV" viewBox="0 0 512 252" role="group" aria-labelledby="os-tree-black" hidden>
+<title id="os-tree-black">An example repertoire for Black: 1…e5 against 1.e4 and 1…d5 against 1.d4, branching into four lines.</title>
+<g class="os-edges">
+<path class="e" data-to="B" style="--dp:1" d="M80 65C98 65 94 65 112 65"/>
+<path class="e" data-to="C" style="--dp:2" d="M184 65C202 65 198 35 216 35"/>
+<path class="e" data-to="D" style="--dp:2" d="M184 65C202 65 198 95 216 95"/>
+<path class="e" data-to="E" style="--dp:3" d="M288 35C306 35 302 35 320 35"/>
+<path class="e" data-to="F" style="--dp:3" d="M288 95C306 95 302 95 320 95"/>
+<path class="e" data-to="G" style="--dp:4" d="M392 35C410 35 406 35 424 35"/>
+<path class="e" data-to="Q" style="--dp:1" d="M80 185C98 185 94 185 112 185"/>
+<path class="e" data-to="R" style="--dp:2" d="M184 185C202 185 198 155 216 155"/>
+<path class="e" data-to="S" style="--dp:2" d="M184 185C202 185 198 215 216 215"/>
+<path class="e" data-to="T" style="--dp:3" d="M288 155C306 155 302 155 320 155"/>
+<path class="e" data-to="U" style="--dp:3" d="M288 215C306 215 302 215 320 215"/>
+<path class="e" data-to="V" style="--dp:4" d="M392 155C410 155 406 155 424 155"/>
+</g><g class="os-res">
+<g class="res" style="--dp:0"><rect class="res__w" x="8" y="84" width="37.4" height="5" rx="1"/><rect class="res__d" x="45.4" y="84" width="18.7" height="5"/><rect class="res__l" x="64.2" y="84" width="15.8" height="5" rx="1"/></g>
+<g class="res" style="--dp:2"><rect class="res__w" x="216" y="54" width="39.6" height="5" rx="1"/><rect class="res__d" x="255.6" y="54" width="18.0" height="5"/><rect class="res__l" x="273.6" y="54" width="14.4" height="5" rx="1"/></g>
+<g class="res" style="--dp:2"><rect class="res__w" x="216" y="114" width="17.3" height="5" rx="1"/><rect class="res__d" x="233.3" y="114" width="13.0" height="5"/><rect class="res__l" x="246.2" y="114" width="41.8" height="5" rx="1"/></g>
+<g class="res" style="--dp:0"><rect class="res__w" x="8" y="204" width="32.4" height="5" rx="1"/><rect class="res__d" x="40.4" y="204" width="23.8" height="5"/><rect class="res__l" x="64.2" y="204" width="15.8" height="5" rx="1"/></g>
+<g class="res" style="--dp:2"><rect class="res__w" x="216" y="174" width="28.8" height="5" rx="1"/><rect class="res__d" x="244.8" y="174" width="27.4" height="5"/><rect class="res__l" x="272.2" y="174" width="15.8" height="5" rx="1"/></g>
+<g class="res" style="--dp:2"><rect class="res__w" x="216" y="234" width="36.0" height="5" rx="1"/><rect class="res__d" x="252.0" y="234" width="20.2" height="5"/><rect class="res__l" x="272.2" y="234" width="15.8" height="5" rx="1"/></g>
+</g><g class="os-nodes">
+<g class="n n--t" data-id="A" data-path="A" style="--dp:0"><rect x="8" y="50" width="72" height="30" rx="15"/><text x="44" y="65">1.e4</text></g>
+<g class="n n--y" data-id="B" data-path="AB" style="--dp:1"><rect x="112" y="50" width="72" height="30" rx="15"/><text x="148" y="65">1…e5</text></g>
+<g class="n n--t" data-id="C" data-path="ABC" style="--dp:2"><rect x="216" y="20" width="72" height="30" rx="15"/><text x="252" y="35">2.Nf3</text></g>
+<g class="n n--t" data-id="D" data-path="ABD" style="--dp:2"><rect x="216" y="80" width="72" height="30" rx="15"/><text x="252" y="95">2.Bc4</text></g>
+<g class="n n--y" data-id="E" data-path="ABCE" style="--dp:3"><rect x="320" y="20" width="72" height="30" rx="15"/><text x="356" y="35">2…Nc6</text></g>
+<g class="n n--y leaf" data-id="F" data-path="ABDF" style="--dp:3" data-name="Bishop’s Opening" tabindex="0" role="button" aria-label="Trace the Bishop’s Opening line"><rect x="320" y="80" width="72" height="30" rx="15"/><text x="356" y="95">2…Nf6</text></g>
+<g class="n n--t leaf" data-id="G" data-path="ABCEG" style="--dp:4" data-name="Ruy López" tabindex="0" role="button" aria-label="Trace the Ruy López line"><rect x="424" y="20" width="72" height="30" rx="15"/><text x="460" y="35">3.Bb5</text></g>
+<g class="n n--t" data-id="P" data-path="P" style="--dp:0"><rect x="8" y="170" width="72" height="30" rx="15"/><text x="44" y="185">1.d4</text></g>
+<g class="n n--y" data-id="Q" data-path="PQ" style="--dp:1"><rect x="112" y="170" width="72" height="30" rx="15"/><text x="148" y="185">1…d5</text></g>
+<g class="n n--t" data-id="R" data-path="PQR" style="--dp:2"><rect x="216" y="140" width="72" height="30" rx="15"/><text x="252" y="155">2.c4</text></g>
+<g class="n n--t" data-id="S" data-path="PQS" style="--dp:2"><rect x="216" y="200" width="72" height="30" rx="15"/><text x="252" y="215">2.Bf4</text></g>
+<g class="n n--y" data-id="T" data-path="PQRT" style="--dp:3"><rect x="320" y="140" width="72" height="30" rx="15"/><text x="356" y="155">2…e6</text></g>
+<g class="n n--y leaf" data-id="U" data-path="PQSU" style="--dp:3" data-name="London System" tabindex="0" role="button" aria-label="Trace the London System line"><rect x="320" y="200" width="72" height="30" rx="15"/><text x="356" y="215">2…Nf6</text></g>
+<g class="n n--t leaf" data-id="V" data-path="PQRTV" style="--dp:4" data-name="Queen’s Gambit Declined" tabindex="0" role="button" aria-label="Trace the Queen’s Gambit Declined line"><rect x="424" y="140" width="72" height="30" rx="15"/><text x="460" y="155">3.Nc3</text></g>
+</g>
+<rect class="due" x="316" y="16" width="80" height="38" rx="19"/>
+<rect class="due" x="316" y="136" width="80" height="38" rx="19"/>
+<g class="warn" data-for="D"><circle cx="285" cy="81" r="8"/><text x="285" y="81">!</text></g>
+<g class="opp-tag"><rect x="410" y="109" width="100" height="20" rx="10"/><text x="460" y="119">THEIR FAVOURITE</text></g>
+</svg>
+          <figcaption class="os-legend"><span class="os-panel__step" id="os-label" aria-hidden="true">Example</span><span id="os-legend">An example repertoire: your moves in green, the replies you expect in outline.</span></figcaption>
         </figure>
         <div class="os__steps">
           <article class="os-step" data-step="1">
@@ -2797,8 +3188,11 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
       <span class="float__in" style="--delay: -5s"><svg viewBox="0 0 120 140"><use href="#pc3-king"/></svg></span>
     </div>
     <div class="inner">
-      <h2 class="reveal">Start free</h2>
-      <p class="lede reveal">Use Bito Chess without an account — or sign up free to sync your repertoire across devices.</p>
+      <div class="story-head story-head--center reveal">
+        <p class="kicker">Pricing</p>
+        <h2>Start free</h2>
+        <p class="lede">Use Bito Chess without an account — or sign up free to sync your repertoire across devices.</p>
+      </div>
 
       <div class="plans">
         <div class="reveal">
@@ -2848,9 +3242,16 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
 
         <div class="reveal">
           <div class="plan plan--pro">
+            <p class="plan__ribbon">Founding price</p>
             <p class="tier__name">Full Access</p>
             <h3>More room to grow.</h3>
             <p class="tier__price">12€ <span>one payment</span></p>
+            <!-- The founding offer. The count of places left is only shown once
+                 FOUNDING_SHOW_FROM are gone (section 8b of the script). -->
+            <div class="founding" id="founding">
+              <p class="founding__text">For the first 100 members.</p>
+              <p class="founding__count" id="founding-count" hidden><span class="founding__meter"><i id="founding-fill"></i></span><span id="founding-left"></span></p>
+            </div>
             <ul class="ticks">
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
@@ -3516,6 +3917,29 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
   }
 
 
+  /* ── 8b. Founding places ─────────────────────────────────────────────────
+     Full Access sells at a founding price to the first 100 accounts
+     (worker/founding.ts counts them). The count stays hidden until
+     FOUNDING_SHOW_FROM are gone: "99 of 100 left" after the first sale reads
+     as "nobody is buying", "70 of 100 left" reads as momentum. Any failure
+     just leaves the plain line. */
+  var FOUNDING_SHOW_FROM = 20;
+  (function () {
+    var count = document.getElementById('founding-count');
+    if (!count || !window.fetch || isMirror) return;
+    fetch('/api/founding', { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || typeof d.sold !== 'number' || typeof d.limit !== 'number') return;
+        if (d.sold < FOUNDING_SHOW_FROM || d.sold >= d.limit) return;
+        var left = d.limit - d.sold;
+        document.getElementById('founding-left').textContent = left + ' of ' + d.limit + ' founding places left';
+        document.getElementById('founding-fill').style.width = (d.sold / d.limit * 100).toFixed(1) + '%';
+        count.hidden = false;
+      })
+      .catch(function () { /* the plain line stands */ });
+  })();
+
   /* ── 9. The playable board ───────────────────────────────────────────────
      SIX scripted lines, one at a time. No rules engine: the only move that does
      anything at each step is the one the arrow points at, which is the whole
@@ -3841,29 +4265,39 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
        other five are one tap away. */
     load(0);
   }
-  /* ── 10. The exercise cards: five small playable boards ──────────────────
-     One tiny board builder and five scripts on top of it. Like the hero board
-     there is no rules engine: each card knows the one answer it is waiting
-     for, which is the whole idea — a taste of each exercise, not a game.
+  /* ── 10. The exercise cards: small playable boards ───────────────────────
+     One tiny board builder, a controller that runs a card's exercises one
+     after another, and the exercises themselves. Like the hero board there is
+     no rules engine: each exercise knows the answer it is waiting for, which
+     is the whole idea — a taste of each exercise, not a game.
 
      The boards draw the way the app's do: cburnett pieces (the .pc classes
      above), the last move washed in the board's highlight colour, and the
      move-classification disc tucked into the top-right of the square, in the
-     same colours as src/icons.ts (classBoardSvg). Squares are buttons only on
-     the cards that take a move, with one roving tab stop and the arrow keys to
-     move it — 64 tab stops would be a wall, and tabbing straight to the two
-     right squares would give the answer away. */
+     same colours as src/icons.ts (classBoardSvg).
+
+     Moving: tap a piece then a square, or — with a mouse — drag it. Squares
+     are buttons with one roving tab stop and the arrow keys to move it: 64 tab
+     stops would be a wall, and tabbing straight to the two right squares
+     would give the answer away.
+
+     The board's width is snapped to a multiple of 8 pixels. At a fractional
+     square size the browser anti-aliases every square edge and the board
+     shows faint seams between squares, which is the "pixel weirdness" a board
+     drawn at an arbitrary percentage width always has. */
   var XFILES = 'abcdefgh';
   var PIECE_NAME = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
   var XCLASS = {
     mistake: ['#e0822f', '?'], blunder: ['#c93636', '??'], best: ['#5a9e3f', '★'],
     great: ['#5c8bb0', '!'], brilliant: ['#1d9e8f', '!!']
   };
+  var C_RED = '#c93636', C_GREEN = '#5a9e3f', C_BLUE = '#3b7fd4', C_PURPLE = '#8b5cf6';
   var SVGNS = 'http://www.w3.org/2000/svg';
+  var xboards = [];
   function xf(sq) { return XFILES.indexOf(sq[0]); }
   function xr(sq) { return 8 - parseInt(sq[1], 10); }
 
-  function makeBoard(host, playable) {
+  function makeBoard(host) {
     host.insertAdjacentHTML('afterbegin',
       '<div class="xb__sq"></div><svg class="xb__wash" viewBox="0 0 800 800" aria-hidden="true"></svg>' +
       '<div class="xb__pc"></div><svg class="xb__fx" viewBox="0 0 800 800" aria-hidden="true"></svg>');
@@ -3872,50 +4306,103 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
     var pcBox = host.querySelector('.xb__pc');
     var fx = host.querySelector('.xb__fx');
     var squares = {}, pieces = {}, focusSq = 'e2';
-    var b = { host: host, onTap: null, pieces: pieces };
+    var b = { host: host, onTap: null, side: null, locked: true };
+    host.setAttribute('role', 'group');
 
     for (var r = 0; r < 8; r++) {
       for (var f = 0; f < 8; f++) {
         var name = XFILES[f] + (8 - r);
-        var el = document.createElement(playable ? 'button' : 'span');
-        if (playable) { el.type = 'button'; el.tabIndex = -1; }
+        var el = document.createElement('button');
+        el.type = 'button';
+        el.tabIndex = name === focusSq ? 0 : -1;
+        el.className = (f + r) % 2 ? 'd' : 'l';
         el.dataset.sq = name;
         sqBox.appendChild(el);
         squares[name] = el;
       }
     }
-    if (playable) {
-      squares[focusSq].tabIndex = 0;
-      host.setAttribute('role', 'group');
-      sqBox.addEventListener('click', function (e) {
-        var t = e.target.closest ? e.target.closest('[data-sq]') : null;
-        if (t && b.onTap) b.onTap(t.dataset.sq);
-      });
-      /* Arrow keys walk the board; Enter and Space are the button's own click. */
-      sqBox.addEventListener('keydown', function (e) {
-        var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
-        if (!d) return;
-        e.preventDefault();
-        var nf = Math.max(0, Math.min(7, xf(focusSq) + d[0]));
-        var nr = Math.max(0, Math.min(7, xr(focusSq) + d[1]));
-        rove(XFILES[nf] + (8 - nr), true);
-      });
+
+    function tap(sq) { if (!b.locked && b.onTap) b.onTap(sq); }
+    sqBox.addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('[data-sq]') : null;
+      if (t && !dragJustEnded) tap(t.dataset.sq);
+      dragJustEnded = false;
+    });
+    /* Arrow keys walk the board; Enter and Space are the button's own click. */
+    sqBox.addEventListener('keydown', function (e) {
+      var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      var nf = Math.max(0, Math.min(7, xf(focusSq) + d[0]));
+      var nr = Math.max(0, Math.min(7, xr(focusSq) + d[1]));
+      rove(XFILES[nf] + (8 - nr), true);
+    });
+
+    /* Hovering one of your own pieces lifts it — the cue that it can move. */
+    sqBox.addEventListener('pointerover', function (e) {
+      var t = e.target.closest ? e.target.closest('[data-sq]') : null;
+      Array.prototype.forEach.call(pcBox.querySelectorAll('.is-hover'), function (p) { p.classList.remove('is-hover'); });
+      if (t && !b.locked && b.colourAt(t.dataset.sq) === b.side) pieces[t.dataset.sq].classList.add('is-hover');
+    });
+    sqBox.addEventListener('pointerleave', function () {
+      Array.prototype.forEach.call(pcBox.querySelectorAll('.is-hover'), function (p) { p.classList.remove('is-hover'); });
+    });
+
+    /* Dragging, mouse only: on a touchscreen a drag is a scroll, and the
+       page must keep scrolling. The piece follows the pointer; letting go
+       over a square is the same as tapping the piece and then that square,
+       so every exercise gets drag for free. */
+    var drag = null, dragJustEnded = false;
+    sqBox.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || b.locked) return;
+      var t = e.target.closest ? e.target.closest('[data-sq]') : null;
+      if (!t || b.colourAt(t.dataset.sq) !== b.side) return;
+      e.preventDefault();
+      var box = host.getBoundingClientRect();
+      drag = { from: t.dataset.sq, el: pieces[t.dataset.sq], box: box, size: box.width / 8, moved: false, x: e.clientX, y: e.clientY };
+      try { sqBox.setPointerCapture(e.pointerId); } catch (err) { /* old browser: no capture, still works inside the board */ }
+      tap(drag.from);
+      t.focus({ preventScroll: true });
+    });
+    sqBox.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      if (!drag.moved && Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 4) return;
+      drag.moved = true;
+      drag.el.classList.add('is-drag');
+      drag.el.style.transform = 'translate(' + (e.clientX - drag.box.left - drag.size / 2).toFixed(1) + 'px,' +
+        (e.clientY - drag.box.top - drag.size / 2).toFixed(1) + 'px) scale(1.12)';
+    });
+    function endDrag(e) {
+      if (!drag) return;
+      var d = drag; drag = null;
+      d.el.classList.remove('is-drag');
+      d.el.style.transform = '';
+      if (!d.moved) return;
+      dragJustEnded = true;
+      setTimeout(function () { dragJustEnded = false; }, 0);
+      var fx2 = Math.floor((e.clientX - d.box.left) / d.size), fy = Math.floor((e.clientY - d.box.top) / d.size);
+      if (fx2 < 0 || fx2 > 7 || fy < 0 || fy > 7) { b.select(null); return; }
+      var to = XFILES[fx2] + (8 - fy);
+      if (to !== d.from) tap(to);
     }
+    sqBox.addEventListener('pointerup', endDrag);
+    sqBox.addEventListener('pointercancel', endDrag);
 
     function label(sq) {
       var p = pieces[sq] && pieces[sq].dataset.pc;
       return sq + (p ? ', ' + (p[0] === 'w' ? 'white ' : 'black ') + PIECE_NAME[p[1]] : '');
     }
     function rove(sq, focus) {
-      if (!playable) return;
       if (squares[focusSq]) squares[focusSq].tabIndex = -1;
       focusSq = sq;
       squares[sq].tabIndex = 0;
       if (focus) squares[sq].focus();
     }
     function relabel() {
-      if (!playable) return;
-      Object.keys(squares).forEach(function (sq) { squares[sq].setAttribute('aria-label', label(sq)); });
+      Object.keys(squares).forEach(function (sq) {
+        squares[sq].setAttribute('aria-label', label(sq));
+        squares[sq].classList.toggle('own', !b.locked && b.colourAt(sq) === b.side);
+      });
     }
     function put(sq, code) {
       var el = document.createElement('div');
@@ -3934,6 +4421,7 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
       if (cls) n.setAttribute('class', cls);
       wash.appendChild(n);
     }
+    function drop(sel) { Array.prototype.slice.call(wash.querySelectorAll(sel)).forEach(function (n) { n.remove(); }); }
 
     /* "g1:wk d1:wr f2:wp …" — square:piece pairs, the shortest thing to type. */
     b.set = function (placement) {
@@ -3943,6 +4431,7 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
       relabel();
       return b;
     };
+    b.play = function (side) { b.side = side; b.locked = !side; relabel(); };
     b.colourAt = function (sq) { return pieces[sq] ? pieces[sq].dataset.pc[0] : null; };
     b.move = function (from, to) {
       var el = pieces[from];
@@ -3954,15 +4443,16 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
       }
       delete pieces[from];
       pieces[to] = el;
+      el.classList.remove('is-hover');
       el.style.setProperty('--f', String(xf(to)));
       el.style.setProperty('--r', String(xr(to)));
-      Array.prototype.slice.call(wash.querySelectorAll('.last, .sel')).forEach(function (n) { n.remove(); });
+      drop('.last, .sel');
       rect(from, 'var(--board-lastmove)', 0.55, 'last');
       rect(to, 'var(--board-lastmove)', 0.55, 'last');
       relabel();
     };
     b.select = function (sq) {
-      Array.prototype.slice.call(wash.querySelectorAll('.sel')).forEach(function (n) { n.remove(); });
+      drop('.sel');
       if (sq) rect(sq, 'rgba(227, 178, 90, 0.85)', 1, 'sel');
     };
     /* The classification disc, sized up from the app's (r 16 of 100) because
@@ -3997,38 +4487,60 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
       fx.appendChild(g);
       return g;
     };
-    b.clearFx = function () { fx.textContent = ''; };
+    /* Arrows, badges and their washes go; the last-move wash stays. */
+    b.clearMarks = function () { fx.textContent = ''; drop('.cls'); };
     b.shake = function () {
       host.classList.remove('shake'); void host.offsetWidth; host.classList.add('shake');
       setTimeout(function () { host.classList.remove('shake'); }, 320);
     };
+    /* "These are yours": the side to move glows once, so the colour you are
+       playing is obvious before you have read a word. */
+    b.pulse = function () {
+      if (calm || !b.side) return;
+      Object.keys(pieces).forEach(function (sq) {
+        var p = pieces[sq];
+        if (p.dataset.pc[0] !== b.side) return;
+        p.classList.remove('is-mine'); void p.offsetWidth; p.classList.add('is-mine');
+      });
+    };
+    b.fit = function () {
+      host.style.width = '';
+      /* offsetWidth, not the bounding box: the stacking effect scales the
+         card, and the snap is about layout pixels. */
+      var w = host.offsetWidth;
+      if (w) host.style.width = (Math.floor(w / 8) * 8) + 'px';
+    };
     b.rove = rove;
+    xboards.push(b);
     return b;
   }
+  window.addEventListener('resize', function () { xboards.forEach(function (b) { b.fit(); }); }, { passive: true });
 
   /* Plays a scripted line against the visitor: their move, the reply, their
-     next move. Pick a piece, then a square; any other try shakes the board.
-     hooks.step(i) fires after each of the visitor's moves, hooks.wrong(n) on
-     each miss, hooks.done() when the line is finished. */
+     next move. Pick a piece, then a square (or drag it); any other try shakes
+     the board. hooks.before(i) fires just before each of the visitor's moves,
+     hooks.ask(i) when the next one is wanted, hooks.wrong(n) on each miss and
+     hooks.done() when the line is finished. */
   function playLine(b, steps, hooks) {
     var i = 0, sel = null, busy = false, misses = 0;
-    var side = b.colourAt(steps[0].you[0]);
+    b.play(b.colourAt(steps[0].you[0]));
     b.onTap = function (sq) {
-      if (busy || !steps[i] || (hooks.ready && !hooks.ready())) return;
+      if (busy || !steps[i]) return;
       var s = steps[i];
-      if (b.colourAt(sq) === side) { sel = sq; b.select(sq); b.rove(sq); return; }
+      if (b.colourAt(sq) === b.side) { sel = sq; b.select(sq); b.rove(sq); return; }
       if (!sel) return;
       if (sel === s.you[0] && sq === s.you[1]) {
         busy = true; sel = null;
+        if (hooks.before) hooks.before(i);
         b.move(s.you[0], s.you[1]);
         if (s.cls) b.badge(s.you[1], s.cls);
-        if (hooks.step) hooks.step(i);
         var last = !steps[i + 1];
+        if (last) b.play(null);
         setTimeout(function () {
           if (s.reply) b.move(s.reply[0], s.reply[1]);
           i++;
           busy = false;
-          if (last && hooks.done) hooks.done();
+          if (last) { if (hooks.done) hooks.done(); }
           else if (hooks.ask) hooks.ask(i);
         }, s.reply ? 650 : 250);
         return;
@@ -4036,285 +4548,532 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
       sel = null; b.select(null);
       misses++;
       b.shake();
-      if (hooks.wrong) hooks.wrong(misses, s);
+      if (hooks.wrong) hooks.wrong(misses);
     };
     return {
-      stop: function () { b.onTap = null; },
-      hint: function () { b.arrow(steps[i].you[0], steps[i].you[1], 'var(--arrow)'); }
+      hint: function () { if (steps[i]) b.arrow(steps[i].you[0], steps[i].you[1], 'var(--arrow)'); }
     };
   }
 
+  /* The celebration when an exercise is solved: the same confetti the hero
+     board fires (and src/confetti.ts in the app), a glow round the card, and
+     nothing at all for visitors who asked for less motion. */
+  var XCONFETTI = ['#c07a2a', '#2d7d3e', '#e8c14a', '#d4633f', '#5b8fb0', '#1d9e8f'];
+  function celebrate(card, host) {
+    card.classList.remove('is-solved'); void card.offsetWidth; card.classList.add('is-solved');
+    if (calm) return;
+    var layer = document.createElement('div');
+    layer.className = 'confetti';
+    layer.setAttribute('aria-hidden', 'true');
+    for (var i = 0; i < 36; i++) {
+      var p = document.createElement('i');
+      var angle = Math.random() * Math.PI * 2, dist = 70 + Math.random() * 150;
+      p.style.setProperty('--dx', (Math.cos(angle) * dist).toFixed(0) + 'px');
+      p.style.setProperty('--dy', (Math.sin(angle) * dist - 50).toFixed(0) + 'px');
+      p.style.setProperty('--rot', (Math.random() * 720 - 360).toFixed(0) + 'deg');
+      p.style.background = XCONFETTI[i % XCONFETTI.length];
+      p.style.animationDelay = (Math.random() * 80).toFixed(0) + 'ms';
+      layer.appendChild(p);
+    }
+    host.appendChild(layer);
+    setTimeout(function () { layer.remove(); }, 1500);
+  }
+
   var MK = function (cls, t) { return '<span class="mk mk--' + cls + '">' + t + '</span>'; };
-  var xcards = Array.prototype.slice.call(document.querySelectorAll('.xb[data-x]'));
 
-  var EXERCISES = {
-    /* A back-rank mate missed for a nervous h3. Black has a queen for the
-       rook, but nothing guards d8 and nothing can block on e8 or f8. */
-    retry: function (host, msg) {
-      var pos = 'g1:wk d1:wr a2:wp f2:wp g2:wp h2:wp g8:bk c2:bq a7:bp f7:bp g7:bp h7:bp';
-      var b = makeBoard(host, true), run;
-      host.setAttribute('aria-label', 'Example position, White to move');
-      function start() {
-        b.set(pos);
-        msg.innerHTML = 'In the game you played <b>h3</b>' + MK('dubious', '?') + ' here. White to move — find the stronger move.';
-        run = playLine(b, [{ you: ['d1', 'd8'], cls: 'best' }], {
-          wrong: function (n) {
-            msg.innerHTML = n < 2 ? 'Not that one. Look at Black’s back rank.' : 'The rook can reach the eighth rank — follow the arrow.';
-            if (n >= 2) run.hint();
-          },
-          done: function () { msg.innerHTML = '<b>Rd8#</b>' + MK('good', '★') + ' Checkmate — the move you missed, found.'; }
-        });
-      }
-      start();
-      return start;
-    },
+  /* ── The exercises. Each takes the card's context and sets its board up;
+     ctx.solved(ok) reports the result. ───────────────────────────────────── */
 
-    /* Légal's mate. Black grabs the queen and walks into mate in two. */
-    detective: function (host, msg, card) {
-      var pos = 'a1:wr c1:wb d1:wq e1:wk h1:wr c3:wn f3:wn c4:wb a2:wp b2:wp c2:wp d2:wp e4:wp f2:wp g2:wp h2:wp ' +
-        'a8:br b8:bn d8:bq e8:bk f8:bb g8:bn h8:br g4:bb a7:bp b7:bp c7:bp d6:bp e5:bp f7:bp g6:bp h7:bp';
-      var SEQ = [['f3', 'e5', '5.Nxe5'], ['g4', 'd1', '5…Bxd1'], ['c4', 'f7', '6.Bxf7+'], ['e8', 'e7', '6…Ke7'], ['c3', 'd5', '7.Nd5#']];
-      var WHY = ['That was strong — White’s knight is happy there.', '', 'Strong, but only because of what came before.', 'That one was forced.', 'The finish, not the turning point.'];
-      var list = card.querySelector('.xmoves');
-      var b = makeBoard(host, false), timers = [];
-      host.setAttribute('role', 'img');
-      host.setAttribute('aria-label', 'A short sequence from an example game: 5.Nxe5 Bxd1 6.Bxf7+ Ke7 7.Nd5 mate');
-      function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
-      function start() {
-        timers.forEach(clearTimeout); timers = [];
-        b.set(pos);
-        list.textContent = ''; list.classList.remove('is-asking');
-        msg.innerHTML = 'Watch the sequence…';
-        SEQ.forEach(function (m, k) {
-          later(function () {
-            b.move(m[0], m[1]);
-            var li = document.createElement('li');
-            li.innerHTML = '<button type="button" disabled>' + m[2] + '</button>';
-            list.appendChild(li);
-          }, 700 + k * (calm ? 350 : 900));
-        });
-        later(ask, 700 + SEQ.length * (calm ? 350 : 900));
-      }
-      function ask() {
-        msg.innerHTML = 'Checkmate. Which move changed everything? Tap it.';
-        list.classList.add('is-asking');
-        Array.prototype.forEach.call(list.querySelectorAll('button'), function (btn, k) {
-          btn.disabled = false;
-          btn.onclick = function () {
-            if (k !== 1) { btn.classList.add('is-wrong'); msg.innerHTML = WHY[k]; return; }
-            btn.classList.add('is-right');
-            list.classList.remove('is-asking');
-            Array.prototype.forEach.call(list.querySelectorAll('button'), function (x) { x.disabled = true; });
-            /* Back to the moment it went wrong, with what should have been played. */
-            b.set(pos); b.move('f3', 'e5');
-            b.arrow('d6', 'e5', '#5a9e3f');
-            b.badge('d1', 'blunder');
-            msg.innerHTML = '<b>5…Bxd1</b>' + MK('bad', '??') + ' took the queen and walked into mate. Better was <b>5…dxe5</b>.';
-          };
-        });
-      }
-      /* It starts playing the first time the card is properly on screen. */
-      if ('IntersectionObserver' in window) {
-        var seen = new IntersectionObserver(function (en) {
-          if (!en[0].isIntersecting) return;
-          seen.disconnect(); start();
-        }, { threshold: 0.6 });
-        seen.observe(host);
-        b.set(pos);
-      } else start();
-      return start;
-    },
+  /* Retry: show what was played (red arrow, its disc), then find better. */
+  function retryExercise(cfg) {
+    return function (ctx) {
+      var b = ctx.b, run;
+      b.set(cfg.pos);
+      b.arrow(cfg.played[0], cfg.played[1], C_RED);
+      b.badge(cfg.played[1], cfg.cls);
+      ctx.msg(cfg.ask);
+      run = playLine(b, cfg.steps, {
+        before: function (i) { if (i === 0) b.clearMarks(); },
+        ask: function () { ctx.msg(cfg.next); },
+        wrong: function (n) {
+          ctx.msg(n < 2 ? cfg.miss : cfg.miss2);
+          if (n >= 2) run.hint();
+        },
+        done: function () { ctx.msg(cfg.done); ctx.solved(true); }
+      });
+    };
+  }
 
-    /* The knight on d5 can retreat, or fork the king and queen from e7. */
-    choose: function (host, msg, card) {
-      var pos = 'g1:wk d5:wn a2:wp b2:wp f2:wp g2:wp h2:wp g8:bk c8:bq f8:br a7:bp b7:bp f7:bp g7:bp h7:bp';
-      var pick = card.querySelector('.xpick');
-      var b = makeBoard(host, false), preview = null;
-      host.setAttribute('role', 'img');
-      host.setAttribute('aria-label', 'Example position, White to move: knight on d5, black king on g8 and queen on c8');
-      var OPTS = [
-        { from: 'd5', to: 'c3', san: 'Nc3', who: 'Your move', best: false },
-        { from: 'd5', to: 'e7', san: 'Ne7+', who: 'Engine', best: true }
-      ];
-      function start() {
-        b.set(pos);
-        msg.innerHTML = 'White to move. Which is stronger?';
-        pick.innerHTML = '';
-        OPTS.forEach(function (o) {
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.innerHTML = '<small>' + o.who + '</small><strong>' + o.san + '</strong>';
-          var show = function () { if (preview) preview.remove(); preview = b.arrow(o.from, o.to, 'var(--arrow)'); };
-          var hide = function () { if (preview) { preview.remove(); preview = null; } };
-          btn.addEventListener('mouseenter', show); btn.addEventListener('focus', show);
-          btn.addEventListener('mouseleave', hide); btn.addEventListener('blur', hide);
-          btn.addEventListener('click', function () { reveal(o); });
-          o.btn = btn;
-          pick.appendChild(btn);
-        });
-      }
-      function reveal(choice) {
-        if (preview) { preview.remove(); preview = null; }
-        OPTS.forEach(function (o) {
-          o.btn.disabled = true;
-          o.btn.classList.add(o.best ? 'is-best' : 'is-worse');
-          o.btn.querySelector('strong').insertAdjacentHTML('beforeend', o.best ? MK('good', '★') : MK('dubious', '?'));
-        });
-        b.move('d5', 'e7');
-        b.badge('e7', 'best');
-        setTimeout(function () { b.arrow('e7', 'g8', '#c93636'); b.arrow('e7', 'c8', '#c93636'); }, 300);
-        msg.innerHTML = choice.best
-          ? 'Right. <b>Ne7+</b> forks the king and the queen.'
-          : 'Your <b>Nc3</b> just retreats. <b>Ne7+</b> forks the king and the queen.';
-      }
-      start();
-      return start;
-    },
+  /* Brilliant: a line where the first move gives something up. */
+  function lineExercise(cfg) {
+    return function (ctx) {
+      var b = ctx.b, run;
+      b.set(cfg.pos);
+      ctx.msg(cfg.ask);
+      run = playLine(b, cfg.steps, {
+        ask: function () { ctx.msg(cfg.next); },
+        wrong: function (n) {
+          ctx.msg(n < 2 ? cfg.miss : cfg.miss2);
+          if (n >= 2) run.hint();
+        },
+        done: function () { ctx.msg(cfg.done); ctx.solved(true); }
+      });
+    };
+  }
 
-    /* Ten seconds to find the pawn fork d5. */
-    clock: function (host, msg, card) {
-      var pos = 'g1:wk d4:wp a2:wp f2:wp g2:wp h2:wp g8:bk c6:bn e6:bn a7:bp f7:bp g7:bp h7:bp';
+  /* Choose: two candidates in two colours, as arrows and as buttons. Either
+     the button or the move itself on the board picks one. */
+  function chooseExercise(cfg) {
+    return function (ctx) {
+      var b = ctx.b, pick = ctx.card.querySelector('.xpick'), sel = null, picked = false;
+      var opts = [cfg.a, cfg.b];
+      opts[0].colour = C_BLUE; opts[1].colour = C_PURPLE;
+      b.set(cfg.pos);
+      b.play('w');
+      ctx.msg('White to move. Which is stronger — <b class="tint-a">' + cfg.a.san + '</b> or <b class="tint-b">' + cfg.b.san + '</b>?');
+      opts.forEach(function (o) { b.arrow(o.from, o.to, o.colour); });
+      pick.innerHTML = '';
+      opts.forEach(function (o, k) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = k ? 'is-b' : 'is-a';
+        btn.innerHTML = '<small>Move ' + (k ? 'B' : 'A') + '</small><strong>' + o.san + '</strong>';
+        btn.addEventListener('click', function () { choose(o); });
+        o.btn = btn;
+        pick.appendChild(btn);
+      });
+      b.onTap = function (sq) {
+        if (picked) return;
+        if (b.colourAt(sq) === 'w') { sel = sq; b.select(sq); b.rove(sq); return; }
+        for (var k = 0; k < opts.length; k++) {
+          if (sel === opts[k].from && sq === opts[k].to) { choose(opts[k]); return; }
+        }
+        sel = null; b.select(null); b.shake();
+        ctx.msg('Play one of the two arrows — blue or purple.');
+      };
+      function choose(o) {
+        if (picked) return;
+        picked = true;
+        b.play(null); b.select(null);
+        var best = opts[0].best ? opts[0] : opts[1], worse = best === opts[0] ? opts[1] : opts[0];
+        opts.forEach(function (x) {
+          x.btn.disabled = true;
+          x.btn.classList.add(x === best ? 'is-best' : 'is-worse');
+          x.btn.querySelector('strong').insertAdjacentHTML('beforeend', x === best ? MK('good', '★') : MK('dubious', '?'));
+          x.btn.querySelector('small').textContent = x.played ? 'Your move' : 'Engine';
+        });
+        b.clearMarks();
+        b.move(best.from, best.to);
+        b.badge(best.to, 'best');
+        setTimeout(function () { (cfg.then || []).forEach(function (a) { b.arrow(a[0], a[1], C_RED); }); }, 300);
+        var ok = o === best;
+        ctx.msg((ok ? 'Right. ' : 'Not this time. ') + '<b>' + best.san + '</b> ' + cfg.why +
+          (worse.played ? ' In the game, <b>' + worse.san + '</b> was played.' : ''));
+        ctx.solved(ok);
+      }
+    };
+  }
+
+  /* Time pressure: three positions, one clock. */
+  function clockExercise(list, limit) {
+    return function (ctx) {
+      var b = ctx.b, card = ctx.card;
       var clock = card.querySelector('.xclock');
       var face = clock.querySelector('.xclock__face');
       var bar = clock.querySelector('.xclock__bar i');
-      var go = host.querySelector('.xstart');
-      var b = makeBoard(host, true), run, t0 = 0, raf = 0, LIMIT = 10000, running = false;
-      host.setAttribute('aria-label', 'Example position, White to move against the clock');
+      var go = b.host.querySelector('.xstart');
+      var t0 = 0, raf = 0, running = false, k = 0;
       function show(left) {
         var s = Math.ceil(left / 1000);
         face.textContent = '0:' + (s < 10 ? '0' : '') + s;
-        bar.style.setProperty('--left', (left / LIMIT).toFixed(3));
-        clock.classList.toggle('is-low', left < 3500);
+        bar.style.setProperty('--left', (left / limit).toFixed(3));
+        clock.classList.toggle('is-low', left < 8000);
       }
+      function left() { return Math.max(0, limit - (Date.now() - t0)); }
       function tick() {
-        var left = Math.max(0, LIMIT - (Date.now() - t0));
-        show(left);
-        if (left <= 0) { timeUp(); return; }
+        if (!running) return;
+        show(left());
+        if (left() <= 0) { timeUp(); return; }
         raf = requestAnimationFrame(tick);
       }
       function timeUp() {
-        running = false; run.stop();
-        b.arrow('d4', 'd5', 'var(--arrow)');
-        msg.innerHTML = 'Time! <b>d5</b> forks both knights.';
+        running = false;
+        b.play(null);
+        var p = list[k];
+        b.arrow(p.you[0], p.you[1], 'var(--arrow)');
+        ctx.msg('Time! ' + p.miss);
+        ctx.solved(false);
       }
-      function start() {
-        cancelAnimationFrame(raf); running = false;
-        b.set(pos);
-        show(LIMIT);
-        host.classList.add('is-waiting');
-        go.hidden = false;
-        msg.innerHTML = 'White to move. Win material before the flag falls.';
-        run = playLine(b, [{ you: ['d4', 'd5'], cls: 'great' }], {
-          ready: function () { return running; },
-          wrong: function () { msg.innerHTML = 'Not that one — the clock is still running.'; },
+      function load(n) {
+        k = n;
+        b.set(list[n].pos);
+        ctx.prog(n, list.length);
+        if (!running) return;
+        ctx.msg('<b>' + (n + 1) + ' of ' + list.length + '.</b> ' + list[n].ask);
+        playLine(b, [{ you: list[n].you, cls: 'great' }], {
+          wrong: function () { ctx.msg('Not that one — the clock is still running.'); },
           done: function () {
+            (list[n].then || []).forEach(function (a) { b.arrow(a[0], a[1], C_RED); });
+            if (n + 1 < list.length) { setTimeout(function () { if (running) { load(n + 1); b.pulse(); } }, 700); return; }
             running = false; cancelAnimationFrame(raf);
-            var left = Math.max(0, LIMIT - (Date.now() - t0));
-            b.arrow('d5', 'c6', '#c93636'); b.arrow('d5', 'e6', '#c93636');
-            msg.innerHTML = '<b>d5</b>' + MK('great', '!') + ' forks both knights, with ' + Math.ceil(left / 1000) + ' seconds to spare.';
+            ctx.prog(list.length, list.length);
+            ctx.msg('All three, with <b>' + Math.ceil(left() / 1000) + ' seconds</b> to spare.');
+            ctx.solved(true);
           }
         });
       }
-      go.addEventListener('click', function () {
+      cancelAnimationFrame(raf);
+      show(limit);
+      b.host.classList.add('is-waiting');
+      go.hidden = false;
+      load(0);
+      b.play(null);
+      ctx.msg('Three positions, ' + limit / 1000 + ' seconds. Win material or mate in each.');
+      go.onclick = function () {
         go.hidden = true;
-        host.classList.remove('is-waiting');
+        b.host.classList.remove('is-waiting');
         running = true; t0 = Date.now();
+        load(0);
+        b.pulse();
         raf = requestAnimationFrame(tick);
-        var first = host.querySelector('[data-sq="d4"]');
-        if (first) { first.tabIndex = 0; first.focus(); }
-      });
-      start();
-      return start;
-    },
+      };
+      ctx.cleanup = function () { running = false; cancelAnimationFrame(raf); };
+    };
+  }
 
-    /* Philidor's legacy: the queen sacrifice and the smothered mate. */
-    brilliant: function (host, msg) {
-      var pos = 'g1:wk d5:wq h6:wn a2:wp b2:wp f2:wp g2:wp h2:wp h8:bk f8:br b6:bq c8:bb a7:bp b7:bp g7:bp h7:bp';
-      var b = makeBoard(host, true), run;
-      host.setAttribute('aria-label', 'Example position, White to move');
-      function start() {
-        b.set(pos);
-        msg.innerHTML = 'You found something special here once. White to move — find it again.';
-        run = playLine(b, [
-          { you: ['d5', 'g8'], reply: ['f8', 'g8'], cls: 'brilliant' },
-          { you: ['h6', 'f7'], cls: 'best' }
-        ], {
-          ask: function () { msg.innerHTML = 'Black has to take with the rook. Now finish it.'; },
-          wrong: function (n) {
-            msg.innerHTML = n < 2 ? 'Not quite. The black king has almost no room.' : 'Give up the queen — follow the arrow.';
-            if (n >= 2) run.hint();
-          },
-          done: function () { msg.innerHTML = '<b>Qg8+</b>' + MK('great', '!!') + ' then <b>Nf7#</b>: a smothered mate. Your best move, found again.'; }
-        });
+  /* Blunder detective: step through a game with the app's move navigation,
+     mark the move that changed everything, then play what should have been
+     played. The ▶ button pulses until it is first used — that is where you
+     start. */
+  function detectiveExercise(cfg) {
+    return function (ctx) {
+      var b = ctx.b, card = ctx.card;
+      var nav = card.querySelector('.xnav');
+      var mark = nav.querySelector('[data-nav="mark"]');
+      var nextBtn = nav.querySelector('[data-nav="next"]');
+      var list = card.querySelector('.xmoves');
+      if (!list) {
+        list = document.createElement('ol');
+        list.className = 'xmoves';
+        list.setAttribute('aria-label', 'Moves');
+        nav.parentNode.insertBefore(list, nav);
       }
-      start();
-      return start;
-    }
+      var ply = 0, phase = 'watch';
+      list.innerHTML = cfg.seq.map(function (m, i) {
+        return '<li><button type="button" data-ply="' + (i + 1) + '">' + m[2] + '</button></li>';
+      }).join('');
+      function goTo(n) {
+        n = Math.max(0, Math.min(cfg.seq.length, n));
+        if (n === ply + 1) b.move(cfg.seq[ply][0], cfg.seq[ply][1]);
+        else if (n !== ply) {
+          b.set(cfg.pos);
+          for (var i = 0; i < n; i++) b.move(cfg.seq[i][0], cfg.seq[i][1]);
+          if (!n) b.set(cfg.pos);
+        }
+        ply = n;
+        Array.prototype.forEach.call(list.querySelectorAll('button'), function (x) {
+          x.classList.toggle('is-current', +x.getAttribute('data-ply') === ply);
+        });
+        nav.querySelector('[data-nav="first"]').disabled = nav.querySelector('[data-nav="prev"]').disabled = ply === 0;
+        nextBtn.disabled = nav.querySelector('[data-nav="last"]').disabled = ply === cfg.seq.length;
+        mark.disabled = ply === 0 || phase !== 'watch';
+        if (phase === 'watch') {
+          ctx.msg(ply === cfg.seq.length
+            ? 'That’s the end of the game. Go back to the move that changed everything and mark it.'
+            : ply === 0 ? 'Press <b>▶</b> to step through the game.' : 'Keep going — or mark this move if it’s the one.');
+        }
+      }
+      nav.onclick = function (e) {
+        var t = e.target.closest ? e.target.closest('[data-nav]') : null;
+        if (!t || t.disabled || phase !== 'watch') return;
+        nextBtn.classList.remove('is-hint');
+        var a = t.getAttribute('data-nav');
+        if (a === 'first') goTo(0);
+        else if (a === 'prev') goTo(ply - 1);
+        else if (a === 'next') goTo(ply + 1);
+        else if (a === 'last') goTo(cfg.seq.length);
+        else if (a === 'mark') judge();
+      };
+      list.onclick = function (e) {
+        var t = e.target.closest ? e.target.closest('[data-ply]') : null;
+        if (!t || phase !== 'watch') return;
+        nextBtn.classList.remove('is-hint');
+        goTo(+t.getAttribute('data-ply'));
+      };
+      function judge() {
+        if (ply !== cfg.blunder) {
+          b.shake();
+          ctx.msg(cfg.why[ply - 1]);
+          return;
+        }
+        phase = 'fix';
+        mark.disabled = true;
+        list.querySelector('[data-ply="' + ply + '"]').classList.add('is-blunder');
+        var m = cfg.seq[ply - 1];
+        b.badge(m[1], 'blunder');
+        ctx.msg('<b>' + m[2] + '</b>' + MK('bad', '??') + ' — that’s the one.');
+        setTimeout(function () {
+          b.set(cfg.pos);
+          for (var i = 0; i < cfg.blunder - 1; i++) b.move(cfg.seq[i][0], cfg.seq[i][1]);
+          ctx.msg(cfg.fixAsk);
+          var run = playLine(b, [{ you: cfg.fix, cls: 'best' }], {
+            wrong: function (n) {
+              ctx.msg(n < 2 ? 'Not that one. Which piece can take back?' : 'Take back — follow the arrow.');
+              if (n >= 2) run.hint();
+            },
+            done: function () { ctx.msg(cfg.done); ctx.solved(true); }
+          });
+          b.pulse();
+        }, 1300);
+      }
+      b.set(cfg.pos);
+      b.play(null);
+      phase = 'watch';
+      ply = 0;
+      goTo(0);
+      nextBtn.classList.add('is-hint');
+    };
+  }
+
+  var XCARDS = {
+    retry: [
+      /* A back-rank mate missed for a nervous h3. Black has a queen for the
+         rook, but nothing guards d8 and nothing can block on e8 or f8. */
+      retryExercise({
+        pos: 'g1:wk d1:wr a2:wp f2:wp g2:wp h2:wp g8:bk c2:bq a7:bp f7:bp g7:bp h7:bp',
+        played: ['h2', 'h3'], cls: 'blunder',
+        ask: 'In the game, White played <b>h3</b>' + MK('bad', '??') + ' — the red arrow. White to move: find what was missed.',
+        miss: 'Not that one. Look at Black’s back rank.',
+        miss2: 'The rook can reach the eighth rank — follow the arrow.',
+        steps: [{ you: ['d1', 'd8'], cls: 'best' }],
+        done: '<b>Rd8#</b>' + MK('good', '★') + ' Checkmate — the move that was missed, found.'
+      }),
+      /* A knight fork instead of a quiet retreat. */
+      retryExercise({
+        pos: 'g1:wk d5:wn a2:wp b2:wp f2:wp g2:wp h2:wp e8:bk a8:br f8:bb a7:bp b7:bp f7:bp g7:bp h7:bp',
+        played: ['d5', 'f4'], cls: 'mistake',
+        ask: 'In the game, White played <b>Nf4</b>' + MK('dubious', '?') + '. White to move: find the move that wins material.',
+        next: 'Check! And now the rook in the corner has nobody left to guard it.',
+        miss: 'Not quite. Where can the knight give check?',
+        miss2: 'Check the king and hit the rook at once — follow the arrow.',
+        steps: [{ you: ['d5', 'c7'], reply: ['e8', 'd7'], cls: 'great' }, { you: ['c7', 'a8'], cls: 'best' }],
+        done: '<b>Nc7+</b> then <b>Nxa8</b>' + MK('good', '★') + ' The fork wins a whole rook.'
+      })
+    ],
+    detective: [
+      /* Légal's mate. Black grabs the queen and walks into mate in two. */
+      detectiveExercise({
+        pos: 'a1:wr c1:wb d1:wq e1:wk h1:wr c3:wn f3:wn c4:wb a2:wp b2:wp c2:wp d2:wp e4:wp f2:wp g2:wp h2:wp ' +
+          'a8:br b8:bn d8:bq e8:bk f8:bb g8:bn h8:br g4:bb a7:bp b7:bp c7:bp d6:bp e5:bp f7:bp g6:bp h7:bp',
+        seq: [['f3', 'e5', '5.Nxe5'], ['g4', 'd1', '5…Bxd1'], ['c4', 'f7', '6.Bxf7+'], ['e8', 'e7', '6…Ke7'], ['c3', 'd5', '7.Nd5#']],
+        blunder: 2,
+        why: ['Strong, not a blunder — the knight is safe there for now.', '', 'Strong — but only because of what came before.', 'That one was forced.', 'The finish, not the turning point.'],
+        fixAsk: 'Now you’re Black, just after <b>5.Nxe5</b>. Play what should have been played.',
+        fix: ['d6', 'e5'],
+        done: '<b>5…dxe5</b>' + MK('good', '★') + ' A pawn down instead of mated.'
+      })
+    ],
+    choose: [
+      chooseExercise({
+        pos: 'g1:wk d5:wn a2:wp b2:wp f2:wp g2:wp h2:wp g8:bk c8:bq f8:br a7:bp b7:bp f7:bp g7:bp h7:bp',
+        a: { from: 'd5', to: 'e7', san: 'Ne7+', best: true },
+        b: { from: 'd5', to: 'c3', san: 'Nc3', played: true },
+        why: 'forks the king and the queen.', then: [['e7', 'g8'], ['e7', 'c8']]
+      }),
+      chooseExercise({
+        pos: 'g1:wk e1:wr a2:wp b2:wp f2:wp g2:wp h2:wp g8:bk e8:br a5:bq a7:bp f7:bp g7:bp h7:bp',
+        a: { from: 'e1', to: 'd1', san: 'Rd1', played: true },
+        b: { from: 'e1', to: 'e8', san: 'Rxe8#', best: true },
+        why: 'is mate on the back rank — the rook was never really in danger.', then: []
+      })
+    ],
+    clock: [
+      clockExercise([
+        { pos: 'g1:wk d4:wp a2:wp f2:wp g2:wp h2:wp g8:bk c6:bn e6:bn a7:bp f7:bp g7:bp h7:bp',
+          you: ['d4', 'd5'], ask: 'Win a piece.', then: [['d5', 'c6'], ['d5', 'e6']], miss: '<b>d5</b> forks both knights.' },
+        { pos: 'g1:wk c3:wn a2:wp b2:wp f2:wp g2:wp h2:wp g8:bk d5:bq a7:bp b7:bp f7:bp g7:bp h7:bp',
+          you: ['c3', 'd5'], ask: 'Something is hanging.', miss: '<b>Nxd5</b> takes the queen.' },
+        { pos: 'g1:wk h5:wq d3:wb a2:wp f2:wp g2:wp h2:wp g8:bk f8:br a7:bp f7:bp g7:bp h7:bp',
+          you: ['h5', 'h7'], ask: 'Mate in one.', miss: '<b>Qxh7#</b> — the bishop guards h7.' }
+      ], 30000)
+    ],
+    brilliant: [
+      /* Philidor's legacy: the queen sacrifice and the smothered mate. */
+      lineExercise({
+        pos: 'g1:wk d5:wq h6:wn a2:wp b2:wp f2:wp g2:wp h2:wp h8:bk f8:br b6:bq c8:bb a7:bp b7:bp g7:bp h7:bp',
+        ask: 'This brilliant move was found here once. White to move — find it again.',
+        next: 'Black has to take with the rook. Now finish it.',
+        miss: 'Not quite. The black king has almost no room.',
+        miss2: 'Give up the queen — follow the arrow.',
+        steps: [{ you: ['d5', 'g8'], reply: ['f8', 'g8'], cls: 'brilliant' }, { you: ['h6', 'f7'], cls: 'best' }],
+        done: '<b>Qg8+</b>' + MK('great', '!!') + ' then <b>Nf7#</b>: a smothered mate.'
+      }),
+      /* The queen goes so the rook can mate on the back rank. */
+      lineExercise({
+        pos: 'g1:wk d5:wq d1:wr a2:wp f2:wp g2:wp h2:wp g8:bk d8:br c7:bq a7:bp f7:bp g7:bp h7:bp',
+        ask: 'White to move. Something bold wins on the spot.',
+        next: 'Black has to take back with the queen. Now finish it.',
+        miss: 'Not quite. Who guards Black’s back rank?',
+        miss2: 'Take the rook with the queen — follow the arrow.',
+        steps: [{ you: ['d5', 'd8'], reply: ['c7', 'd8'], cls: 'brilliant' }, { you: ['d1', 'd8'], cls: 'best' }],
+        done: '<b>Qxd8+</b>' + MK('great', '!!') + ' then <b>Rxd8#</b>: the queen goes so the rook can mate.'
+      })
+    ]
   };
 
-  xcards.forEach(function (host) {
-    var card = host.closest('.xcard');
-    var msg = card.querySelector('.xmsg');
-    var restart = EXERCISES[host.getAttribute('data-x')](host, msg, card);
+  /* One controller per card: runs its exercises in turn, keeps the progress
+     pills, the Next and Reset buttons, and fires the celebration. */
+  Array.prototype.forEach.call(document.querySelectorAll('.xcard[data-x]'), function (card) {
+    var list = XCARDS[card.getAttribute('data-x')];
+    if (!list) return;
+    var host = card.querySelector('.xb');
+    var msgEl = card.querySelector('.xmsg');
+    var prog = card.querySelector('.xprog');
+    var next = card.querySelector('[data-x-next]');
     var reset = card.querySelector('[data-x-reset]');
-    if (reset) reset.addEventListener('click', restart);
+    var demo = card.querySelector('.xcard__demo');
+    var b = makeBoard(host);
+    var ix = 0, solved = [], ctx;
+
+    function pills(done, total, on) {
+      if (total < 2) { prog.innerHTML = ''; return; }
+      var h = '';
+      for (var k = 0; k < total; k++) h += '<i class="' + (k < done || solved[k] ? 'is-done' : '') + (k === on ? ' is-on' : '') + '"></i>';
+      prog.innerHTML = h + '<span>' + Math.min(on + 1, total) + ' of ' + total + '</span>';
+    }
+    function load(k) {
+      if (ctx && ctx.cleanup) ctx.cleanup();
+      ix = k;
+      next.hidden = true;
+      b.play(null);
+      b.onTap = null;
+      ctx = {
+        b: b, card: card,
+        msg: function (h) { msgEl.innerHTML = h; },
+        prog: function (done, total) { pills(done, total, done); },
+        solved: function (ok) {
+          solved[ix] = true;
+          if (list.length > 1) pills(0, list.length, ix);
+          if (ok) celebrate(card, demo);
+          next.hidden = false;
+          next.innerHTML = ix < list.length - 1 ? 'Next exercise <span class="arr" aria-hidden="true">→</span>' : 'Start again';
+        }
+      };
+      list[k](ctx);
+      if (list.length > 1) pills(0, list.length, ix);
+      b.fit();
+      b.pulse();
+    }
+    next.addEventListener('click', function () {
+      load(ix < list.length - 1 ? ix + 1 : 0);
+      var first = host.querySelector('.xb__sq [tabindex="0"]');
+      if (first && document.activeElement === next) first.focus({ preventScroll: true });
+    });
+    reset.addEventListener('click', function () { load(ix); });
+    load(0);
+
+    /* The colour glow plays again when the card first comes properly into
+       view — on load it happened far below the fold. */
+    if ('IntersectionObserver' in window) {
+      var seen = new IntersectionObserver(function (en) {
+        if (!en[0].isIntersecting) return;
+        seen.disconnect(); b.fit(); b.pulse();
+      }, { threshold: 0.6 });
+      seen.observe(host);
+    }
   });
 
   /* ── 11. The openings walk-through ───────────────────────────────────────
      The notes on the left are the steps; whichever one crosses the reading
      line sets data-step on the pinned tree, and the CSS does the rest. The
      reading line is the middle of the screen on a desktop, and the middle of
-     what is left under the pinned tree on a phone. Leaves are buttons: tap
-     one and the tree traces that line from the root. */
+     what is left under the pinned tree on a phone. A rail down the notes fills
+     to the current one, and the current note is set as a card pointing at the
+     tree, so the two read as one thing.
+
+     The switch swaps between the two example books, "My White lines" and "My
+     Black lines" — the app's own two default repertoires. Leaves are buttons:
+     tap one and the tree traces that line from the root. */
   var os = document.getElementById('os');
   var osPanel = document.getElementById('os-panel');
   var osSteps = os ? Array.prototype.slice.call(os.querySelectorAll('.os-step')) : [];
   var osLabel = document.getElementById('os-label');
   var osLegend = document.getElementById('os-legend');
+  var osName = document.getElementById('os-name');
+  var osTree = null;
   var osNow = 0;
   var OS_STEPS = [
     null,
     ['1 · Build', 'Your moves in green, the replies you expect in outline. Add a move and the line grows.'],
-    ['2 · Results', 'Each reply carries how it has gone in your games. <b>1…c5</b> keeps causing problems.'],
+    ['2 · Results', 'Each of their moves carries how it has gone in your games. <b>{warn}</b> keeps causing problems.'],
     ['3 · Review', 'Dashed rings mark the moves due today. The ones you miss come back sooner.'],
     ['4 · Connect', 'Every line end is a line you train. Tap one to trace it.'],
-    ['5 · Prepare', 'Your opponent’s favourite reply, lit up — so you know which branch to prepare.']
+    ['5 · Prepare', 'Your opponent’s favourite line, lit up — so you know which branch to prepare.']
   ];
 
   function trace(pathIds, cls) {
-    if (!osPanel) return;
-    Array.prototype.forEach.call(osPanel.querySelectorAll('.n, .e'), function (el) {
+    Array.prototype.forEach.call(osTree.querySelectorAll('.n, .e'), function (el) {
       var id = el.getAttribute('data-id') || el.getAttribute('data-to');
       el.classList.toggle(cls, pathIds.indexOf(id) !== -1);
     });
   }
   function leafName(leaf) {
     return '<b>' + leaf.getAttribute('data-name') + '</b>: ' + leaf.getAttribute('data-path').split('').map(function (id) {
-      return osPanel.querySelector('.n[data-id="' + id + '"] text').textContent;
+      return osTree.querySelector('.n[data-id="' + id + '"] text').textContent;
     }).join(' ');
+  }
+  function legend(n) {
+    var warn = osTree.querySelector('.warn');
+    var warnNode = warn ? osTree.querySelector('.n[data-id="' + warn.getAttribute('data-for') + '"] text') : null;
+    osLabel.textContent = OS_STEPS[n][0];
+    osLegend.innerHTML = OS_STEPS[n][1].replace('{warn}', warnNode ? warnNode.textContent : '');
+  }
+  function paintStep(n) {
+    osPanel.setAttribute('data-step', String(n));
+    legend(n);
+    osPanel.classList.toggle('is-tracing', n === 4);
+    if (n === 4) trace(osTree.getAttribute('data-trace').split(''), 'on');
   }
   function setStep(n) {
     if (!osPanel || n === osNow) return;
     osNow = n;
-    osPanel.setAttribute('data-step', String(n));
     osSteps.forEach(function (s) { s.classList.toggle('is-on', +s.getAttribute('data-step') === n); });
-    osLabel.textContent = OS_STEPS[n][0];
-    osLegend.innerHTML = OS_STEPS[n][1];
-    osPanel.classList.toggle('is-tracing', n === 4);
-    if (n === 4) trace('ABEHL'.split(''), 'on');
+    var on = osSteps[n - 1], first = osSteps[0];
+    if (on && first) os.style.setProperty('--os-fill', (on.offsetTop - first.offsetTop + 22) + 'px');
+    paintStep(n);
   }
   function placeSteps() {
     if (!os || !osSteps.length) return;
     var vh = window.innerHeight || 1;
     var pinned = window.innerWidth <= 860 && getComputedStyle(osPanel).position === 'sticky';
-    var line = pinned ? osPanel.getBoundingClientRect().bottom + (vh - osPanel.getBoundingClientRect().bottom) * 0.35 : vh * 0.55;
+    var bottom = osPanel.getBoundingClientRect().bottom;
+    var line = pinned ? bottom + (vh - bottom) * 0.35 : vh * 0.55;
     var n = 1;
     osSteps.forEach(function (s, k) { if (s.getBoundingClientRect().top < line) n = k + 1; });
     setStep(n);
   }
+  function useTree(colour) {
+    Array.prototype.forEach.call(osPanel.querySelectorAll('.os-tree'), function (t) {
+      var mine = t.getAttribute('data-tree') === colour;
+      t.toggleAttribute('hidden', !mine);   /* an SVG element has no .hidden property */
+      if (mine) osTree = t;
+    });
+    Array.prototype.forEach.call(osPanel.querySelectorAll('[data-colour]'), function (btn) {
+      btn.setAttribute('aria-pressed', String(btn.getAttribute('data-colour') === colour));
+    });
+    osPanel.setAttribute('data-colour', colour);
+    osName.textContent = colour === 'white' ? 'My White lines' : 'My Black lines';
+    trace(osTree.getAttribute('data-opp').split(''), 'opp');
+    /* Replay the grow-in for the book that just appeared. */
+    osPanel.classList.remove('is-grown');
+    void osPanel.offsetWidth;
+    osPanel.classList.add('is-grown');
+    if (osNow) paintStep(osNow);
+  }
   if (os && osPanel) {
     os.classList.add('is-live');
-    trace('ACFJN'.split(''), 'opp');
+    osTree = osPanel.querySelector('.os-tree:not([hidden])');
+    trace(osTree.getAttribute('data-opp').split(''), 'opp');
     if ('IntersectionObserver' in window) {
       var grow = new IntersectionObserver(function (en) {
         if (!en[0].isIntersecting) return;
@@ -4322,6 +5081,9 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
       }, { threshold: 0.35 });
       grow.observe(osPanel);
     } else osPanel.classList.add('is-grown');
+    Array.prototype.forEach.call(osPanel.querySelectorAll('[data-colour]'), function (btn) {
+      btn.addEventListener('click', function () { useTree(btn.getAttribute('data-colour')); });
+    });
     Array.prototype.forEach.call(osPanel.querySelectorAll('.leaf'), function (leaf) {
       function pick() {
         osPanel.classList.add('is-tracing');
@@ -4413,6 +5175,22 @@ html.js .os.is-live .os-step.is-on .tile { background: var(--primary); color: va
     paint();
   }
 
+
+  /* ── 13. "Where do you play?" ────────────────────────────────────────────
+     The form is a plain GET to /app/?import=…&user=…, which works without
+     any of this. The script swaps the placeholder with the platform and
+     points the form at the GitHub mirror's path when that's where we are. */
+  var anForm = document.getElementById('an-form');
+  if (anForm) {
+    var anUser = document.getElementById('an-user');
+    anForm.setAttribute('action', appUrl('/app/'));
+    anForm.addEventListener('change', function (e) {
+      if (e.target.name !== 'import') return;
+      anUser.placeholder = e.target.value === 'lichess' ? 'Your Lichess username' : 'Your Chess.com username';
+      anUser.focus();
+    });
+    anForm.addEventListener('submit', function () { anUser.value = anUser.value.trim(); });
+  }
 
   /* Everything the scroll handler drives now exists: place it all once. */
   if (motionQuery || floats.length || woodPieces.length || boardCol || stackItems.length) syncMotionPreference();
