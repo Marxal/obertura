@@ -24,7 +24,6 @@ import { buildFacedIndex, type FacedIndex } from './reply-games';
 import { coveragePct } from './reply-coverage';
 import { freeTrainingSlots, requestLineSaveRoom } from './entitlement';
 import { opponentTag } from './scout';
-import type { Line } from './types';
 import type { GrowTarget } from './grow-line';
 import type { StatsAt } from './rare-branch';
 import { answeredPositions, buildNextReplies, type NextReplyCard } from './next-reply';
@@ -42,8 +41,6 @@ export interface NextReplyLoad {
   scouts: Record<'white' | 'black', ScoutIndex>;
   /** Positions you already answer somewhere, by colour: a line joining one can stop. */
   answered: Record<'white' | 'black', Set<string>>;
-  /** Your lines: how you build is what decides when auto-reply pauses. */
-  lines: Line[];
   /** The statistics couldn't be read. Worth trying again. */
   degraded: boolean;
 }
@@ -122,7 +119,6 @@ async function compute(growTargets: () => Promise<GrowTarget[]>): Promise<NextRe
       white: answeredPositions(lines, 'white'),
       black: answeredPositions(lines, 'black'),
     },
-    lines,
     degraded,
   };
 }

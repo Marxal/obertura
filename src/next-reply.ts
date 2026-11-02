@@ -118,15 +118,8 @@ export const MIN_SCORED_GAMES = 3;
 export const POOR_SCORE = 0.4;
 /** A queue is never going to be walked further than this in one sitting. */
 export const MAX_CARDS = 40;
-/** Auto-reply first pauses to ask about saving once the line is this many of your moves. */
-export const LINE_ASK_MOVES = 5;
-/** You have played at least this many yourself before it asks, and again each "Keep going". */
-export const ASK_EVERY_MOVES = 3;
-/** However you build, it won't pause sooner or later than this. */
-export const MIN_ASK_MOVES = 4;
-export const MAX_ASK_MOVES = 12;
-/** Fewer lines than this and they say nothing about how you build. */
-const MIN_LINES_TO_LEARN = 3;
+/** Auto-reply pauses to offer saving every time you've added this many of your own moves. */
+export const ASK_EVERY_MOVES = 4;
 
 export interface NextReplyInput {
   lines: Line[];
@@ -525,27 +518,6 @@ function sanOf(fen: string, uci: string): string | null {
   } catch {
     return null;
   }
-}
-
-/**
- * When auto-reply should first pause to ask about saving, in your moves.
- *
- * It depends on the line and on you, so it's read from how you build: the usual length of
- * your lines in this same opening (the same first two moves), or across this colour if
- * there are too few, or LINE_ASK_MOVES for someone with hardly any lines yet.
- */
-export function usualLineMoves(lines: Line[], card: { colour: 'white' | 'black'; ucis: string[] }): number {
-  const own = lines
-    .filter(l => l.colour === card.colour)
-    .map(l => spine(l.tree).map(n => n.uci))
-    .filter(path => path.length > 0);
-  const opening = card.ucis.slice(0, 2).join(' ');
-  const same = own.filter(path => path.slice(0, 2).join(' ') === opening);
-  const sample = same.length >= MIN_LINES_TO_LEARN ? same : own;
-  if (sample.length < MIN_LINES_TO_LEARN) return LINE_ASK_MOVES;
-  const moves = sample.map(path => Math.ceil(path.length / 2)).sort((a, b) => a - b);
-  const median = moves[Math.floor((moves.length - 1) / 2)];
-  return Math.min(MAX_ASK_MOVES, Math.max(MIN_ASK_MOVES, median));
 }
 
 /** Why the board played a reply. */

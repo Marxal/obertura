@@ -11,11 +11,17 @@
 //
 // A LINE ENDS ON YOUR MOVE. With Auto-reply on, the board answers each move with the
 // usual reply so a line can grow here, the middle ground between one move and the
-// builder. It pauses after YOUR move to ask: save, keep going, or the builder. When it
-// asks depends on the line and on you (usualLineMoves), and it asks early if the known
-// replies run out, before leaving it to the engine. A reply you haven't answered is dimmed,
-// because Save won't keep it. "Change reply" swaps any reply for one you choose. With
-// Auto-reply off you play both sides, as in the builder.
+// builder. Every ASK_EVERY_MOVES of your own moves it pauses after YOUR move: the board
+// dims and offers Save line or Continue, right where you're looking. A reply you haven't
+// answered is dimmed, because Save won't keep it. With Auto-reply off you play both sides.
+//
+// THE THREE BUTTONS STAY PUT. Save line, Undo and Change reply sit in one row under the
+// moves, greyed when they don't apply, so your thumb learns where they are. Undo and Change
+// reply are different questions (was my move wrong, or do I want to prepare for another
+// reply?), which is why they aren't one button that changes meaning.
+//
+// THE BOARD NEVER GOES QUIET. Whenever it stops taking moves, except for a moment waiting
+// on a reply, it says why on the board and offers what to do.
 //
 // ONE CARD EACH, NOT A CAROUSEL. A swipe track and a board you can play on fight over
 // the same finger. "Another position" is the browsing, and swiping the box does the same
@@ -42,7 +48,7 @@ import { nameForPath } from './openings';
 import { positionKey } from './position-index';
 import { MIN_SCOUT_GAMES } from './coverage-gaps';
 import {
-  answerStats, usualLineMoves, usualReply, points,
+  answerStats, usualReply, points,
   ASK_EVERY_MOVES,
   type NextReplyCard, type ReplyBasis, type UsualReply,
 } from './next-reply';
@@ -114,7 +120,6 @@ function emptyLoad(): NextReplyLoad {
     faced: { white: new Map(), black: new Map() },
     scouts: { white: new Map(), black: new Map() },
     answered: { white: new Set(), black: new Set() },
-    lines: [],
     degraded: false,
   };
 }
@@ -340,7 +345,7 @@ function buildUnderCard(
   const frame = section.getBoundingClientRect();
   const boardCopy = document.createElement('div');
   boardCopy.className = 'cg-wrap nr-under-board';
-  boardCopy.style.top = `${boardEl.offsetTop}px`;
+  boardCopy.style.top = `${box.top - frame.top}px`;
   boardCopy.style.left = `${box.left - frame.left}px`;
   boardCopy.style.width = `${box.width}px`;
   boardCopy.style.height = `${box.height}px`;
@@ -435,7 +440,8 @@ async function engineReply(fen: string): Promise<UsualReply | null> {
       analysePosition(fen, ENGINE_DEPTH, undefined, { multiPv: 1, movetimeMs: ENGINE_REPLY_MS }),
       new Promise<never[]>(resolve => { window.setTimeout(() => resolve([]), ENGINE_GIVE_UP_MS); }),
     ]);
-    const top = moves[0];
+    const legal = new Set(new Chess(fen).moves({ verbose: true }).map(m => m.from + m.to + (m.promotion ?? '')));
+    const top = moves.find(m => legal.has(m.uci));
     return top ? { uci: top.uci, san: top.san, basis: 'engine' } : null;
   } catch {
     return null;
@@ -483,17 +489,8 @@ function renderCard(
   const mineIsEven = card.colour === 'white';
   const isMine = (index: number): boolean => (index % 2 === 0) === mineIsEven;
 
-  /**
-   * The length of the line, in half-moves, at which auto-reply next pauses to ask. You
-   * have always played a few yourself first. Worked out when asked, since a kept card is
-   * drawn before your lines have been read.
-   */
-  const firstAsk = (): number => Math.max(
-    usualLineMoves(ctx.load.lines, card) * 2 - (mineIsEven ? 1 : 0),
-    base + ASK_EVERY_MOVES * 2 - 1,
-  );
-  let keptGoingUntil = 0;
-  const askAt = (): number => keptGoingUntil || firstAsk();
+  /** How many of your own moves the line reaches before auto-reply next pauses. */
+  let askAtYours = ASK_EVERY_MOVES;
 
   const chess = new Chess(card.fen);
   const myTurn = mineIsEven ? 'w' : 'b';
@@ -504,7 +501,7 @@ function renderCard(
   let engineThinking = false;
   let asking = false;
   let choosing = false;
-  let engineWelcome = false;
+  let saving = false;
   let stop: Stop = null;
   let token = 0;
   const bases = new Map<number, ReplyBasis>();
@@ -514,6 +511,7 @@ function renderCard(
     for (let i = path.length - 1; i >= base; i--) if (isMine(i)) return i;
     return -1;
   };
+  const yourMoves = (): number => path.slice(base).filter((_, i) => isMine(base + i)).length;
   const canPlay = (): boolean => {
     if (at !== path.length || thinking || asking || stop) return false;
     return !auto || choosing || chess.turn() === myTurn;
@@ -525,9 +523,15 @@ function renderCard(
   );
   if (meter) section.appendChild(meter.el);
 
+  const boardFrame = document.createElement('div');
+  boardFrame.className = 'nr-board-frame';
   const boardEl = document.createElement('div');
   boardEl.className = 'forgotten-board cg-wrap nr-board';
-  section.appendChild(boardEl);
+  const pauseEl = document.createElement('div');
+  pauseEl.className = 'nr-pause';
+  pauseEl.hidden = true;
+  boardFrame.append(boardEl, pauseEl);
+  section.appendChild(boardFrame);
 
   const strip = buildLineStrip(i => showAt(i));
   section.appendChild(strip.el);
@@ -535,10 +539,10 @@ function renderCard(
   const openingEl = paragraph('nr-opening', '');
   section.appendChild(openingEl);
 
-  const saveRow = document.createElement('div');
-  saveRow.className = 'nr-actions';
-  saveRow.hidden = true;
-  section.appendChild(saveRow);
+  const buildRow = document.createElement('div');
+  buildRow.className = 'nr-build-row';
+  buildRow.hidden = true;
+  section.appendChild(buildRow);
 
   const actionRow = document.createElement('div');
   actionRow.className = 'nr-actions';
@@ -594,7 +598,9 @@ function renderCard(
   const stopGuard = guardBoardTouches(boardEl, cg);
   const stopSwipe = attachCardSwipe(section, {
     ignore: '.nr-moves, .nr-picks',
-    canSwipe: () => path.length === base && !thinking && !cg.state.selected && !cg.state.draggable.current,
+    // Their reply can already be on the board, for a mastered line where they move first.
+    // Only a move of yours is worth protecting.
+    canSwipe: () => lastMine() < 0 && !cg.state.selected && !cg.state.draggable.current,
     canCommit: () => nextCard() !== null,
     onSwipe: () => actions.skip(card),
     under: () => {
@@ -615,15 +621,7 @@ function renderCard(
       cg.move(from, to);
     },
   });
-  const keepGoing = button('Keep going', 'btn-secondary nr-action', () => {
-    asking = false;
-    // Your next three moves, and the engine is welcome: you've seen the data ran out.
-    keptGoingUntil = path.length + ASK_EVERY_MOVES * 2;
-    engineWelcome = true;
-    paintButtons();
-    void replyNow();
-  }, Icons.sprout(16));
-  actionRow.append(suggest.button, keepGoing, button('Open in builder', 'btn-secondary nr-action', () => {
+  actionRow.append(suggest.button, button('Open in builder', 'btn-secondary nr-action', () => {
     if (card.grow && card.grow.moves.length > 0 && path.length === base) deps.onGrow(card.grow);
     else deps.onOpenBuilder(path.map(p => p.uci), card.colour, card.opponentName);
   }, Icons.pencil(16)));
@@ -632,7 +630,7 @@ function renderCard(
   autoInput.addEventListener('change', () => {
     auto = autoInput.checked;
     setAutoReply(auto);
-    if (auto && !stop && path.length > base && chess.turn() !== myTurn) {
+    if (auto && !stop && !choosing && chess.turn() !== myTurn) {
       // On again with their move waiting.
       void replyNow();
       return;
@@ -644,7 +642,6 @@ function renderCard(
       asking = false;
       choosing = false;
     }
-    paintButtons();
     showAt(path.length);
   });
 
@@ -718,9 +715,7 @@ function renderCard(
     forgetFrom(index);
     path.length = index;
     chess.load(fenBefore(index));
-    suggest.setPosition(chess.fen());
     suggest.open();
-    paintButtons();
     showAt(path.length);
   }
 
@@ -731,19 +726,7 @@ function renderCard(
   }
 
   function stopNote(): HTMLElement | null {
-    if (at !== path.length) return null;
-    if (choosing) {
-      const row = summaryRow(Icons.reply(15), 'Play their reply, or pick one');
-      row.appendChild(button('Cancel', 'btn-quiet nr-inline', cancelChoosing));
-      return row;
-    }
-    if (engineThinking) return summaryRow(Icons.cpu(15), 'Thinking…');
-    if (asking) {
-      return summaryRow(Icons.checkCircle(15), `${Math.ceil((lastMine() + 1) / 2)} moves deep`);
-    }
-    if (stop === 'joined') return summaryRow(Icons.checkCircle(15), 'Joins a line you already have');
-    if (stop === 'no-reply') return summaryRow(Icons.cpu(15), 'No reply found here');
-    return null;
+    return at === path.length && engineThinking ? summaryRow(Icons.cpu(15), 'Thinking…') : null;
   }
 
   function movesFacts(index: number, rows: HTMLElement[]): void {
@@ -820,21 +803,14 @@ function renderCard(
 
   function paintInfo(): void {
     const name = nameForPath(path.slice(0, at).map(p => p.fen));
-    openingEl.textContent = name ?? '';
-    openingEl.hidden = !name;
+    // Right under the board, because that's where you're about to play it.
+    openingEl.textContent = choosing ? 'Play their reply, or pick one' : name ?? '';
+    openingEl.hidden = !choosing && !name;
 
     const note = stopNote();
     const summary = at > 0 && !choosing ? summaryFor(at - 1) : null;
-    // Any reply the line added can be changed; the one the card is about can't.
-    const change = !choosing && !thinking && at > base && !isMine(at - 1)
-      ? button('Change reply', 'btn-quiet nr-inline', changeReply, Icons.shuffle(14))
-      : null;
-    summaryEl.replaceChildren(
-      ...(note ? [note] : []),
-      ...(summary ? [summary] : []),
-      ...(change ? [change] : []),
-    );
-    summaryEl.hidden = !note && !summary && !change;
+    summaryEl.replaceChildren(...(note ? [note] : []), ...(summary ? [summary] : []));
+    summaryEl.hidden = !note && !summary;
 
     moreButton.replaceChildren(
       detailsOpen ? 'Show less' : 'Show more',
@@ -845,45 +821,98 @@ function renderCard(
     paintDetails();
   }
 
-  /**
-   * Building: Save is there but quiet. Paused to ask, or playing both sides, it's the
-   * thing to do. A line ends on your move, so it saves up to your last one.
-   */
-  function paintButtons(): void {
+  /** Saves up to your last move: a line ends on your move. */
+  function saveLine(): void {
     const last = lastMine();
-    const canUndo = auto ? last >= 0 : path.length > base;
-    saveRow.hidden = !canUndo && last < 0;
-    suggest.button.hidden = asking;
-    keepGoing.hidden = !asking;
-    if (asking) suggest.close();
-    if (saveRow.hidden) {
-      saveRow.replaceChildren();
+    if (last < 0 || saving) return;
+    saving = true;
+    paintButtons();
+    paintPause();
+    void saveReply(card, path.slice(base, last + 1)).then((outcome) => {
+      if (outcome.status === 'saved') {
+        actions.saved(card, outcome.saved);
+        return;
+      }
+      if (outcome.status === 'gone') {
+        showToast('This position is no longer in your lines.');
+        actions.drop(card);
+        return;
+      }
+      saving = false;   // the upgrade dialog is up; leave the card as it is
+      paintButtons();
+      paintPause();
+    }).catch(() => {
+      saving = false;
+      paintButtons();
+      paintPause();
+    });
+  }
+
+  const saveButton = button('Save line', 'btn-primary nr-action', saveLine, Icons.save(16));
+  const undoButton = button('Undo', 'btn-secondary nr-action', undoMove, Icons.reply(16));
+  const changeButton = button('', 'btn-secondary nr-action', () => {
+    if (choosing) cancelChoosing();
+    else changeReply();
+  });
+  buildRow.append(saveButton, undoButton, changeButton);
+
+  /** Any reply the line added can be changed; the one the card is about can't. */
+  const canChange = (): boolean => !thinking && at > base && !isMine(at - 1);
+
+  function paintButtons(): void {
+    buildRow.hidden = path.length === base && !choosing;
+    saveButton.disabled = lastMine() < 0 || saving;
+    undoButton.disabled = saving || (auto ? lastMine() < 0 : path.length === base);
+    changeButton.textContent = choosing ? 'Cancel' : 'Change reply';
+    changeButton.disabled = saving || (!choosing && !canChange());
+  }
+
+  /** Why the board has stopped, on the board, with what to do about it. */
+  function paintPause(): void {
+    const paused = at === path.length && (asking || stop !== null);
+    pauseEl.hidden = !paused;
+    if (!paused) {
+      pauseEl.replaceChildren();
       return;
     }
-    const children: HTMLElement[] = [];
-    if (last >= 0) {
-      const prominent = asking || !auto || stop !== null;
-      const save = button(
-        'Save line',
-        `${prominent ? 'btn-primary' : 'btn-secondary'} nr-action nr-save`,
-        () => {
-          save.disabled = true;
-          void saveReply(card, path.slice(base, last + 1)).then((outcome) => {
-            if (outcome.status === 'saved') actions.saved(card, outcome.saved);
-            else if (outcome.status === 'gone') {
-              showToast('This position is no longer in your lines.');
-              actions.drop(card);
-            } else {
-              save.disabled = false;   // the upgrade dialog is up; leave the card as it is
-            }
-          }).catch(() => { save.disabled = false; });
-        },
-        Icons.save(16),
-      );
-      children.push(save);
+    const added = yourMoves();
+    const text = asking
+      ? `${added} moves added`
+      : stop === 'joined' ? 'Joins a line you already have'
+        : stop === 'no-reply' ? 'No reply found'
+          : chess.isCheckmate() ? 'Checkmate' : 'The game ends here';
+    const message = paragraph('nr-pause-text', text);
+    const row = document.createElement('div');
+    row.className = 'nr-pause-actions';
+    if (lastMine() >= 0) {
+      const save = button('Save line', 'btn-primary nr-action', saveLine, Icons.save(16));
+      save.disabled = saving;
+      row.appendChild(save);
     }
-    if (canUndo) children.push(button('Undo', 'btn-secondary nr-undo', undoMove, Icons.reply(16)));
-    saveRow.replaceChildren(...children);
+    if (stop !== 'over') {
+      const carryOn = button('Continue', 'btn-secondary nr-action', carryOnFromPause, Icons.chevronRight(16));
+      carryOn.disabled = saving;
+      row.appendChild(carryOn);
+    }
+    pauseEl.replaceChildren(message, row);
+  }
+
+  function carryOnFromPause(): void {
+    if (asking) {
+      asking = false;
+      askAtYours = yourMoves() + ASK_EVERY_MOVES;
+      void replyNow();
+      return;
+    }
+    if (stop === 'no-reply') {
+      // Nobody knows what they'd play, so it's up to you.
+      stop = null;
+      choosing = true;
+      suggest.open();
+    } else {
+      stop = null;
+    }
+    showAt(path.length);
   }
 
   // Any position along the line. Only the live one, on your move, can be played on.
@@ -901,10 +930,14 @@ function renderCard(
         ? { color: chess.turn() === 'w' ? 'white' : 'black', dests: dests() }
         : { color: undefined, dests: new Map() },
     });
-    suggest.showArrows(canPlay());
+    // Arrows and suggestions only ever describe a position you can play right now.
+    if (canPlay()) suggest.setPosition(chess.fen());
+    suggest.setActive(canPlay());
     // A reply you haven't answered yet isn't part of what Save keeps.
     strip.update(path.map(p => p.san), i, Math.max(lastMine() + 1, base));
     paintInfo();
+    paintButtons();
+    paintPause();
   }
 
   // Browsing back leaves a board that can't be played on. Tapping it comes back.
@@ -921,20 +954,18 @@ function renderCard(
     try {
       move = chess.move({ from, to, promotion: 'q' });
     } catch {
-      cg.set({ fen: before });
+      showAt(path.length);
       return;
     }
     path.push({ uci: from + to + (move.promotion ?? ''), san: move.san, fen: chess.fen() });
     if (chess.isGameOver()) stop = 'over';
     else if (!wasMine && ctx.load.answered[card.colour].has(positionKey(chess.fen()))) stop = 'joined';
-    else if (wasMine && auto && path.length >= askAt()) asking = true;
+    else if (wasMine && auto && yourMoves() >= askAtYours) asking = true;
     if (wasChoosing) {
       choosing = false;
       suggest.close();
     }
-    paintButtons();
     if (stop || asking || !auto || !wasMine) {
-      suggest.setPosition(chess.fen());
       showAt(path.length);
       return;
     }
@@ -970,16 +1001,6 @@ function renderCard(
         : undefined,
     });
     if (!reply) {
-      // The known replies have run out. If you've built a bit, that's a good moment to
-      // ask, rather than quietly carrying on with the engine's ideas.
-      const yours = path.slice(base).filter((_, i) => isMine(base + i)).length;
-      if (!engineWelcome && yours >= ASK_EVERY_MOVES) {
-        thinking = false;
-        asking = true;
-        paintButtons();
-        showAt(path.length);
-        return;
-      }
       engineThinking = true;
       paintInfo();
       reply = await engineReply(fen);
@@ -997,13 +1018,18 @@ function renderCard(
       return;
     }
     const [from, to] = squares(reply.uci);
-    chess.move({ from, to, promotion: (reply.uci[4] as 'q') || undefined });
+    try {
+      chess.move({ from, to, promotion: (reply.uci[4] as 'q') || undefined });
+    } catch {
+      // Should never happen, but a move that doesn't fit mustn't leave the board stuck.
+      stop = 'no-reply';
+      showAt(path.length);
+      return;
+    }
     path.push({ uci: reply.uci, san: reply.san, fen: chess.fen() });
     bases.set(path.length - 1, reply.basis);
     if (chess.isGameOver()) stop = 'over';
     else if (ctx.load.answered[card.colour].has(positionKey(chess.fen()))) stop = 'joined';
-    if (!stop) suggest.setPosition(chess.fen());
-    paintButtons();
     showAt(path.length);
   }
 
@@ -1021,12 +1047,9 @@ function renderCard(
     forgetFrom(back);
     path.length = back;
     chess.load(fenBefore(back));
-    suggest.setPosition(chess.fen());
-    paintButtons();
     showAt(path.length);
   }
 
-  paintButtons();
   showAt(path.length);
   // The end of a mastered line nobody knows anything about: their move comes first.
   if (card.awaitingReply && auto) void replyNow();
@@ -1044,6 +1067,6 @@ function renderCard(
       suggest.refresh();
       paintInfo();
     },
-    touched: () => path.length > base,
+    touched: () => lastMine() >= 0,
   };
 }

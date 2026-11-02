@@ -516,8 +516,8 @@ there is worth knowing. A mastered line's end goes to Extend instead.
 
 **Skipping is never removing.** "Another position" and a swipe move a card to the back and
 rest it for 30 days, but a resting card still comes after the others rather than vanishing, so
-swiping can't empty a box. Swiping works on Add a missing reply and Extend while nothing has been
-played on the card, with the next position showing underneath, its board exactly where the top
+swiping can't empty a box. Swiping works on Add a missing reply and Extend until you've played
+a move on the card (a reply the engine made first doesn't count), with the next position showing underneath, its board exactly where the top
 one's is (`reply-card-swipe.ts`). Learn from your last games doesn't deal cards: there, swiping
 moves between the kinds of move.
 
@@ -531,19 +531,19 @@ My lines (`lineMastered`), it has a card here.
 **A line, not one move, and it ends on your move.** With Auto-reply on, the board answers
 each move you play with the usual reply (`usualReply`): one you've faced at least twice, then
 the scouted opponent you're preparing for, then the database's most played, then one you've
-faced once, then the engine. A reply you haven't answered is dimmed, because Save won't keep
-it. It pauses after YOUR move and asks: Save line, Keep going (asks again three moves on), or
-Open in builder. When depends on the line and on you (`usualLineMoves`): the median length of your
-lines with the same first two moves, or across that colour if there are under three, or 5 moves
-with hardly any lines, never under 4 or over 12, and always after you've played at least three.
-It also pauses if the known replies run out, before leaving it to the engine, and stops if the
-position joins a line you already answer. Save is available but quiet before that. "Change reply"
-replaces any reply the line added with one you play or pick from Suggest; whatever came after it
-goes too, and the reply the card is about can't be changed.
-With Auto-reply off (`obertura.replyAuto`, private) you play both sides, as in the builder, and
-Save is the main button. Undo takes back your last move and its reply, or just the last move
-with Auto-reply off. Save writes everything up to your last move in one `mergePath`, with Undo
-on the toast.
+faced once, then the engine. A reply you haven't answered is dimmed, because Save won't keep it.
+Every four of your own moves, wherever the card started, it pauses after YOUR move: the board
+dims and shows "4 moves added" with Save line and Continue on it. Save line, Undo and Change
+reply also sit in one row under the moves, greyed when they don't apply, so they never move.
+Undo and Change reply stay separate because they answer different questions. Change reply swaps
+the reply on the board for one you play or pick from Suggest, and whatever came after it goes
+too; the reply the card is about can't be changed. With Auto-reply off (`obertura.replyAuto`,
+private) you play both sides and it doesn't pause. Save writes everything up to your last move
+in one `mergePath`, with Undo on the toast.
+
+**The board never goes quiet.** The other reasons it stops playing say so on the board too:
+the position joins a line you already answer, no reply could be found (then you can play it
+yourself), or the game is over.
 
 - **Layout.** Board, moves, opening name, then Save and Undo once you've played, then Suggest
   moves and Open in builder, one line of facts, then the Auto-reply switch and Show more. No sentence explains what the
@@ -564,12 +564,14 @@ on the toast.
   positions you've prepared), which can fall as you go deeper, so the two won't match.
 - **Touch (`reply-board-touch.ts`).** On a phone a swipe anywhere on the board scrolls Home
   and can't move a piece. A tap selects and a tap moves. To drag, tap the piece first.
-  Scrolling away lets go of a selected piece. A mouse drags as usual.
+  Scrolling away lets go of a selected piece. A mouse drags as usual. The board re-measures its
+  position on each press, because a box above can move it without any scroll.
 - **The line (`reply-line-strip.ts`).** Every move from move 1 in one swipeable row, with
   back and forward. Each shows its position, read-only; tapping the board comes back.
 - **Suggest moves (`reply-suggest.ts`).** Up to three arrows with their numbers: the most
   played moves, or Stockfish on the device, which is the only tab when the database knows
-  nothing there. It follows the board as the line grows. Tapping a row plays the move.
+  nothing there. It follows the board as the line grows, and hides whenever the board can't
+  be played on, so it can't describe the wrong position. Tapping a row plays the move.
 
 **Two shapes, and the difference is the point.** The big blocks show ONE POSITION
 AT A TIME inside a frame (`.home-panel`): a full board centred in a card, with

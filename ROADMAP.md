@@ -2782,3 +2782,31 @@ and real scanned mistakes (the test ones were generated). While the fresh rankin
 background the phone can stutter, so a very large game history may feel briefly sticky just
 after opening Home. Positions past the end of a line you've stopped at are not offered unless
 that line is mastered; flagged to the owner as a possible next step.
+
+## 2026-11-03 — A stuck board, wrong arrows, and a pause you can see
+
+Phone feedback on v0.15, fixed straight on the live site.
+
+- ✅ **The wrong arrows and the stuck board had one cause, in the engine.** Cancelling or timing
+  out a search answers its caller at once, but the engine is still running and sends its last
+  lines shortly after. The next search read those as its own. Reproduced: asking about a Black
+  position returned White's `e2e4`. As suggestions those were arrows from another position, and
+  as an auto-reply they threw an error that left the board on the opponent's move for good. Each
+  search now waits for the last to really end (`analyseOnce`), and the boards ignore any move that
+  isn't legal. This protects the game scan and review too.
+- ✅ **Extend wouldn't swipe.** A card counted as played on as soon as anything was added to it,
+  including the engine's first reply on a line nobody has data for. Only your own move locks it.
+- ✅ **The pause is on the board, every four of your moves.** It replaces the adaptive pause from
+  the last round, and the early pause when the known replies ran out, which looked like the board
+  stopping for no reason. Joining a line, no reply and game over now say so on the board too.
+- ✅ **Save line, Undo and Change reply are one row under the moves.**
+- ✅ **Suggest only ever describes a position you can play.** It used to keep its old position
+  across a pause, or when Auto-reply was switched off mid-reply.
+- ✅ **Taps land after a box above moves the board** with no scroll. Chessground remembered the old
+  position; it now measures again on each press.
+
+**Checked:** a random stress test of about 500 actions across both boards at 412 and 360 wide, with
+every arrow and suggestion checked as legal and the board checked not to be stuck after every action.
+
+**Not checked:** a real finger, or the owner's account.
+

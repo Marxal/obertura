@@ -8205,16 +8205,6 @@ html:has(> body > .edit-overlay) > body {
   opacity: 0.5;
 }
 
-/* Beside the facts: small, because it's an exception, not the plan. */
-.nr-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-height: 2rem;
-  padding: 0 0.4rem;
-  font-size: 0.82rem;
-}
-
 /* The next position, underneath a box being swiped away. */
 .home-next-host,
 .home-extend-host {
@@ -8403,13 +8393,75 @@ html:has(> body > .edit-overlay) > body {
   white-space: nowrap;
 }
 
-.nr-save {
-  flex: 2 1 0;
+/* Save line, Undo, Change reply: always here, greyed when they don't apply. */
+.nr-build-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--space-sm);
 }
 
-.nr-undo {
+.nr-build-row .nr-action {
+  padding-inline: 0.25rem;
+  font-size: 0.84rem;
+}
+
+.nr-build-row .nr-action:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.nr-board-frame {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  margin-inline: auto;
+}
+
+/* Paused: the board dims and says what's next, right where you're looking. */
+.nr-pause {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-radius: 10px;
+  isolation: isolate;
+}
+
+.nr-pause::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--bg-card);
+  opacity: 0.62;
+}
+
+.nr-pause-text {
+  margin: 0;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: var(--bg-card);
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nr-pause-actions {
+  display: flex;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.nr-pause-actions .nr-action {
   flex: 1 1 0;
-  min-width: 0;
+  min-height: 2.75rem;
 }
 
 .nr-suggest {

@@ -6,6 +6,7 @@
 //
 // Tapping a row plays that move, the same as playing it on the board.
 
+import { Chess } from 'chess.js';
 import type { Api } from 'chessground/api';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
@@ -31,9 +32,12 @@ type Tab = 'usual' | 'engine';
 export interface SuggestPanel {
   button: HTMLButtonElement;
   panel: HTMLElement;
-  /** Arrows belong to the position you answer; hide them while browsing the line. */
-  showArrows: (show: boolean) => void;
-  /** The board has moved on. An open panel follows it. */
+  /**
+   * Whether the board can be played on right now. If not (browsing, waiting for a reply,
+   * paused to save) neither the arrows nor the list show, so they can't go stale.
+   */
+  setActive: (active: boolean) => void;
+  /** The position you can play. An open panel follows it. */
   setPosition: (fen: string) => void;
   /** The statistics have arrived: read this position again. */
   refresh: () => void;
@@ -70,7 +74,7 @@ export function buildSuggest(opts: {
   button.append(Icons.bulb(16), 'Suggest moves');
 
   let open = false;
-  let arrowsWanted = true;
+  let active = true;
   let preferred: Tab = 'usual';
   let arrows: DrawShape[] = [];
   let engineRows: HTMLElement[] | null = null;
@@ -79,7 +83,7 @@ export function buildSuggest(opts: {
   /** The tab on show: the database has nothing to say at some positions. */
   const tab = (): Tab => (usual.length > 0 ? preferred : 'engine');
 
-  const paintArrows = (): void => cg.setAutoShapes(open && arrowsWanted ? arrows : []);
+  const paintArrows = (): void => cg.setAutoShapes(open && active ? arrows : []);
 
   const setArrows = (ucis: string[]): void => {
     arrows = ucis.map((uci, i) => ({
@@ -163,7 +167,12 @@ export function buildSuggest(opts: {
       const moves = await analysePosition(asked, ENGINE_DEPTH, undefined, {
         multiPv: 3, movetimeMs: ENGINE_TIME_MS,
       });
-      found = moves.slice(0, 3).map(m => ({ uci: m.uci, san: m.san, value: evalText(m.cp, m.mate) }));
+      // Only moves that exist here, whatever came back.
+      const legal = new Set(new Chess(asked).moves({ verbose: true }).map(m => m.from + m.to + (m.promotion ?? '')));
+      found = moves
+        .filter(m => legal.has(m.uci))
+        .slice(0, 3)
+        .map(m => ({ uci: m.uci, san: m.san, value: evalText(m.cp, m.mate) }));
     } catch {
       found = [];
     }
@@ -178,14 +187,14 @@ export function buildSuggest(opts: {
       row.dataset.uci = m.uci;
       return row;
     });
-    if (tab() === 'engine' && open) paint();
+    if (tab() === 'engine' && open && active) paint();
   };
 
   const setOpen = (next: boolean): void => {
     open = next;
-    panel.hidden = !open;
+    panel.hidden = !open || !active;
     button.setAttribute('aria-pressed', String(open));
-    if (open) paint();
+    if (open && active) paint();
     else paintArrows();
   };
   button.addEventListener('click', () => setOpen(!open));
@@ -193,9 +202,12 @@ export function buildSuggest(opts: {
   return {
     button,
     panel,
-    showArrows(show) {
-      arrowsWanted = show;
-      paintArrows();
+    setActive(next) {
+      if (next === active) return;
+      active = next;
+      panel.hidden = !open || !active;
+      if (open && active) paint();
+      else paintArrows();
     },
     setPosition(next) {
       if (next === fen) return;
@@ -204,12 +216,12 @@ export function buildSuggest(opts: {
       engineRows = null;
       engineFen = null;
       arrows = [];
-      if (open) paint();
+      if (open && active) paint();
       else paintArrows();
     },
     refresh() {
       usual = topMoves(fen, colour, statsAt());
-      if (open) paint();
+      if (open && active) paint();
     },
     open() {
       if (!open) setOpen(true);

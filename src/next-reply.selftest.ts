@@ -9,7 +9,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { ImportedGame } from './import-core';
 import {
-  buildNextReplies, answerStats, usualLineMoves, usualReply, replyLabel, topMoves, gameWeight,
+  buildNextReplies, answerStats, usualReply, replyLabel, topMoves, gameWeight,
   MAX_CARDS, RECENT_ONCE_DAYS, type NextReplyCard,
 } from './next-reply';
 import type { GrowTarget } from './grow-line';
@@ -53,13 +53,8 @@ function game(colour: 'white' | 'black', sans: string[], result: 'win' | 'loss' 
   } as unknown as ImportedGame;
 }
 
-/** A trained line of White's for each of these move lists. */
-function pathsOf(paths: string[][]): Line[] {
-  return paths.map((sans, i) => line(`l${i}`, 'white', sans));
-}
-
 function lineOf(sans: string[]): Line[] {
-  return pathsOf([sans]);
+  return [line('l0', 'white', sans)];
 }
 
 function fenAfter(sans: string[]): string {
@@ -384,25 +379,6 @@ export function runNextReplySelfTest(): TestResult[] {
   });
   check('met once, a line’s end stays a stopping point',
     !onceOnly.some(c => c.pastEnd), onceOnly.map(c => c.sans.join(' ')).join(' | '));
-
-  // ── When auto-reply pauses ─────────────────────────────────────────────────
-  const card = { colour: 'white' as const, ucis: pathTree(['e4', 'c5']).ucis };
-  check('hardly any lines: five moves', usualLineMoves([], card) === 5);
-  const longSicilian = pathsOf([
-    ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6', 'Be3', 'e5', 'Nb3', 'Be6', 'f3', 'Be7', 'Qd2'],
-    ['e4', 'c5', 'Nf3', 'Nc6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'e5', 'Ndb5', 'd6', 'Bg5', 'a6', 'Na3', 'b5', 'Nd5'],
-    ['e4', 'c5', 'Nf3', 'e6', 'd4', 'cxd4', 'Nxd4', 'a6', 'Nc3', 'Qc7', 'Bd3', 'Nf6', 'O-O', 'Bd6', 'Kh1', 'Nc6', 'Be3'],
-  ]);
-  check('your long lines in this opening: a late pause', usualLineMoves(longSicilian, card) === 9,
-    String(usualLineMoves(longSicilian, card)));
-  const shortOthers = pathsOf([
-    ['d4', 'd5', 'c4'], ['d4', 'Nf6', 'c4'], ['c4', 'e5', 'Nc3'],
-  ]);
-  check('short lines elsewhere, none in this opening: never under four',
-    usualLineMoves(shortOthers, card) === 4, String(usualLineMoves(shortOthers, card)));
-  const huge = pathsOf(Array.from({ length: 3 }, () => Array.from({ length: 40 }, (_, i) =>
-    ['Nf3', 'Nf6', 'Ng1', 'Ng8'][i % 4])));
-  check('and never past twelve', usualLineMoves(huge, { colour: 'white', ucis: pathTree(['Nf3', 'Nf6']).ucis }) === 12);
 
   // ── How long ago ───────────────────────────────────────────────────────────
   // A game's endTime is in seconds. Read as milliseconds, everything was "56 years ago".

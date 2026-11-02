@@ -515,11 +515,27 @@ export interface AnalyseOptions {
   movetimeMs?: number;
 }
 
+// When the last search ended, as the worker sees it. Cancelling or timing out a search
+// resolves its caller straight away, but the engine is still running and will send its
+// last lines and its "bestmove" shortly after. Read by the next search, those answered it
+// with moves from the wrong position, so each search waits for the last one to really end.
+let lastSearchEnded: Promise<void> | null = null;
+/** Long enough for a stopped search to report, short enough not to stall a wedged worker. */
+const STOPPED_SEARCH_WAIT_MS = 2000;
+
 function analyseOnce(fen: string, depth: number, baseUrl: string, opts: AnalyseOptions): Promise<MoveEval[]> {
   return new Promise((resolve) => {
     void (async () => {
       const worker = await getReviewWorker(baseUrl);
       if (!worker) { resolve([]); return; }
+      if (lastSearchEnded) {
+        await Promise.race([
+          lastSearchEnded,
+          new Promise((done) => { setTimeout(done, STOPPED_SEARCH_WAIT_MS); }),
+        ]);
+      }
+      let searchEnded: () => void = () => {};
+      lastSearchEnded = new Promise((done) => { searchEnded = done; });
       // Set per call, since the worker keeps the last value.
       worker.postMessage(`setoption name MultiPV value ${opts.multiPv ?? 3}`);
       const multiPv = new Map<number, { uci: string; cp?: number; mate?: number; pv: string[] }>();
@@ -536,7 +552,8 @@ function analyseOnce(fen: string, depth: number, baseUrl: string, opts: AnalyseO
       worker.onmessage = (e: MessageEvent<string>) => {
         const msg = e.data;
         if (typeof msg !== 'string') return;
-        if (msg.startsWith('bestmove')) { finish(); return; }
+        if (msg.startsWith('bestmove')) { searchEnded(); finish(); return; }
+        if (settled) return;
         const p = parseMultiPvLine(msg, fen);
         if (p) multiPv.set(p.pvNum, { uci: p.uci, cp: p.cp, mate: p.mate, pv: p.pv });
       };
