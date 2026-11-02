@@ -2810,3 +2810,14 @@ every arrow and suggestion checked as legal and the board checked not to be stuc
 
 **Not checked:** a real finger, or the owner's account.
 
+## 2026-11-03 — Five buttons, two stages
+
+- ✅ An untouched card shows Suggest and Open in builder. Your first move brings the rest: Suggest,
+  Undo and Change in three equal columns, then Save line and Open in builder half and half.
+  From then on nothing moves, and a button that doesn't apply goes grey. "Change reply" became
+  "Change" and "Suggest moves" became "Suggest" to fit, with fuller names for screen readers.
+- ✅ **A line in progress can't be wiped from behind.** New games arriving, a change of plan, the
+  analysis finishing and the install prompt each redrew all of Home, rebuilding the boards under
+  whoever was playing on them. Found by the stress test. Those redraws now wait while a board has
+  moves of yours on it.
+

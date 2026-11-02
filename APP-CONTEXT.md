@@ -533,20 +533,28 @@ each move you play with the usual reply (`usualReply`): one you've faced at leas
 the scouted opponent you're preparing for, then the database's most played, then one you've
 faced once, then the engine. A reply you haven't answered is dimmed, because Save won't keep it.
 Every four of your own moves, wherever the card started, it pauses after YOUR move: the board
-dims and shows "4 moves added" with Save line and Continue on it. Save line, Undo and Change
-reply also sit in one row under the moves, greyed when they don't apply, so they never move.
-Undo and Change reply stay separate because they answer different questions. Change reply swaps
-the reply on the board for one you play or pick from Suggest, and whatever came after it goes
-too; the reply the card is about can't be changed. With Auto-reply off (`obertura.replyAuto`,
+dims and shows "4 moves added" with Save line and Continue on it. Change swaps the reply on the
+board for one you play or pick from Suggest, and whatever came after it goes too; the reply the
+card is about can't be changed. With Auto-reply off (`obertura.replyAuto`,
 private) you play both sides and it doesn't pause. Save writes everything up to your last move
 in one `mergePath`, with Undo on the toast.
+
+**A line in progress is safe.** Background events (new games, a change of plan, the analysis
+finishing, the install prompt) redraw the current screen through `repaintInBackground`, which
+skips the builder and skips Home while a live board has moves of yours on it.
 
 **The board never goes quiet.** The other reasons it stops playing say so on the board too:
 the position joins a line you already answer, no reply could be found (then you can play it
 yourself), or the game is over.
 
-- **Layout.** Board, moves, opening name, then Save and Undo once you've played, then Suggest
-  moves and Open in builder, one line of facts, then the Auto-reply switch and Show more. No sentence explains what the
+- **Layout.** Board, moves, opening name, the buttons, one line of facts, then the Auto-reply
+  switch and Show more.
+- **The buttons grow once, then stay put.** An untouched card has two: Suggest and Open in
+  builder, half and half. Your first move brings the rest: Suggest, Undo and Change in three
+  equal columns, then Save line and Open in builder half and half. Suggest stays top left and
+  the builder stays on the right. From there nothing moves, and a button that doesn't apply goes
+  grey. Undo and Change stay separate because they answer different questions. While choosing a
+  reply, Change reads Cancel. No sentence explains what the
   title and the board already say: no "tap a piece", no "database, all ratings".
 - **One line of facts.** "Faced 4 times · 3 weeks ago" with a chevron, opening the games
   (`reply-games-sheet.ts`, tap one to open it at this position). Without games, the scouted
@@ -568,7 +576,7 @@ yourself), or the game is over.
   position on each press, because a box above can move it without any scroll.
 - **The line (`reply-line-strip.ts`).** Every move from move 1 in one swipeable row, with
   back and forward. Each shows its position, read-only; tapping the board comes back.
-- **Suggest moves (`reply-suggest.ts`).** Up to three arrows with their numbers: the most
+- **Suggest (`reply-suggest.ts`).** Up to three arrows with their numbers: the most
   played moves, or Stockfish on the device, which is the only tab when the database knows
   nothing there. It follows the board as the line grows, and hides whenever the board can't
   be played on, so it can't describe the wrong position. Tapping a row plays the move.

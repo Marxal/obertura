@@ -43,6 +43,8 @@ export interface SuggestPanel {
   refresh: () => void;
   open: () => void;
   close: () => void;
+  /** The board is going. A late answer from the engine has nothing left to draw on. */
+  dispose: () => void;
 }
 
 export function buildSuggest(opts: {
@@ -71,10 +73,11 @@ export function buildSuggest(opts: {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn-secondary nr-action';
-  button.append(Icons.bulb(16), 'Suggest moves');
+  button.append(Icons.bulb(15), 'Suggest');
 
   let open = false;
   let active = true;
+  let disposed = false;
   let preferred: Tab = 'usual';
   let arrows: DrawShape[] = [];
   let engineRows: HTMLElement[] | null = null;
@@ -176,7 +179,7 @@ export function buildSuggest(opts: {
     } catch {
       found = [];
     }
-    if (asked !== fen) return;   // the board has moved on
+    if (disposed || asked !== fen) return;   // the board has moved on
     if (found.length === 0) {
       engineFen = null;
       if (tab() === 'engine') list.replaceChildren(text('nr-note', 'The engine isn’t available right now.'));
@@ -228,6 +231,9 @@ export function buildSuggest(opts: {
     },
     close() {
       if (open) setOpen(false);
+    },
+    dispose() {
+      disposed = true;
     },
   };
 }

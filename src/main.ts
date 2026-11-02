@@ -48,7 +48,7 @@ import { DOMAIN_ACCENT, type DomainId } from './train-doors';
 import { DEFAULT_TRAIN_ORDER, getTrainOrder, setTrainOrder, trainOrderHintSeen, markTrainOrderHintSeen } from './train-order';
 import { installRunKeys } from './run-keys';
 import { renderHomeBody, buildScanBanner, type HomeDeps } from './home-screen';
-import { mountReplyBoard } from './next-reply-card';
+import { mountReplyBoard, replyBoardInProgress } from './next-reply-card';
 import { loadNextReplies } from './next-reply-data';
 import { planRepertoireRun } from './repertoire-run';
 import { startBrilliantSession } from './brilliant-run';
@@ -4039,10 +4039,22 @@ function fixAnalysisMistakes(): void {
   });
 }
 
+/**
+ * Redraw the current screen because something changed in the background, not because you
+ * asked. The builder and Home's live boards hold unsaved work in the DOM, and redrawing
+ * under the user would be a far worse bug than a stale figure they'll see refreshed the
+ * next time the screen opens.
+ */
+function repaintInBackground(): void {
+  if (currentView === 'builder') return;
+  if (currentView === 'home' && replyBoardInProgress()) return;
+  showView(currentView);
+}
+
 function initAnalysisNotice(): void {
   startAnalysisNotice({
     onReady: (count) => whenAnalysisCanSpeak(() => {
-      if (currentView === 'home') showView('home'); // the card goes up
+      if (currentView === 'home') repaintInBackground(); // the card goes up
       showToast(`Game analysis ready: ${count} mistake${count === 1 ? '' : 's'}`, {
         durationMs: 8000,
         action: { label: 'Fix them', onClick: fixAnalysisMistakes },
@@ -7202,7 +7214,7 @@ requestAnimationFrame(() => {
   // Get-started checklist's install row is usually asked for BEFORE the answer
   // is yes. Repaint Train when the prompt lands, rather than making the user
   // navigate away and back to see the row appear.
-  onInstallAvailable(() => { if (currentView === 'home') showView('home'); });
+  onInstallAvailable(() => { if (currentView === 'home') repaintInBackground(); });
 
   // Now that cg/builder exist, replay a "Connect to Lichess" return if one is
   // pending (the OAuth callback may have resolved before boot finished). This
@@ -7231,11 +7243,8 @@ requestAnimationFrame(() => {
     // the early return below — a purchase that lands while the builder is open
     // should still show up as gold the moment the user leaves it.
     applyNavSettingsTier();
-    // The builder holds unsaved work in the DOM; re-rendering it under the user
-    // would be a far worse bug than a stale counter on a screen they aren't
-    // looking at. It shows no cap furniture anyway.
-    if (currentView === 'builder') return;
-    showView(currentView);
+    // The builder shows no cap furniture anyway.
+    repaintInBackground();
   });
 
   // FIRST VISIT: the picker. One screen — colour, depth, style — and then the
@@ -7295,7 +7304,7 @@ requestAnimationFrame(() => {
   void maybeAutoRefreshGames().then((newCount) => {
     if (newCount <= 0) return;
     showToast(`Games refreshed · ${newCount} new`);
-    if (currentView !== 'builder') showView(currentView);
+    repaintInBackground();
   }).finally(() => {
     // …and then read whatever games are now on the device for mistakes, quietly
     // (mistake-autoscan.ts). It used to sit behind an "Analyse my games" button

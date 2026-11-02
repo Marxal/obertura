@@ -8393,19 +8393,39 @@ html:has(> body > .edit-overlay) > body {
   white-space: nowrap;
 }
 
-/* Save line, Undo, Change reply: always here, greyed when they don't apply. */
-.nr-build-row {
+/* An untouched card: two buttons. After your first move: Suggest, Undo and Change in three
+   equal columns, then Save line and Open in builder half and half. Six columns makes both. */
+.nr-buttons {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--space-sm);
 }
 
-.nr-build-row .nr-action {
-  padding-inline: 0.25rem;
-  font-size: 0.84rem;
+.nr-buttons > .nr-action {
+  flex: none;
 }
 
-.nr-build-row .nr-action:disabled {
+.nr-buttons > [hidden] {
+  display: none;
+}
+
+.nr-small {
+  grid-column: span 2;
+}
+
+.nr-half,
+.nr-buttons--untouched > .nr-small {
+  grid-column: span 3;
+}
+
+.nr-buttons:not(.nr-buttons--untouched) > .nr-small {
+  min-height: 2.5rem;
+  padding: 0.3rem 0.2rem;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.nr-buttons > .nr-action:disabled {
   opacity: 0.45;
   box-shadow: none;
 }

@@ -15,10 +15,13 @@
 // dims and offers Save line or Continue, right where you're looking. A reply you haven't
 // answered is dimmed, because Save won't keep it. With Auto-reply off you play both sides.
 //
-// THE THREE BUTTONS STAY PUT. Save line, Undo and Change reply sit in one row under the
-// moves, greyed when they don't apply, so your thumb learns where they are. Undo and Change
-// reply are different questions (was my move wrong, or do I want to prepare for another
-// reply?), which is why they aren't one button that changes meaning.
+// THE BUTTONS GROW ONCE, THEN STAY PUT. An untouched card has two: Suggest and Open in
+// builder. It's what you see scrolling past, so it stays clean. Your first move brings the
+// rest: Suggest, Undo and Change in three equal columns, then Save line and Open in builder
+// half and half. Suggest stays top left and the builder stays on the right, and from there
+// nothing moves: a button that doesn't apply goes grey, so your thumb learns where they are.
+// Undo and Change are different questions (was my move wrong, or do I want to prepare for
+// another reply?), which is why they aren't one button that changes meaning.
 //
 // THE BOARD NEVER GOES QUIET. Whenever it stops taking moves, except for a moment waiting
 // on a reply, it says why on the board and offers what to do.
@@ -127,6 +130,17 @@ function emptyLoad(): NextReplyLoad {
 // One card per board. A new Home render replaces the old one, and the old board's
 // document listeners have to go with it.
 const teardowns = new Map<ReplyBoardKind, () => void>();
+// Whether each board has moves of yours on it right now.
+const inProgress = new Map<ReplyBoardKind, () => boolean>();
+
+/**
+ * Has someone played a move on a board that hasn't been saved? Things that happen in the
+ * background (new games, a change of plan, the analysis finishing) redraw Home, which
+ * rebuilds these boards. Those redraws wait, rather than wipe a line being built.
+ */
+export function replyBoardInProgress(): boolean {
+  return [...inProgress.values()].some(busy => busy());
+}
 
 export function mountReplyBoard(host: HTMLElement, deps: NextReplyDeps, kind: ReplyBoardKind): void {
   teardowns.get(kind)?.();
@@ -135,10 +149,12 @@ export function mountReplyBoard(host: HTMLElement, deps: NextReplyDeps, kind: Re
   let stopped = false;
   let timer = 0;
   let queue: ReplyQueue | null = null;
+  inProgress.delete(kind);
   teardowns.set(kind, () => {
     stopped = true;
     window.clearTimeout(timer);
     queue?.destroy();
+    inProgress.delete(kind);
   });
 
   // Draw what we kept from last time, or at least hold the place. Resting ones wait.
@@ -212,6 +228,7 @@ function showQueue(
     ready: load ? Promise.resolve() : new Promise((resolve) => { markReady = resolve; }),
   };
   let real = !!load;
+  inProgress.set(kind, () => visible?.touched() ?? false);
 
   const meter = kind === 'reply' ? buildCoverageMeter(cachedCoverage(), cacheCoverage) : null;
   if (load) meter?.setStats(load.statsAt);
@@ -539,14 +556,9 @@ function renderCard(
   const openingEl = paragraph('nr-opening', '');
   section.appendChild(openingEl);
 
-  const buildRow = document.createElement('div');
-  buildRow.className = 'nr-build-row';
-  buildRow.hidden = true;
-  section.appendChild(buildRow);
-
-  const actionRow = document.createElement('div');
-  actionRow.className = 'nr-actions';
-  section.appendChild(actionRow);
+  const buttonsEl = document.createElement('div');
+  buttonsEl.className = 'nr-buttons';
+  section.appendChild(buttonsEl);
 
   const summaryEl = document.createElement('div');
   summaryEl.className = 'nr-summary';
@@ -621,10 +633,11 @@ function renderCard(
       cg.move(from, to);
     },
   });
-  actionRow.append(suggest.button, button('Open in builder', 'btn-secondary nr-action', () => {
+  suggest.button.classList.add('nr-small');
+  const builderButton = button('Open in builder', 'btn-secondary nr-action nr-half', () => {
     if (card.grow && card.grow.moves.length > 0 && path.length === base) deps.onGrow(card.grow);
     else deps.onOpenBuilder(path.map(p => p.uci), card.colour, card.opponentName);
-  }, Icons.pencil(16)));
+  }, Icons.pencil(16));
   section.append(suggest.panel, summaryEl, foot, detailsEl);
 
   autoInput.addEventListener('change', () => {
@@ -848,23 +861,36 @@ function renderCard(
     });
   }
 
-  const saveButton = button('Save line', 'btn-primary nr-action', saveLine, Icons.save(16));
-  const undoButton = button('Undo', 'btn-secondary nr-action', undoMove, Icons.reply(16));
-  const changeButton = button('', 'btn-secondary nr-action', () => {
+  const saveButton = button('Save line', 'btn-primary nr-action nr-half', saveLine, Icons.save(16));
+  const undoButton = button('Undo', 'btn-secondary nr-action nr-small', undoMove, Icons.reply(15));
+  const changeButton = button('', 'btn-secondary nr-action nr-small', () => {
     if (choosing) cancelChoosing();
     else changeReply();
   });
-  buildRow.append(saveButton, undoButton, changeButton);
+  buttonsEl.append(suggest.button, undoButton, changeButton, saveButton, builderButton);
 
   /** Any reply the line added can be changed; the one the card is about can't. */
   const canChange = (): boolean => !thinking && at > base && !isMine(at - 1);
 
   function paintButtons(): void {
-    buildRow.hidden = path.length === base && !choosing;
+    // Nothing added yet: just the two ways to get going.
+    const untouched = path.length === base && !choosing;
+    buttonsEl.classList.toggle('nr-buttons--untouched', untouched);
+    saveButton.hidden = untouched;
+    undoButton.hidden = untouched;
+    changeButton.hidden = untouched;
+
     saveButton.disabled = lastMine() < 0 || saving;
     undoButton.disabled = saving || (auto ? lastMine() < 0 : path.length === base);
-    changeButton.textContent = choosing ? 'Cancel' : 'Change reply';
+    changeButton.replaceChildren(
+      ...(choosing ? [] : [Icons.shuffle(15)]),
+      choosing ? 'Cancel' : 'Change',
+    );
+    changeButton.setAttribute('aria-label', choosing ? 'Keep the usual reply' : 'Change their reply');
     changeButton.disabled = saving || (!choosing && !canChange());
+    // Nothing to suggest on a position you can't play. Not while waiting for a reply,
+    // though: that's a moment, and greying it every move would flicker.
+    suggest.button.disabled = at !== path.length || asking || stop !== null;
   }
 
   /** Why the board has stopped, on the board, with what to do about it. */
@@ -1058,6 +1084,7 @@ function renderCard(
     card,
     destroy() {
       token++;
+      suggest.dispose();
       stopGuard();
       stopSwipe();
       boardEl.removeEventListener('click', onBoardClick);
