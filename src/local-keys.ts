@@ -96,6 +96,18 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.'];
 // value that changes on every first move learned would mean an account push each
 // time, to police a soft limit on an unusual two-phone day (new-move-limit.ts).
 //
+// `obertura.nextReplyLog` — which positions Home's "Your next reply" card has been
+// told to rest. A position coming back on a second phone costs one tap; syncing it
+// would mean an account push for every card anyone skipped (next-reply-log.ts).
+//
+// `obertura.homeCards` — the first few positions of Home's live boards, kept so they
+// can appear instantly while the fresh ones are worked out (next-reply-cache.ts). Worked
+// out again on every visit, so another device has no use for it, and every card saved
+// or skipped would otherwise mean an account push.
+//
+// `obertura.replyAuto` — whether the boards reply for you. A preference for this phone;
+// not worth a push for each flick of the switch.
+//
 // (`obertura.metricsSession`, the once-per-launch flag, is in sessionStorage,
 // which nothing in the backup path ever walks — so it needs no entry here.)
 const PRIVATE_KEY_PREFIXES = [
@@ -112,6 +124,9 @@ const PRIVATE_KEYS = [
   'obertura.metricsOptOut',
   'obertura.analysisNotice',
   'obertura.newMovesToday',
+  'obertura.nextReplyLog',
+  'obertura.homeCards',
+  'obertura.replyAuto',
 ];
 
 /**

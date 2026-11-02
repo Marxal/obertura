@@ -61,6 +61,21 @@ export function runLocalKeysSelfTest(): TestResult[] {
     'mid-redirect state for one device',
   );
   check(
+    'skipped next-reply positions stay on the device',
+    !backupLocalKey('obertura.nextReplyLog'),
+    'a card skipped on one phone costs nothing on another',
+  );
+  check(
+    'the cards kept for an instant Home stay on the device',
+    !backupLocalKey('obertura.homeCards'),
+    'they are worked out again on every visit',
+  );
+  check(
+    'the auto-reply switch stays on the device',
+    !backupLocalKey('obertura.replyAuto'),
+    'a preference for this phone, not worth a push',
+  );
+  check(
     'retired Drive keys never travel',
     !backupLocalKey('obertura.drive.token'),
     'a retired feature’s leftovers',

@@ -470,19 +470,110 @@ that mentions all of them. **The rule that keeps it from becoming a second Train
 menu: Home shows the STATE of things, the tab bar is how you get anywhere.** If
 Home ever starts listing exercises or destinations, it has become Train.
 
-**Everything on it is boards.** Four blocks, in the order the answers are
-useful:
+**Everything on it is boards, and every title is a thing to do.** Five blocks. The title
+names the action; how many are waiting goes beside it.
 
 | Block | Shape | What it holds |
 |---|---|---|
-| **Ready to grow** | framed carousel | lines you have mastered, one full board at a time, the replies you'd be preparing for drawn as arrows |
-| **From your last games** | framed carousel | the newest unfixed blunder in each category plus your best find, with the five icons across the top as picker and position indicator |
-| **Forgotten moves** | bleeding strip | the moves you keep missing |
-| **Forgotten lines** | bleeding strip | the lines that keep slipping |
+| **Add a missing reply** | framed card, live board | one position your lines can't answer yet, answered right there; `next-reply-card.ts` |
+| **Learn from your last games** | framed carousel, live boards | the newest unfixed blunder in each category plus your best find, played right there; swipe or the icons change category, "Another position" deals the next of that kind; `home-games-card.ts` |
+| **Relearn forgotten moves** | bleeding strip | the moves you keep missing |
+| **Relearn forgotten lines** | bleeding strip | the lines that keep slipping |
+| **Extend a line you know** | framed card, live board | the end of a mastered line; absent until one is mastered |
 
-**Two shapes, and the difference is the point.** The first two show ONE POSITION
+**The two live boards** replaced Ready to grow on 2026-11-02. They are one component with
+two queues, kept apart on the page because fixing a hole and extending what you know are
+different errands. Each is one card rather than a carousel, because a swipe track and a
+playable board fight over the same finger; "Another position" is the browsing, and rests
+that position for 30 days on this device. Holes come from your games, a scouted opponent,
+then the bundled all-ratings statistics, skipping paused branches, replies that transpose
+into something you answer, and anything `rare-branch.ts` calls a sideline. Both appear once
+something has been trained. Showing a card never asks the network, apart from fetching the
+statistics file once a session.
+
+**A box shows whenever it has something to do, and at once.** Last visit's top three cards
+per box are kept on this device (`next-reply-cache.ts`, `obertura.homeCards`, private so it
+never syncs) and drawn immediately; a first-ever visit holds the place with an empty board.
+The fresh ranking runs behind them and only decides what comes next: the card on screen stays
+unless nothing has been played on it and it no longer needs an answer. Until the data arrives
+a kept card shows its board and moves, while Suggest and the numbers fill in a moment later;
+a move played in that moment waits for the data rather than asking the engine.
+
+Replaying your games through chess.js used to take 18 s for 1500 games and 40 s for 3000 on a
+4x-slowed test phone. `fast-replay.ts` follows the pieces without checking legality and gives
+the same keys as chess.js (held to it by its self-test). A failed download of the statistics
+used to be remembered for the session, because a browser never retries a failed `import()`;
+it is now a plain `fetch`, retried up to three times while Home is open.
+
+**The order (`compareCards`).** Your games, then a scouted opponent, then the database, then
+mastered lines with nothing else behind them. Within your games each game scores by its age
+(`gameWeight`): about 1 today, 0.63 at a month, never under 0.25; replies going badly get a
+1.25x nudge. A reply faced twice qualifies at any age, and one faced once only for 14 days. The
+database's are ordered by how often you'd reach them. Positions come from where you've started
+answering, plus replies you've faced at least twice past where a line of yours stops
+(`pastEnd`): Coverage calls a line's end a stopping point you chose, but a reply you keep meeting
+there is worth knowing. A mastered line's end goes to Extend instead.
+
+**Skipping is never removing.** "Another position" and a swipe move a card to the back and
+rest it for 30 days, but a resting card still comes after the others rather than vanishing, so
+swiping can't empty a box. Swiping works on Add a missing reply and Extend while nothing has been
+played on the card, with the next position showing underneath, its board exactly where the top
+one's is (`reply-card-swipe.ts`). Learn from your last games doesn't deal cards: there, swiping
+moves between the kinds of move.
+
+**Every mastered line yields a card on Extend.** Only one colour used to be looked at, and a
+line whose end no source knew was silently dropped, which is most lines past the opening.
+Now both colours count, the statistics back up the book, and if nothing knows the position
+the engine supplies the reply (`awaitingReply`). A mastered line stopping on the opponent's
+move already asks the question, so it gets a card as it stands. If a line shows the sprout in
+My lines (`lineMastered`), it has a card here.
+
+**A line, not one move, and it ends on your move.** With Auto-reply on, the board answers
+each move you play with the usual reply (`usualReply`): one you've faced at least twice, then
+the scouted opponent you're preparing for, then the database's most played, then one you've
+faced once, then the engine. A reply you haven't answered is dimmed, because Save won't keep
+it. It pauses after YOUR move and asks: Save line, Keep going (asks again three moves on), or
+Open in builder. When depends on the line and on you (`usualLineMoves`): the median length of your
+lines with the same first two moves, or across that colour if there are under three, or 5 moves
+with hardly any lines, never under 4 or over 12, and always after you've played at least three.
+It also pauses if the known replies run out, before leaving it to the engine, and stops if the
+position joins a line you already answer. Save is available but quiet before that. "Change reply"
+replaces any reply the line added with one you play or pick from Suggest; whatever came after it
+goes too, and the reply the card is about can't be changed.
+With Auto-reply off (`obertura.replyAuto`, private) you play both sides, as in the builder, and
+Save is the main button. Undo takes back your last move and its reply, or just the last move
+with Auto-reply off. Save writes everything up to your last move in one `mergePath`, with Undo
+on the toast.
+
+- **Layout.** Board, moves, opening name, then Save and Undo once you've played, then Suggest
+  moves and Open in builder, one line of facts, then the Auto-reply switch and Show more. No sentence explains what the
+  title and the board already say: no "tap a piece", no "database, all ratings".
+- **One line of facts.** "Faced 4 times · 3 weeks ago" with a chevron, opening the games
+  (`reply-games-sheet.ts`, tap one to open it at this position). Without games, the scouted
+  opponent's name, then "27% of opponents play it", then "The engine's choice".
+- **Show more (`reply-facts.ts`).** For the move on the board: how often it's played and how
+  it scores, your own games' results, and your previous move's numbers if you just played it.
+  Plus the engine's evaluation, asked only while this is open. On Extend, the line's recall,
+  runs, correct and misses too (`lineFigures`, shared with the line popup). Open or closed
+  carries from card to card, not between visits.
+- **Coverage (`reply-coverage.ts`).** "Covered, first 6 moves", White and Black, at the top of
+  Add a missing reply; it rises when you save. Of the opponent's first six moves in a typical
+  game, the average share you have an answer to, weighted by the database. Saving can only
+  raise it. Where the database has a hole your replies get partial credit, so it's an
+  estimate. It is a different measure from the Coverage tab's percentage (answered replies at
+  positions you've prepared), which can fall as you go deeper, so the two won't match.
+- **Touch (`reply-board-touch.ts`).** On a phone a swipe anywhere on the board scrolls Home
+  and can't move a piece. A tap selects and a tap moves. To drag, tap the piece first.
+  Scrolling away lets go of a selected piece. A mouse drags as usual.
+- **The line (`reply-line-strip.ts`).** Every move from move 1 in one swipeable row, with
+  back and forward. Each shows its position, read-only; tapping the board comes back.
+- **Suggest moves (`reply-suggest.ts`).** Up to three arrows with their numbers: the most
+  played moves, or Stockfish on the device, which is the only tab when the database knows
+  nothing there. It follows the board as the line grows. Tapping a row plays the move.
+
+**Two shapes, and the difference is the point.** The big blocks show ONE POSITION
 AT A TIME inside a frame (`.home-panel`): a full board centred in a card, with
-nothing of the next slide showing. The last two are STRIPS of small cards that
+nothing of the next slide showing. The forgotten blocks are STRIPS of small cards that
 bleed to the screen edge, where the half-visible next card is exactly what says
 there is more to swipe. A big board you are meant to read, with another one
 peeking past it, is neither — it reads as a bug, and was reported as one.
@@ -2009,6 +2100,23 @@ Every non-selftest module in `src/`, exactly once.
 | `coverage-gaps.ts` | the replies your repertoire can't answer (pure) |
 | `coverage-data.ts` | its impure half — the device, and the explorer budget |
 | `coverage-section.ts` | the coverage block on screen |
+| `rare-branch.ts` | how likely a reply is: the rule the reply card and Trim share (pure) |
+| `next-reply.ts` | Home's live boards: which positions, in what order, top moves, the usual reply (pure) |
+| `next-reply-data.ts` | its impure half: reading the device, saving a line, undo |
+| `next-reply-log.ts` | which positions are resting, this device only |
+| `next-reply-cache.ts` | the first few cards, kept so Home's boards appear at once, this device only |
+| `home-games-card.ts` | "Learn from your last games": the live board |
+| `reply-card-swipe.ts` | swiping a whole box sideways for another position |
+| `next-reply-card.ts` | "Add a missing reply" and "Extend a line you know": the card and its live board |
+| `reply-board-touch.ts` | stops a swipe moving a piece on those boards |
+| `reply-line-strip.ts` | the swipeable moves with back and forward |
+| `reply-facts.ts` | a position's numbers as small bars |
+| `reply-games.ts` | the games where you faced a reply: count, results, how long ago (pure) |
+| `reply-games-sheet.ts` | the popup listing those games |
+| `reply-coverage.ts` | "Covered, first 6 moves": the number (pure) |
+| `reply-coverage-meter.ts` | its two small bars |
+| `fast-replay.ts` | follows thousands of games ~100x faster than chess.js, same position keys (pure) |
+| `reply-suggest.ts` | "Suggest moves": arrows, most played or engine |
 | `scout.ts` | opponent scouting — the data layer |
 
 ### Puzzles and endgames
@@ -2111,7 +2219,7 @@ never hand-edit.
 | `endgames.json` | 6.6 KB | 18 fundamental endgames, all ≤7 pieces |
 | `onboarding-lines.json` | 3.4 KB | the 8 curated first lines |
 | `puzzle-openings.json` | 2.8 KB | 122 opening → Lichess puzzle "angle" mappings |
-| `explorer-stats.json` | **2 bytes** | **currently `{}` — see §23** |
+| `explorer-stats.json` | 8.6 MB (1.5 MB compressed) | fetched on first use as a plain file — see §24 |
 
 Assets: `src/style.css` (20,485 lines, all of it) · `src/fonts/` (Chakra Petch
 700, self-hosted) · `src/pieces/` (one CSS file per piece set, lazily imported) ·
@@ -2279,13 +2387,12 @@ that happen again.
 
 ## 24. Known gaps and honest caveats
 
-- **`src/explorer-stats.json` is empty (`{}`).** The bundled win/draw/loss set has
-  never been generated on this checkout, so `bundledStats()` always returns null
-  and every explorer number today comes from the live Lichess overlay (which is
-  login-gated) or from nothing. Regenerating it needs `LICHESS_TOKEN` and egress
-  to `explorer.lichess.org`. Everything downstream — the Library slide's graphs,
-  `explorer-resolve.ts`, coverage's off-budget rows — is written to cope, but
-  reads thinner than intended.
+- **`src/explorer-stats.json` has holes.** It keeps the top six moves at a position, and
+  has nothing after 1.e4 c6, 1.e4 d6, 1.d4 e5, 1.d4 g6 or 1.d4 c5: 63% of positions are
+  covered at move 3 and 21% at move 6. Castling replies written `e1h1` are also dropped by
+  the Coverage tab. Rebuilding it needs `LICHESS_TOKEN` and egress to
+  `explorer.lichess.org`. Everything downstream is written to cope, but reads thinner than
+  intended: past about move 5, Home's boards often fall back on the engine.
 - **Deletions don't sync.** Lines and games merge, so removing a line on one phone
   leaves it on the other. Escape hatch: Settings → Data → "Replace this device
   from the account". Tombstones need per-line `updatedAt` plus a remembered

@@ -47,7 +47,9 @@ import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFi
 import { DOMAIN_ACCENT, type DomainId } from './train-doors';
 import { DEFAULT_TRAIN_ORDER, getTrainOrder, setTrainOrder, trainOrderHintSeen, markTrainOrderHintSeen } from './train-order';
 import { installRunKeys } from './run-keys';
-import { renderHomeBody, fillGrowStrip, buildScanBanner, type HomeDeps } from './home-screen';
+import { renderHomeBody, buildScanBanner, type HomeDeps } from './home-screen';
+import { mountReplyBoard } from './next-reply-card';
+import { loadNextReplies } from './next-reply-data';
 import { planRepertoireRun } from './repertoire-run';
 import { startBrilliantSession } from './brilliant-run';
 import { collectBrilliantSpots, orderBrilliant } from './brilliant';
@@ -78,8 +80,8 @@ import {
   type DailyConfig,
 } from './daily-challenge';
 import {
-  growCandidates, pickGrowSpots, growTargets, growGameIndex, growScoutIndex,
-  type GrowSources, type GrowSpot, type GrowTarget,
+  growCandidates, pickGrowSpots, growMoves, growGameIndex, growScoutIndex,
+  type GrowSpot, type GrowTarget,
 } from './grow-line';
 import { growDueMap, restGrowLine, GROW_SKIP_DAYS, GROW_GROWN_DAYS } from './grow-log';
 import { createGrowPanel, type GrowPanel } from './grow-panel';
@@ -3264,9 +3266,8 @@ const DESKTOP_NAV_BREAKPOINT = 960;
 // that nobody is waiting for it.
 const AUTO_SCAN_DELAY_MS = 8000;
 
-// How many grow offers Home's strip holds. The search is ordered, so this is
-// also how far down the ranking it looks before giving up.
-const HOME_GROW_MAX = 5;
+// How many mastered lines, per colour, Home's "Extend a line you know" board holds.
+const HOME_GROW_MAX = 12;
 
 // Below this many true brilliancies, Home's carousel pools the engine's
 // "great" grade in with them — same threshold the Middlegame box uses.
@@ -5218,7 +5219,6 @@ async function renderHomeData(body: HTMLElement): Promise<void> {
   }
 
   const deps: HomeDeps = {
-    onGrow: (target) => openGrowLine(target),
     onFixSpots: (refs, mode) => startMistakeSession({
       refs,
       modeLabel: mode?.label,
@@ -5257,20 +5257,27 @@ async function renderHomeData(body: HTMLElement): Promise<void> {
     id => dueMap[id] ?? 0,
   );
 
-  // DRAW FIRST, GROW LATER. The grow search loads the bundled opening book — a
-  // 1.7 MB module — and indexes every game and every scouted opponent. Awaiting
-  // it before painting left Home blank for as long as that took, on the app's
-  // landing screen. The strip fills itself in when the answer arrives.
-  renderHomeBody(body, { lines, games, grow: [], spots, brilliant }, deps);
+  renderHomeBody(body, { lines, games, spots, brilliant }, deps);
 
-  let grow: GrowTarget[] = [];
-  try {
-    grow = await computeGrowTargets(lines, HOME_GROW_MAX);
-  } catch { /* no offers */ }
-  // Superseded: a newer render owns this screen, or the user has moved on.
-  const growHost = body.querySelector<HTMLElement>('.home-grow-host');
-  if (!growHost || !body.isConnected) return;
-  fillGrowStrip(growHost, grow, deps);
+  // DRAW FIRST, THE BOARDS STRAIGHT AFTER. They load the opening statistics and replay
+  // your games, so each fills its own host. And they wait until you have trained once:
+  // on day one the job is learning what you just added, not being told what's missing.
+  const nextHost = body.querySelector<HTMLElement>('.home-next-host');
+  const extendHost = body.querySelector<HTMLElement>('.home-extend-host');
+  const hasTrained = lines.some(l => l.lastTrained || l.timesTrained);
+  if (nextHost && extendHost && hasTrained && lines.length >= TRAINING_UNLOCK_LINES) {
+    const replyDeps = {
+      load: () => loadNextReplies(() => computeGrowTargets(lines, HOME_GROW_MAX)),
+      onOpenBuilder: prepareGap,
+      onGrow: openGrowLine,
+      onOpenGame: (game: ImportedGame, atFen: string) => {
+        openGameForAnalysis(game, { atFen });
+        showView('builder');
+      },
+    };
+    mountReplyBoard(nextHost, replyDeps, 'reply');
+    mountReplyBoard(extendHost, replyDeps, 'extend');
+  }
 }
 
 // Shows #bottom-nav below DESKTOP_NAV_BREAKPOINT and #side-nav at or above it;
@@ -5507,32 +5514,34 @@ let growReturnView: ViewName = 'home';
  * same cost every other screen in the app already pays on each visit.
  */
 async function computeGrowTargets(lines: Line[], max: number): Promise<GrowTarget[]> {
-  // Ordered, not trimmed: the first candidate may be a position none of the
-  // sources knows anything about — and the answer to that is the next
-  // candidate, not an empty offer.
   const candidates = growCandidates(lines);
   const spots = pickGrowSpots(candidates, candidates.length, growAt());
   if (spots.length === 0) return [];
 
-  const colour = spots[0].line.colour;
   const [games, opponents, entries] = await Promise.all([
     getAllGames(), getAllOpponents(), loadBookEntries(),
   ]);
   const book = buildBook(entries);
-  // One index per colour, and every candidate we look at is that colour's —
-  // pickGrowSpots is ordered, so mixing colours would mean rebuilding the index
-  // mid-search for no gain. Candidates of the other colour simply wait their turn.
-  const gameIndex = growGameIndex(games, colour);
-  const scoutIndex = growScoutIndex(
-    opponents.map(o => ({ name: o.name, games: o.games })), colour,
-  );
-  const sources = (spot: GrowSpot): GrowSources => ({
-    games: gameIndex,
-    scouts: scoutIndex,
-    book: bookReplies(book, spot),
-  });
-
-  return growTargets(spots.filter(s => s.line.colour === colour), sources, max);
+  const out: GrowTarget[] = [];
+  // Both colours. Taking only the strongest line's colour hid every mastered line of
+  // the other one, and showed nothing at all if that first colour's ends were past
+  // the book. A line nobody knows anything about still comes back with no moves:
+  // Home's board can ask the engine, and being mastered is reason enough to offer it.
+  for (const colour of ['white', 'black'] as const) {
+    const own = spots.filter(s => s.line.colour === colour);
+    if (own.length === 0) continue;
+    const gameIndex = growGameIndex(games, colour);
+    const scoutIndex = growScoutIndex(
+      opponents.map(o => ({ name: o.name, games: o.games })), colour,
+    );
+    for (const spot of own.slice(0, max)) {
+      out.push({
+        spot,
+        moves: growMoves(spot, { games: gameIndex, scouts: scoutIndex, book: bookReplies(book, spot) }),
+      });
+    }
+  }
+  return out;
 }
 
 /** SAN → how many named openings continue that way, at this spot. */

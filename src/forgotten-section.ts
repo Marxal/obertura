@@ -83,7 +83,7 @@ export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: For
 
   if (moves.length > 0) {
     host.appendChild(buildStripBlock(
-      'Forgotten moves',
+      'Relearn forgotten moves',
       `${moves.length} to work on`,
       buildStrip(
         moves.slice(0, PREVIEW).map(m => moveRow(m, lines, cb)),
@@ -96,7 +96,7 @@ export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: For
 
   if (recall.length > 0) {
     host.appendChild(buildStripBlock(
-      'Forgotten lines',
+      'Relearn forgotten lines',
       `${recall.length} to work on`,
       buildStrip(
         recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),

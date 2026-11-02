@@ -37,6 +37,9 @@ import { runDetectiveSelfTest } from '../src/detective.selftest';
 import { runWhichMoveSelfTest } from '../src/which-move.selftest';
 import { runSpotRestSelfTest } from '../src/spot-rest.selftest';
 import { runGrowLineSelfTest } from '../src/grow-line.selftest';
+import { runNextReplySelfTest } from '../src/next-reply.selftest';
+import { runFastReplaySelfTest } from '../src/fast-replay.selftest';
+import { runReplyCoverageSelfTest } from '../src/reply-coverage.selftest';
 import { runEndgameCatalogSelfTest } from '../src/endgame-catalog.selftest';
 import { runEndgameProgressSelfTest } from '../src/endgame-progress.selftest';
 import { runEndgameScanSelfTest } from '../src/endgame-scan.selftest';
@@ -108,6 +111,9 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'which-move', run: runWhichMoveSelfTest },
   { suite: 'spot-rest', run: runSpotRestSelfTest },
   { suite: 'grow-line', run: runGrowLineSelfTest },
+  { suite: 'next-reply', run: runNextReplySelfTest },
+  { suite: 'fast-replay', run: runFastReplaySelfTest },
+  { suite: 'reply-coverage', run: runReplyCoverageSelfTest },
   { suite: 'endgame-catalog', run: runEndgameCatalogSelfTest },
   { suite: 'endgame-progress', run: runEndgameProgressSelfTest },
   { suite: 'endgame-scan', run: runEndgameScanSelfTest },

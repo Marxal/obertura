@@ -2648,3 +2648,137 @@ Validation: Playwright at 412×915 against the built app, no console errors. The
 ran against a stand-in for Supabase, covering a wrong code, a resend and the right code, so
 **it has not been run against the real service or a real inbox**. `tsc` and the build pass;
 selftest 1712/1714 (the same two date-dependent scheduler tests).
+
+## 2026-11-02 — Your next reply: expanding the repertoire from Home
+
+Home's **Ready to grow** carousel is now one card, **Your next reply**: a position your
+lines can't answer, on a live board. Play a move and it shows how that move does in the
+database; **Save reply** adds it, **Go deeper** opens the builder, **Undo** takes the move
+back, and the toast can undo a save. **Another position** rests that one for 30 days.
+
+- ✅ **The order:** your games (those going badly first, "You've faced this 5 times and
+  scored 1 of 5"), a scouted opponent, the database by how often you'd really get there,
+  then mastered lines.
+- ✅ **What's left out:** paused branches, replies that transpose into a position you
+  already answer, and sidelines by the rule below. Your games overrule the database.
+- ✅ **`rare-branch.ts`, the rule Trim will share:** a reply under 15% of its position AND
+  under 2% to reach. On the 62 starter-pack lines that flags 13, saving 18% of the moves to
+  learn. Reach alone flagged 27 (long lines look rare); share alone flagged the Caro-Kann.
+  A reply missing from the data is unknown, never rare.
+- ✅ **The board doesn't trap the page:** swiping on anything but your own pieces scrolls
+  Home (measured with synthetic touch; still to be felt on a real phone).
+- ✅ **Free accounts:** answering a new reply makes a new line, so at 10 lines in training
+  it saves paused and says so. Growing past a line's end costs no slot.
+- ✅ **Supabase:** no new table, row or synced key. An answer is two moves in the existing
+  blob, under the existing 500-line cap. `obertura.nextReplyLog` is private to the device.
+
+**Found on the way, not fixed yet:** the bundled statistics have nothing after 1.e4 c6,
+1.e4 d6, 1.d4 g6 or 1.d4 c5, and 63% of starter-pack moves have data at move 3, 21% at
+move 6. So a Caro-Kann player gets far fewer cards, and the Coverage tab has the same hole.
+Cause not established; rebuilding needs a free Lichess token. Coverage also drops castling
+replies, because the data writes them as e1h1; the card normalises them, Coverage doesn't.
+
+**Next:** Trim (`rare-branch.ts` is ready for it), then the data rebuild and a blunder
+check before saving.
+
+## 2026-11-02 — Two live boards, and titles that say what to do
+
+Feedback on the first version of the card, from the owner's phone.
+
+- ✅ **Swiping can't move a piece.** Chessground grabbed any touch on a piece, so a thumb on
+  its way down Home could drag one onto a legal square. Touches are now stopped before the
+  board sees them, and only the browser's own tap gets through: a tap selects, a tap moves,
+  and to drag you tap the piece first. Scrolling away lets go of a selected piece. A mouse
+  still drags straight away. Measured with synthetic touch at 412 and 360 wide.
+- ✅ **The line can be browsed.** All the moves in one swipeable row with back and forward;
+  each shows its position, and tapping the board comes back.
+- ✅ **The facts are bars.** Opponents' share, how often you'd reach it, results, your own games.
+  The opening name is shown too.
+- ✅ **Suggest moves.** Three arrows and their numbers, from the database or Stockfish on the
+  device (the only tab when the database has nothing). Tapping a row plays it.
+- ✅ **Short lines carry on.** Holes come shallow first because those are reached most, so
+  saving one now offers the usual reply next, until ten half-moves or the data runs out.
+- ✅ **"Extend a line you know"** is a second board at the bottom of Home, split out of the one
+  queue and capped separately so holes can't push mastered lines out.
+- ✅ **Titles are actions:** Add a missing reply, Learn from your last games, Relearn forgotten
+  moves, Relearn forgotten lines, Extend a line you know. Larger, sentence case.
+- ✅ Icons on the card's buttons.
+
+**Supabase cost:** nothing new. The engine runs on the device, and a continued line is more
+moves in the existing blob under the existing cap.
+
+**Not checked:** a real finger on a real phone; cards from real games or scouts on screen
+(unit tests only). The statistics hole from the last round now shows here too: past about
+move 5 "Suggest moves" often has only the engine tab.
+
+## 2026-11-03 — The boxes that came and went, and a line built on the spot
+
+Second round of phone feedback on the live boards.
+
+- ✅ **The box vanished or came late: three causes.** Replaying games through chess.js took
+  18 s for 1500 games and 40 s for 3000 on a 4x-slowed test phone, with the screen frozen;
+  `fast-replay.ts` brings that to 2.6 s and 4 s and matches chess.js's keys. One failed
+  download of the statistics emptied the box for the session, because a browser never retries
+  a failed `import()`; it's now a `fetch`, retried while Home is open. And it waited for the
+  empty host to reach the screen; it now starts at once and holds its place.
+- ✅ **Extend wasn't showing.** Only one colour was ever looked at, and a line end no source
+  knew was dropped, which is most lines past the opening. Both colours now, with the
+  statistics as a backup and the engine as the last resort.
+- ✅ **A line, not one move.** The board replies to each move with what you've faced, then the
+  scout, the database, and the engine, until your 8th move or a join with a line you have.
+  Save takes the lot. This replaces offering a new card per reply.
+- ✅ **Explanations out:** "Tap a piece", "Database, all ratings", the question, the reason
+  sentences. "You'd reach it" is gone from the screen and only ranks the cards now.
+- ✅ **"Faced 4 times · 3 weeks ago"** opens the list of games; a game opens at this position.
+- ✅ **Buttons under the moves, details behind Show more,** which adds the engine's evaluation.
+- ✅ **Coverage on Home:** "Covered, first 6 moves", White and Black, rising as you save.
+- ✅ Fixed a wrong doc: the statistics file was still described as empty.
+- ✅ **Bug from this round, caught on the phone:** "Faced" always said 56 years ago. A game's
+  `endTime` is in seconds and the new label read it as milliseconds; the test games had been
+  generated in milliseconds, so the check passed anyway. Fixed, tested, and the test data now
+  matches the real shape.
+- ✅ **Extend's Show more** has the line's recall, runs, correct and misses, from the same
+  function as the line popup (`lineFigures`), so the two can't disagree.
+
+**Supabase cost:** nothing new. Lines can now be longer (up to 16 half-moves or so) but they
+are ordinary moves in the existing blob, through the existing push, under the existing cap.
+`obertura.homeBoards` is device-only.
+
+**Not checked:** a real finger on a real phone, and the owner's real account. Timings are from
+Chromium with a 4x CPU slowdown and generated games, so a real phone will differ. Past about
+move 5 the statistics hole means the board's replies are usually the engine's, not what people
+play, and that shows as "The engine's choice". A save deep inside a hole can move coverage by
+less than 1%, which doesn't show. The Coverage tab uses a different measure from the Home
+meter, so their numbers won't match.
+
+## 2026-11-03 — Instant boards, lines that end on your move, and an order that knows the date
+
+- ✅ **Home's boards appear at once.** The ranking can't stop early, because finding the best
+  position means comparing them all, but it needn't be waited for. Last visit's top three are
+  kept on the device and drawn immediately, and the fresh ranking only decides what's next.
+- ✅ **The order weighs often and lately.** It used to be strictly how many times you'd faced a
+  reply, with no notion of when, and bad scores always first. Now each game scores by its age,
+  so ten games from last year still beat two from last week, while four this week beat both.
+  A reply faced once counts for 14 days.
+- ✅ **A line ends on your move, and the screen now says so.** Auto-reply pauses after your 5th
+  move to ask: save, keep going, or builder. An unanswered reply is dimmed. A small Auto-reply
+  switch turns it off, and then you play both sides.
+- ✅ **Learn from your last games is a live board,** graded by the same stored engine picks as
+  the drill, with Hint and Drill beside it. Swiping there moves between the kinds of move.
+- ✅ **Swiping a box deals another position,** on Add a missing reply and Extend, until a move
+  has been played, with the next position showing underneath. Skipping now goes to the back
+  instead of removing, so a box can't be swiped empty.
+- ✅ **Past the end of a line counts.** A reply you've faced twice where a line of yours stops is
+  now a card, not only on mastered lines.
+- ✅ **The pause depends on the line and on you:** the usual length of your lines in this opening,
+  between 4 and 12 moves, or earlier if the known replies run out.
+- ✅ **Change reply.** Any reply the line added can be swapped for one you play or pick.
+
+**Supabase cost:** nothing new. The kept cards and the switch are device-only keys, and a
+position solved on Home writes the same `fixed` mark any drill does.
+
+**Not checked:** a real finger on a real phone, above all the sideways swipe against the board,
+and real scanned mistakes (the test ones were generated). While the fresh ranking runs in the
+background the phone can stutter, so a very large game history may feel briefly sticky just
+after opening Home. Positions past the end of a line you've stopped at are not offered unless
+that line is mastered; flagged to the owner as a possible next step.

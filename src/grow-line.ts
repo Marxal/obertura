@@ -119,7 +119,7 @@ export interface GrowSources {
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 /** A projected line's moves — its tree is a single spine (lines-view.ts). */
-function spine(tree: MoveNode): MoveNode[] {
+export function spine(tree: MoveNode): MoveNode[] {
   const out: MoveNode[] = [];
   let node: MoveNode | undefined = tree.children[0];
   while (node) {
@@ -326,7 +326,7 @@ export interface GrowTarget {
 /**
  * As many targets as asked for, in ranking order.
  *
- * Home shows these as a strip rather than one notification, so it needs more
+ * Home's reply card takes several, one mastered line per card, so it needs more
  * than the first: `firstGrowTarget` is this with `max: 1`, kept because a good
  * few callers only ever wanted today's one.
  */

@@ -29,6 +29,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { ImportedGame } from './import-core';
 import { positionKey } from './position-index';
+import { positionKeysAlong } from './fast-replay';
 import { openingFamily, UNKNOWN_FAMILY } from './analysis';
 import { nameForFen } from './openings';
 
@@ -479,24 +480,13 @@ export type ScoutIndex = Map<string, Array<{ name: string; uci: string; games: n
 export function gameReplyIndex(games: ImportedGame[], maxPlies: number = MAX_GAP_PLIES): PositionReplyIndex {
   const out: PositionReplyIndex = new Map();
   for (const g of games) {
-    const chess = new Chess();
-    const plies = Math.min(g.ucis.length, maxPlies + 1);
-    for (let i = 0; i < plies; i++) {
-      const key = positionKey(chess.fen());
-      let bucket = out.get(key);
-      if (!bucket) { bucket = new Map(); out.set(key, bucket); }
+    // A damaged move ends this game's contribution early (fast-replay.ts).
+    const keys = positionKeysAlong(g.ucis, maxPlies + 1);
+    for (let i = 0; i < keys.length; i++) {
+      let bucket = out.get(keys[i]);
+      if (!bucket) { bucket = new Map(); out.set(keys[i], bucket); }
       const uci = g.ucis[i];
       bucket.set(uci, (bucket.get(uci) ?? 0) + 1);
-      try {
-        const moved = chess.move({
-          from: uci.slice(0, 2),
-          to: uci.slice(2, 4),
-          promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q',
-        });
-        if (!moved) break;
-      } catch {
-        break;   // a malformed move ends this game's contribution early
-      }
     }
   }
   return out;

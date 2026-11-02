@@ -24,7 +24,7 @@ import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
 import { peekActionBtn, buildStatRow, type PeekStat } from './position-peek';
-import { lineTraining, lineMastered } from './line-status';
+import { lineFigures, lineTraining, lineMastered } from './line-status';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -106,11 +106,10 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
   const userPlies = plies.filter(p => p.isUser);
   const worst = Math.max(1, ...userPlies.map(p => p.lapses));
-  const totalMisses = userPlies.reduce((n, p) => n + p.lapses, 0);
-  // Recall and runs come from line-status, which is what the CARD quotes too —
+  // Runs and the figures come from line-status, which is what the CARD quotes too —
   // the popup used to work them out for itself, and two copies of one sum is
   // exactly how a list and the thing it opens start disagreeing.
-  const { recallPct, runs, solid, drilled } = lineTraining(line);
+  const { runs } = lineTraining(line);
 
   // Open on the worst move when there is one — that's why you tapped in.
   const defaultPly = opts.focusPly
@@ -145,28 +144,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
   // so "trained" sits right beside it rather than being buried in a caption.
   const times = opts.timesTrained ?? runs;
 
-  const stats: PeekStat[] = opts.stats ?? [
-    {
-      value: recallPct === null ? '—' : `${recallPct}%`,
-      label: 'recall',
-      tone: recallPct === null ? undefined
-        : recallPct < 50 ? 'low' : recallPct < 80 ? 'mid' : 'ok',
-    },
-    { value: String(times), label: times === 1 ? 'run' : 'runs' },
-    // How many of this line's moves are correct RIGHT NOW, out of what's
-    // actually been ASKED — the same denominator recall% is a percentage of,
-    // so the two figures can't disagree. Against the whole line instead, a
-    // line that grew after being mastered (new moves via "Keep growing this
-    // line") would count its brand-new, never-tested moves as wrong rather
-    // than simply not-yet-asked — "23 runs, but 4/8 correct" for a line with
-    // 4 solid old moves and 4 untested new ones is confusing, not informative.
-    { value: `${solid}/${drilled}`, label: 'correct' },
-    {
-      value: String(totalMisses),
-      label: totalMisses === 1 ? 'miss' : 'misses',
-      tone: totalMisses > 0 ? 'low' : undefined,
-    },
-  ];
+  const stats: PeekStat[] = opts.stats ?? lineFigures(line, times);
   sheet.appendChild(buildStatRow(stats));
 
   // ── What the popup knows that isn't a figure ────────────────────────────────

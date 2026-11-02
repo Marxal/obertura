@@ -96,6 +96,46 @@ export function lineTraining(line: Line): LineTraining {
   };
 }
 
+/** One of a line's four figures: recall, runs, correct, misses. */
+export interface LineFigure {
+  value: string;
+  label: string;
+  tone?: 'ok' | 'mid' | 'low';
+}
+
+/**
+ * The figures the line popup and Home's Extend board both show, worked out here so they
+ * can't disagree. `times` overrides the run count for a caller that knows better.
+ */
+export function lineFigures(line: Line, times?: number): LineFigure[] {
+  const { recallPct, runs, solid, drilled } = lineTraining(line);
+  const shownRuns = times ?? runs;
+  const misses = userMoveNodes(line.tree, line.colour)
+    .reduce((n, node) => n + (node.review?.lapses ?? 0), 0);
+  return [
+    {
+      value: recallPct === null ? '—' : `${recallPct}%`,
+      label: 'recall',
+      tone: recallPct === null ? undefined
+        : recallPct < 50 ? 'low' : recallPct < 80 ? 'mid' : 'ok',
+    },
+    { value: String(shownRuns), label: shownRuns === 1 ? 'run' : 'runs' },
+    // How many of this line's moves are correct RIGHT NOW, out of what's
+    // actually been ASKED — the same denominator recall% is a percentage of,
+    // so the two figures can't disagree. Against the whole line instead, a
+    // line that grew after being mastered (new moves via "Keep growing this
+    // line") would count its brand-new, never-tested moves as wrong rather
+    // than simply not-yet-asked — "23 runs, but 4/8 correct" for a line with
+    // 4 solid old moves and 4 untested new ones is confusing, not informative.
+    { value: `${solid}/${drilled}`, label: 'correct' },
+    {
+      value: String(misses),
+      label: misses === 1 ? 'miss' : 'misses',
+      tone: misses > 0 ? 'low' : undefined,
+    },
+  ];
+}
+
 /** "3 runs · 86% recall" — the same figures as one quiet line, or null. */
 export function lineTrainingText(line: Line, t: LineTraining = lineTraining(line)): string | null {
   if (t.runs === 0 && t.drilled === 0) return null;

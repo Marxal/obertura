@@ -78,7 +78,7 @@ seeded lines are enrolled without setting anything.
   `src/training-goal.ts`. Seed at least 3 or you get the Get-started panel
   instead of the training list. (The daily challenge counts toward the same
   number.)
-- **Bottom nav** is `#bottom-nav [data-view="train|lines|explore|games|progress"]`;
+- **Bottom nav** is `#bottom-nav [data-view="home|train|explore|games|progress"]` (Openings is `explore`);
   Settings opens via `#nav-settings` and HIDES the bottom nav — leave it with
   `#nav-back` before tapping a tab.
 - **Settings groups are `<details>` accordions** — click the `summary`

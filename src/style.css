@@ -7760,6 +7760,8 @@ html:has(> body > .edit-overlay) > body {
      has no bottom margin, so without it the two sat flush while every other pair
      on the page had 24px between them. */
   padding: var(--space-xl) var(--space-lg) var(--space-xl);
+  /* A box swiped away flies off the screen, not into a sideways scroll. */
+  overflow-x: clip;
 }
 
 /* "Reading your games — 24 to go". A notification: it arrives on its own, says
@@ -7912,34 +7914,577 @@ html:has(> body > .edit-overlay) > body {
   margin-inline: auto;
 }
 
-/* Which slide you are on, where the slides all look alike (the mistakes
-   carousel has its icon row for this; the grow one has nothing to tell its
-   boards apart). */
-.home-dots {
-  display: flex;
-  justify-content: center;
-  gap: 0.35rem;
+/* Home's titles say what to do, so they read as headings and not as labels. */
+.home-body .fmove-block-title {
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
 }
 
-.home-dots i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-fainter);
-  opacity: 0.4;
-  transition: opacity 0.15s, background 0.15s;
+/* The live boards (next-reply-card.ts): one position, answered on the spot. */
+.nr-panel .fmove-block-head {
+  align-items: center;
 }
 
-.home-dots i.home-dot--on {
-  background: var(--accent);
-  opacity: 1;
+.nr-another {
+  flex: none;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.82rem;
 }
 
-.home-grow-name {
+.nr-line {
   display: flex;
   align-items: center;
+  gap: 0.25rem;
+}
+
+.nr-step {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--accent-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.nr-step:disabled {
+  background: transparent;
+  color: var(--text-fainter);
+  cursor: default;
+}
+
+.nr-moves {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.nr-moves::-webkit-scrollbar {
+  display: none;
+}
+
+.nr-move {
+  flex: none;
+  min-height: 2.4rem;
+  padding: 0 0.35rem;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nr-move-number {
+  margin-right: 0.15rem;
+  color: var(--text-fainter);
+}
+
+.nr-move--now {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.nr-opening {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.nr-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.nr-note svg {
+  flex: none;
+}
+
+.nr-note--good { color: var(--success); font-weight: 600; }
+.nr-note--bad { color: var(--danger); font-weight: 600; }
+
+.nr-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Holds the box's place on Home while its data loads. */
+.nr-board--waiting {
+  background: var(--hairline-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nr-board--waiting {
+    animation: nr-waiting 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes nr-waiting {
+  50% { opacity: 0.55; }
+}
+
+/* Covered, first 6 moves: White and Black, side by side. */
+.nr-cov {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.nr-cov-title {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-faint);
+}
+
+.nr-cov-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.35rem 0.9rem;
+}
+
+.nr-cov-cell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.nr-cov-name {
+  color: var(--text-muted);
+}
+
+.nr-cov-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.nr-cov .nr-meter-fill {
+  transition: width 600ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nr-cov-value--rose {
+    animation: nr-rose 1.2s ease;
+  }
+}
+
+@keyframes nr-rose {
+  30% { color: var(--accent); transform: scale(1.18); }
+}
+
+.nr-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* "Faced 4 times · 3 weeks ago": opens the games. */
+.nr-faced {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  min-height: 2.4rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm, 8px);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.nr-faced svg {
+  flex: none;
+}
+
+.nr-faced svg:first-child {
+  color: var(--text-muted);
+}
+
+.nr-faced-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nr-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+/* A quiet switch: it's a preference, not a thing to do. */
+.nr-auto {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.2rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.nr-auto input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.nr-auto-track {
+  position: relative;
+  flex: none;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.nr-auto-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.nr-auto input:checked + .nr-auto-track {
+  background: var(--accent);
+}
+
+.nr-auto input:checked + .nr-auto-track::after {
+  transform: translateX(12px);
+}
+
+.nr-auto input:focus-visible + .nr-auto-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A reply you haven't answered: Save won't keep it. */
+.nr-move--pending {
+  opacity: 0.5;
+}
+
+/* Beside the facts: small, because it's an exception, not the plan. */
+.nr-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0 0.4rem;
+  font-size: 0.82rem;
+}
+
+/* The next position, underneath a box being swiped away. */
+.home-next-host,
+.home-extend-host {
+  position: relative;
+}
+
+.nr-under {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: center;
+}
+
+.nr-under-board {
+  position: absolute;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* A box that follows your finger sideways. */
+.swipe-card {
+  touch-action: pan-y;
+}
+
+.swipe-card .nr-moves {
+  touch-action: pan-x pan-y;
+}
+
+.swipe-card--dragging {
+  position: relative;
+  z-index: 2;
+  will-change: transform;
+}
+
+.swipe-card--flying {
+  position: relative;
+  z-index: 2;
+  transition: transform 170ms ease-in;
+}
+
+.nr-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.nr-details {
+  text-align: left;
+}
+
+.nr-fact-heading {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nr-fact-heading:first-child {
+  margin-top: 0;
+}
+
+/* The games behind "Faced 4 times". */
+.nr-games {
+  display: flex;
+  flex-direction: column;
+  max-height: 55vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.nr-game {
+  display: grid;
+  grid-template-columns: 2.9rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.9rem;
+  padding: 0 0.15rem;
+  border: 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nr-game:last-child {
+  border-bottom: 0;
+}
+
+.nr-game svg {
+  color: var(--text-fainter);
+}
+
+.nr-result {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.nr-result--win { color: var(--success); }
+.nr-result--draw { color: var(--text-muted); }
+.nr-result--loss { color: var(--danger); }
+
+.nr-game-who {
+  display: flex;
+  align-items: baseline;
   gap: 0.35rem;
   min-width: 0;
+}
+
+.nr-game-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nr-game-rating,
+.nr-game-when {
+  flex: none;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.nr-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  text-align: left;
+}
+
+.nr-fact {
+  display: grid;
+  grid-template-columns: 7.2rem minmax(0, 1fr) 3.9rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.nr-fact-label {
+  color: var(--text-muted);
+}
+
+.nr-fact-value {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.nr-meter {
+  height: 7px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--hairline-soft);
+}
+
+.nr-meter-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.nr-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.nr-action {
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 0.35rem;
+  padding-inline: 0.4rem;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.nr-save {
+  flex: 2 1 0;
+}
+
+.nr-undo {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.nr-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  text-align: left;
+}
+
+.nr-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--hairline-soft);
+}
+
+.nr-tab {
+  flex: 1 1 0;
+  min-height: 2.2rem;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.nr-tab[aria-pressed="true"] {
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.nr-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nr-pick {
+  display: grid;
+  grid-template-columns: 3.4rem minmax(0, 1fr) 2.4rem minmax(0, 1fr) 2.4rem;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm, 8px);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nr-pick-move {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nr-pick-number {
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.nr-pick-eval {
+  grid-column: 2 / -1;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (min-width: 960px) {
