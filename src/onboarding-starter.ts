@@ -118,9 +118,24 @@ export function loadPacks(): Promise<Pack[]> {
 
 // Open the starter-pack picker. Reached from the My Lines empty states, the
 // Get-started checklist and the Explore tab's Packs section.
-export async function openStarterPackPicker(onAddLine: AddLineFn): Promise<void> {
+export async function openStarterPackPicker(
+  onAddLine: AddLineFn,
+  firstRun?: PackFirstRun,
+): Promise<void> {
   const [packs, lines] = await Promise.all([loadPacks(), getAllLines()]);
-  openPackPicker(packs, existingMainlines(lines), onAddLine, () => {});
+  openPackPicker(packs, existingMainlines(lines), onAddLine, () => {}, firstRun);
+}
+
+// How the sheet behaves as a step of first run. Elsewhere it is a side trip that
+// closes back onto whatever opened it. Here it has to lead somewhere: adding a
+// pack moves on by itself, and dismissing it goes back a step rather than
+// leaving an empty app behind it.
+export interface PackFirstRun {
+  title: string;
+  // The whole pack went in. The sheet has closed by the time this runs.
+  onBulkAdded: () => void;
+  // The backdrop or the back gesture, with nothing chosen.
+  onDismissed: () => void;
 }
 
 // ── Starter-pack lightbox ────────────────────────────────────────────────────
@@ -144,6 +159,7 @@ function openPackPicker(
   existing: string[],
   onAddLine: AddLineFn,
   onAdded: () => void,
+  firstRun?: PackFirstRun,
 ): void {
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
@@ -155,9 +171,16 @@ function openPackPicker(
     overlay.remove();
     removeBack();
   }
-  const removeBack = pushBack(close);
+  // Closing because a line was picked is not the same as walking away from the
+  // sheet, and only the second one means anything to first run.
+  const dismiss = (): void => {
+    if (closed) return;
+    close();
+    firstRun?.onDismissed();
+  };
+  const removeBack = pushBack(dismiss);
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) close();
+    if (e.target === overlay) dismiss();
   });
 
   // Which pack is expanded, held here rather than in the card so a repaint
@@ -171,10 +194,14 @@ function openPackPicker(
 
     const h = document.createElement('h3');
     h.className = 'edit-sheet-title';
-    h.textContent = 'Starter packs';
+    h.textContent = firstRun?.title ?? 'Starter packs';
     sheet.appendChild(h);
 
-    const repaint = () => { onAdded(); render(); };
+    const repaint = () => {
+      onAdded();
+      if (firstRun) { close(); firstRun.onBulkAdded(); return; }
+      render();
+    };
 
     const packsWrap = document.createElement('div');
     packsWrap.className = 'onb-packs';

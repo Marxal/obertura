@@ -252,7 +252,16 @@ export function interleaveNew<T>(
 // walk them: highest priority first, then new material woven through reviews at
 // NEW_MATERIAL_CADENCE, with the reviews themselves most-overdue first. Lines
 // that tie on all of that keep their input order, so the ordering is stable.
-export function dueLines(lines: Line[], now: Date = new Date()): Line[] {
+//
+// `newAllowance` is the day's budget of never-trained moves (new-move-limit.ts).
+// A line that's only due because of new moves waits once it's spent. A line with a
+// review due is walked regardless: the review can't wait, and its new moves come
+// with it. Lines are whole, so the last one in may run a little over.
+export function dueLines(
+  lines: Line[],
+  now: Date = new Date(),
+  newAllowance: number = Number.POSITIVE_INFINITY,
+): Line[] {
   const due = lines.filter(l => l.inTraining && lineIsDue(l, now));
   const rank = (l: Line): number => PRIORITY_RANK[linePriority(l)];
 
@@ -270,7 +279,16 @@ export function dueLines(lines: Line[], now: Date = new Date()): Line[] {
   const seen = order(due.filter(l => !hasNewMoves(l)),
     (a, b) => lineOverdueness(b, now) - lineOverdueness(a, now));
 
-  return interleaveNew(fresh, seen);
+  let left = newAllowance;
+  const allowed = fresh.filter((line) => {
+    const nodes = userMoveNodes(line.tree, line.colour);
+    const reviewDue = nodes.some(n => n.review && isReviewDue(n.review, now));
+    if (!reviewDue && left <= 0) return false;
+    left -= nodes.filter(n => !n.review).length;
+    return true;
+  });
+
+  return interleaveNew(allowed, seen);
 }
 
 // The soonest `due` across a line's user-moves — drives "Due in N days" labels.

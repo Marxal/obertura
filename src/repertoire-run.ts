@@ -45,6 +45,8 @@ export interface RunPosition {
   /** 1-based ply. */
   depth: number;
   due: boolean;
+  /** The moves that lead to this one, for the strip above the board. */
+  sansBefore: string[];
 }
 
 export interface RunPlan {
@@ -59,6 +61,8 @@ export interface RunPlan {
    * (UX-AUDIT C1). Counted over every due move, not just the capped run.
    */
   newMoves: number;
+  /** New moves left out today by `newAllowance`. They come back tomorrow. */
+  newHeldBack: number;
   /**
    * What the SAME material costs as line walks — every in-training line's user
    * moves, added up. Counted over exactly the moves the run itself covers (the
@@ -84,6 +88,8 @@ export interface RunOptions {
   /** Only this book (the repertoire screen's selection). */
   repertoireId?: string;
   minDepth?: number;
+  /** Today's budget of never-trained moves (new-move-limit.ts). Absent: no limit. */
+  newAllowance?: number;
 }
 
 /**
@@ -127,6 +133,7 @@ export function planRepertoireRun(reps: Repertoire[], opts: RunOptions = {}): Ru
             all.push({
               repertoireId: rep.id,
               expected: child,
+              sansBefore: path.map(n => n.san),
               preFen: depth >= 2 ? next[depth - 2].fen : START_FEN,
               prevUci: depth >= 2 ? next[depth - 2].uci : undefined,
               prevFen: depth >= 3 ? next[depth - 3].fen : depth === 2 ? START_FEN : undefined,
@@ -145,14 +152,26 @@ export function planRepertoireRun(reps: Repertoire[], opts: RunOptions = {}): Ru
     walk(rep.tree, []);
   }
 
-  const dueMoves = all.filter(p => p.due).length;
-  const newMoves = all.filter(p => p.due && neverTrained(p.expected)).length;
+  // The day's limit, first in walk order, so what's learned today is a connected
+  // stretch of a line rather than a scatter. includeAll is asking for everything.
+  const allowance = opts.includeAll ? Number.POSITIVE_INFINITY : opts.newAllowance ?? Number.POSITIVE_INFINITY;
+  let newLeft = allowance;
+  const eligible = all.filter((p) => {
+    if (!neverTrained(p.expected)) return true;
+    if (newLeft <= 0) return false;
+    newLeft--;
+    return true;
+  });
+  const newHeldBack = all.length - eligible.length;
+
+  const dueMoves = eligible.filter(p => p.due).length;
+  const newMoves = eligible.filter(p => p.due && neverTrained(p.expected)).length;
 
   // Due first. With nothing due the mode still has to be playable, so it falls
   // back to whatever comes round soonest rather than being a dead end.
-  let chosen = opts.includeAll ? all : all.filter(p => p.due);
+  let chosen = opts.includeAll ? eligible : eligible.filter(p => p.due);
   if (chosen.length === 0) {
-    chosen = [...all]
+    chosen = [...eligible]
       .sort((a, b) => dueTime(a, now) - dueTime(b, now))
       .slice(0, max);
   }
@@ -180,7 +199,7 @@ export function planRepertoireRun(reps: Repertoire[], opts: RunOptions = {}): Ru
     .slice(0, max)
     .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
 
-  return { positions, totalMoves: all.length, dueMoves, newMoves, asLineWalks };
+  return { positions, totalMoves: all.length, dueMoves, newMoves, newHeldBack, asLineWalks };
 }
 
 function dueTime(p: RunPosition, now: Date): number {

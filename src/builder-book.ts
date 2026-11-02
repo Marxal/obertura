@@ -91,6 +91,29 @@ export function pendingCount(): number {
   return pending.size;
 }
 
+// Was this move played by the book's own side? A FEN names who moves NEXT, so a
+// position with Black to move means White just played.
+function isOwnMove(node: MoveNode): boolean {
+  const justMoved = node.fen.split(' ')[1] === 'b' ? 'white' : 'black';
+  return justMoved === book?.colour;
+}
+
+/**
+ * The draft's moves on your own side: what you'd say you played. 1.e4 e5 2.Nf3 Nc6
+ * is two moves in a White book, though four went onto the board and four get
+ * stored. It's the same unit as the daily new-move limit.
+ */
+export function pendingOwnCount(): number {
+  if (pending.size === 0) return 0;
+  const root = rootOfWorking();
+  let own = 0;
+  for (const id of pending) {
+    const node = findNode(root, id);
+    if (node && isOwnMove(node)) own++;
+  }
+  return own;
+}
+
 export function hasPending(): boolean {
   return pending.size > 0;
 }
@@ -231,7 +254,7 @@ function draftLineOf(root: MoveNode, trail: MoveNode[]): DraftLine {
     endId: end.id,
     cutId: cut.id,
     nodes,
-    added: nodes.filter(n => pending.has(n.id)).length,
+    added: nodes.filter(n => pending.has(n.id) && isOwnMove(n)).length,
   };
 }
 

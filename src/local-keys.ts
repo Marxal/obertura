@@ -88,6 +88,14 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.'];
 // means "not this device" has to be stored per device or it does not mean
 // anything.
 //
+// `obertura.analysisNotice` — whether this device has told its user their game
+// analysis is ready. The scan results it describes don't sync (sync-core.ts drops
+// `retry`), so a second phone restoring "already told" would never announce its own.
+//
+// `obertura.newMovesToday` — how many new moves this device has trained today. A
+// value that changes on every first move learned would mean an account push each
+// time, to police a soft limit on an unusual two-phone day (new-move-limit.ts).
+//
 // (`obertura.metricsSession`, the once-per-launch flag, is in sessionStorage,
 // which nothing in the backup path ever walks — so it needs no entry here.)
 const PRIVATE_KEY_PREFIXES = [
@@ -102,6 +110,8 @@ const PRIVATE_KEYS = [
   'obertura.installedAt',
   'obertura.metricsSeen',
   'obertura.metricsOptOut',
+  'obertura.analysisNotice',
+  'obertura.newMovesToday',
 ];
 
 /**

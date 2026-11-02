@@ -129,6 +129,23 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
 
+  // Lines saved, nothing trained: the hero and the training region would be two
+  // empty rings and a row of zeros (UX-AUDIT 12.1). One line says it better. The
+  // regions below still draw whatever real data they have, such as imported games.
+  const trainedYet = getTrainingDays().length > 0
+    || lines.some(l => l.lastTrained || l.timesTrained);
+  if (!trainedYet) {
+    container.appendChild(buildEmptyState({
+      icon: Icons.barChart(28),
+      line: 'Train once and this page comes alive.',
+      cta: { label: 'Start training', onClick: () => cb.onStartTraining() },
+    }));
+    renderPuzzlesRegion(container);
+    renderEndgamesRegion(container, games);
+    if (games.length > 0) renderGamesRegion(container, games, lines, cb);
+    return;
+  }
+
   // 1. Streak hero. The month calendar rides inside it as a collapsible row.
   renderStreakHero(container);
 

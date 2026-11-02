@@ -119,7 +119,7 @@ export function renderChapterList(body: HTMLElement, deps: ChapterListDeps): voi
           // A one-chapter study has no "Save all" — this save IS the whole
           // import, so confirm and dismiss just like the multi-chapter path.
           if (singleChapter) {
-            showToast('Saved 1 line to My Lines ✓', { variant: 'success' });
+            showToast('Saved 1 line to My lines ✓', { variant: 'success' });
             deps.onAllSaved();
           }
         } else { save.disabled = false; showToast('Couldn’t save that chapter.'); }
@@ -139,7 +139,7 @@ export function renderChapterList(body: HTMLElement, deps: ChapterListDeps): voi
       all.disabled = true;
       const pending = chapters.filter((_, i) => !saved.has(i));
       void deps.onSaveLines(pending.map(seedOf), colour).then(n => {
-        showToast(`Saved ${n} line${n === 1 ? '' : 's'} to My Lines ✓`, { variant: 'success' });
+        showToast(`Saved ${n} line${n === 1 ? '' : 's'} to My lines ✓`, { variant: 'success' });
         deps.onAllSaved();
       });
     });

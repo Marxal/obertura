@@ -6,6 +6,7 @@ import {
   qualityFromMisses,
   isReviewDue,
   dueLines,
+  userMoveNodes,
   lineIsDue,
   linePriority,
   lineSpacing,
@@ -120,6 +121,34 @@ export function runSchedulerSelfTest(): TestResult[] {
     badMiss < oneMiss,
     `1 miss → ${oneMiss.toFixed(2)} ease, repeated → ${badMiss.toFixed(2)} ease`
   );
+
+  // 8b. The day's limit on new moves: a line that's due only because of new moves
+  //     waits once the budget is spent; a line with a review due never does.
+  {
+    const fresh = (id: string): ReturnType<typeof makeLine> => {
+      const l = makeLine([-1, -1], now);
+      l.id = id;
+      for (const n of userMoveNodes(l.tree, l.colour)) delete n.review;
+      return l;
+    };
+    const review = makeLine([-1, 10], now);
+    review.id = 'review';
+    const ids = (allowance?: number): string => dueLines(
+      [fresh('a'), fresh('b'), fresh('c'), review], now, allowance,
+    ).map(l => l.id).sort().join(' ');
+    check('no allowance means no limit', ids() === 'a b c review', ids());
+    check('new lines stop when the budget is spent', ids(3) === 'a b review', ids(3));
+    check('a spent budget still leaves the reviews', ids(0) === 'review', ids(0));
+
+    const mixed = makeLine([-1, 10], now);
+    mixed.id = 'mixed';
+    delete userMoveNodes(mixed.tree, mixed.colour)[1].review;
+    check(
+      'a line with a review due is walked even with its new moves',
+      dueLines([mixed], now, 0).length === 1,
+      'the review cannot wait for tomorrow',
+    );
+  }
 
   // 9. dueLines / lineIsDue: a line with one overdue move is due; a line whose
   //    moves are all far in the future is not.

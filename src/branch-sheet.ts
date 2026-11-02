@@ -414,7 +414,7 @@ function build(
   };
 
   if (opts.onSeeInLines) {
-    addLink('See in My Lines', null, () => { close(); opts.onSeeInLines?.(); });
+    addLink('See in My lines', null, () => { close(); opts.onSeeInLines?.(); });
   }
 
   // "Show on the tree": the same map My Lines draws, opened already centred on

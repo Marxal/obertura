@@ -307,7 +307,7 @@ export interface AuthResult {
   // link before it will hand out a session.
   needsEmailConfirmation?: boolean;
   // Set when a magic-link request was refused because that address has no
-  // account. The UI answers it by offering the Registration tab rather than
+  // account. The UI answers it by offering the Create account tab rather than
   // just reporting a failure.
   noSuchAccount?: boolean;
   // A plain-language message, ready to drop straight into a toast.
@@ -404,7 +404,7 @@ export function signInWithFacebook(): Promise<AuthResult> {
  *
  * `shouldCreateUser: false` IS THE POINT, not a detail. With it true (the
  * default) this call quietly becomes a second, parallel way to create an
- * account — one that skips the consent checkbox and the Terms the Registration
+ * account — one that skips the consent checkbox and the Terms the Create account
  * tab makes people agree to. Sign-up has exactly one door, and it is that tab.
  *
  * The cost of saying no is that Supabase then answers an unknown address with
@@ -457,6 +457,43 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
       redirectTo: authRedirectUrl(),
     });
     if (error) return { ok: false, message: friendlyAuthError(error) };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: friendlyAuthError(err) };
+  }
+}
+
+export type EmailCodeKind = 'signup' | 'email' | 'recovery';
+
+/**
+ * The code from the email, typed into the app (UX-AUDIT C4). Unlike the link in
+ * the same email it can't open in the wrong place: on Android a link opens in the
+ * browser, leaving a signed-in tab beside a signed-out installed app.
+ *
+ * It needs `{{ .Token }}` in the three email templates (SUPABASE-SYNC.md §2). The
+ * link keeps working, so an email without a code still gets someone in.
+ */
+export async function verifyEmailCode(
+  email: string, code: string, kind: EmailCodeKind,
+): Promise<AuthResult> {
+  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  try {
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code,
+      type: kind,
+    });
+    if (error) {
+      const expired = error.code === 'otp_expired' || /expired|invalid/i.test(error.message);
+      return {
+        ok: false,
+        message: expired
+          ? 'That code is wrong or has expired. Check it, or send a new one.'
+          : friendlyAuthError(error),
+      };
+    }
+    if (kind === 'recovery') beginPasswordRecovery();
+    else track('signed_in');
     return { ok: true };
   } catch (err) {
     return { ok: false, message: friendlyAuthError(err) };
@@ -521,7 +558,7 @@ export function friendlyAuthError(err: unknown): string {
     case 'invalid_credentials':
       return 'That email and password don’t match an account.';
     case 'email_not_confirmed':
-      return 'Confirm your email first — check your inbox for the link.';
+      return 'Confirm your email first: the code or link is in your inbox.';
     case 'user_already_exists':
     case 'email_exists':
       return 'There’s already an account with that email. Sign in instead.';
@@ -542,16 +579,16 @@ export function friendlyAuthError(err: unknown): string {
     case 'otp_disabled':
       // Only reachable from signInWithMagicLink, which asks Supabase not to
       // create accounts — so this always means "no account with that email".
-      return 'No account with that email yet — register first.';
+      return 'No account with that email yet. Create one first.';
   }
 
   if (/invalid login credentials/i.test(message)) return 'That email and password don’t match an account.';
-  if (/email not confirmed/i.test(message)) return 'Confirm your email first — check your inbox for the link.';
+  if (/email not confirmed/i.test(message)) return 'Confirm your email first: the code or link is in your inbox.';
   if (/already registered/i.test(message)) return 'There’s already an account with that email. Sign in instead.';
   if (/password should be at least/i.test(message)) return 'That password is too short — use at least 6 characters.';
   if (/rate limit|too many/i.test(message)) return 'Too many tries. Wait a minute and try again.';
   if (/expired|invalid.*token/i.test(message)) return 'That link has expired — ask for a new one.';
-  if (/signups not allowed for otp/i.test(message)) return 'No account with that email yet — register first.';
+  if (/signups not allowed for otp/i.test(message)) return 'No account with that email yet. Create one first.';
   if (/unsupported provider|provider is not enabled/i.test(message)) return 'That sign-in method isn’t switched on yet.';
   if (/failed to fetch|network|offline/i.test(message)) return 'Couldn’t reach the server — check your connection.';
 

@@ -18,7 +18,7 @@ import { fetchNextPuzzle } from './puzzles';
 import {
   startPuzzleSession, type PuzzleDraw, type AnalyseRequest,
 } from './puzzle-run';
-import { getPuzzleRating, difficultyForRating } from './puzzle-rating';
+import { getPuzzleRating, hasPlayedRated, difficultyForRating } from './puzzle-rating';
 import { buildPositionCard, colourPip } from './card-position';
 import {
   endgamesByCategory, type Endgame, type EndgameGroup, type EndgameCategory,
@@ -238,7 +238,8 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       icon: Icons.flag(26),
       name: 'Endgames',
       sub: 'Rated ladder',
-      stat: getPuzzleRating('endgame'),
+      // No figure until there's a rated result: the starting 1000 reads as a count.
+      stat: hasPlayedRated('endgame') ? getPuzzleRating('endgame') : undefined,
       statLabel: 'rating',
       progress: ratingProgress(getPuzzleRating('endgame')),
       onClick: () => runEndgamePuzzles('all', deps, rebuild),

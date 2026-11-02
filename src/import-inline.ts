@@ -10,7 +10,7 @@
 //
 // So the first step of the form lands directly on the screen, boxed and
 // accented so it reads as the one thing to do there. Filling it in and hitting
-// Scan opens the shared panel with `autoScan`, which skips its own step 1 and
+// Import opens the shared panel with `autoScan`, which skips its own step 1 and
 // goes straight to the results — one step out of the flow, everywhere.
 //
 // It is deliberately the SAME two fields as the panel's step 1, prefilled from
@@ -81,7 +81,7 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
       // what the user has typed if we actually have something to put there.
       const saved = savedUsername(p);
       if (saved || !input.value) input.value = saved;
-      input.placeholder = `your ${platformLabel(p)} username`;
+      input.placeholder = `Your ${platformLabel(p)} username`;
     });
     buttons.push(b);
     seg.appendChild(b);
@@ -96,7 +96,7 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
   reflect();
   box.appendChild(seg);
 
-  // Username + Scan, on one row — this is a two-control form and shouldn't look
+  // Username + Import, on one row — this is a two-control form and shouldn't look
   // like a page of settings.
   const row = document.createElement('form');
   row.className = 'inline-import-row';
@@ -107,7 +107,7 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
   input.autocomplete = 'off';
   input.autocapitalize = 'none';
   input.spellcheck = false;
-  input.placeholder = `your ${platformLabel(platform)} username`;
+  input.placeholder = `Your ${platformLabel(platform)} username`;
   input.value = savedUsername(platform);
   input.setAttribute('aria-label', 'Username');
   row.appendChild(input);
@@ -115,7 +115,7 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
   const go = document.createElement('button');
   go.type = 'submit';
   go.className = 'btn-primary inline-import-go';
-  go.textContent = 'Scan';
+  go.textContent = 'Import';
   row.appendChild(go);
 
   const error = document.createElement('p');

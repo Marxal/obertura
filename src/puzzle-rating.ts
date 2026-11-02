@@ -321,3 +321,14 @@ export function clearPuzzleRating(scope?: RatingScope): void {
     }
   }
 }
+
+// Has this ladder produced a real result yet? The rating is only written once one
+// exists, so until then getPuzzleRating() is just the starting figure, and showing
+// it reads as a count of something.
+export function hasPlayedRated(scope: RatingScope = 'openings'): boolean {
+  try {
+    return localStorage.getItem(KEYS[scope].rating) !== null;
+  } catch {
+    return false;
+  }
+}

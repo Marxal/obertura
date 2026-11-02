@@ -90,9 +90,17 @@ export function runLocalKeysSelfTest(): TestResult[] {
       + 'counting on whatever device restored it',
   );
 
+  check(
+    'the day’s new-move counter and the analysis notice stay on this device',
+    !backupLocalKey('obertura.newMovesToday') && !backupLocalKey('obertura.analysisNotice'),
+    'the counter would push on every first move learned; the notice describes scan '
+      + 'results that do not sync',
+  );
+
   // ── What SHOULD travel, so the deny list can't quietly swallow everything ──
   const carried = [
     'obertura.onboardingComplete',
+    'obertura.newMovesPerDay',
     'obertura.builderTourDone',
     'obertura.puzzleRating',
     'obertura.boardColour',

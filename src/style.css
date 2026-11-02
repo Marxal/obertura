@@ -1639,17 +1639,6 @@ main {
   line-height: 1;
 }
 
-/* No streak yet — quieter, and the flame reads "unlit". */
-.streak-pill--cold {
-  background: var(--bg-elevated);
-  color: var(--text-faint);
-}
-
-.streak-pill--cold .streak-pill-flame {
-  filter: grayscale(1);
-  opacity: 0.6;
-}
-
 /* ── Daily challenge card (top of Train, above the tabs) ──────────────────────── */
 /* Two bite-sized tasks for today — remember a few lines, solve a few rated
    puzzles — with the streak alongside. Once both are done it shrinks to a quiet
@@ -1938,11 +1927,15 @@ main {
   transition: width 0.3s ease-out;
 }
 
-/* The preview rows: real icon, real label, nothing behind them. */
+/* The preview rows: real icon, real label, nothing behind them. Plain list lines
+   with no box, because a box is what says "press me" (UX-AUDIT 3.3). The rows on
+   the live card are real buttons and keep theirs. */
 .daily-task--locked {
-  background: var(--bg-elevated);
+  background: none;
   color: var(--text-faint);
-  border-style: dashed;
+  border: none;
+  padding-block: 0.15rem;
+  padding-inline: 0;
   cursor: default;
 }
 .daily-task--locked .daily-task-icon { color: var(--text-fainter); }
@@ -3951,13 +3944,14 @@ html[data-coords="off"] .cg-wrap coords {
   font-weight: 700;
 }
 
-/* A move played onto the board but not yet added to the repertoire. Dashed
-   rather than coloured: the strip already carries review classes and annotation
-   chips, and a draft is a state of the move, not a judgement about it. */
+/* A move played onto the board but not yet added to the repertoire. Italic with
+   a dotted underline rather than coloured: the strip already carries review
+   classes and annotation chips, and a draft is a state of the move, not a
+   judgement about it. It used to be a dashed box, which read as an empty slot. */
 .move-san--draft {
-  border: 1px dashed var(--accent);
-  padding: calc(0.1em - 1px) calc(0.25em - 1px);
   font-style: italic;
+  text-decoration: underline dotted var(--accent);
+  text-underline-offset: 0.2em;
 }
 
 .move-san--draft.active {
@@ -5999,17 +5993,51 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 .lines-tab:active { transform: translateY(1px); }
 
-/* In Explore the tab switcher leads the screen (no carousel above it), so drop
-   the divider that separates it from the My Lines carousel and give it a little
-   breathing room under the app header. Explore also carries FOUR pillars —
-   too many for one flex row on a phone — so its instance lays out as a 2×2
-   grid of buttons (2+1 when Scouting is off). My Lines / Train keep the flex
-   row from the base rule. */
+/* In Openings the switcher leads the screen, in the same shape as Train's switch
+   (.train-switch): boxes side by side, an icon in a disc over a short name, the
+   selected one filled, pinned as you scroll and a little smaller once you do
+   (switch-compact.ts). It was a 2×2 grid of cards, which read as four actions
+   (UX-AUDIT 9.3). `#app` beats the shared main-tab rule further down: a scroll box
+   on the view would trap the pinned row inside a box that never scrolls. */
+#app #view-explore { overflow: visible; }
 .lines-try .lines-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-page);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.4rem;
+  padding: var(--space-sm) var(--space-lg);
+  margin-top: 0;
   border-top: none;
-  padding-top: 0.75rem;
+}
+.lines-try .lines-tab {
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.45rem 0.15rem 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text);
+  box-shadow: none;
+}
+.lines-try .lines-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lines-try .lines-tab-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
 }
 
 .lines-tab-icon { flex: 0 0 auto; }
@@ -6019,6 +6047,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: #fff;
   border-color: var(--primary);
 }
+.lines-try .lines-tab.active .lines-tab-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.lines-try .lines-tabs--compact { border-bottom-color: var(--hairline-soft); }
+.lines-try .lines-tabs--compact .lines-tab { padding: 0.3rem 0.15rem; font-size: 0.68rem; }
+.lines-try .lines-tabs--compact .lines-tab-icon { width: 22px; height: 22px; }
+.lines-try .lines-tabs--compact .lines-tab-icon svg { width: 14px; height: 14px; }
 
 /* ── End game — the coming-soon placeholder pane ── */
 .train-soon-card {
@@ -6696,16 +6732,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
    "All" has no pip, so it keeps its word — a bare number would say nothing. */
 @media (max-width: 460px) {
-  .fbar .dfilter-btn:has(.colour-pip) .dfilter-btn-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+  /* The word says the colour, so the pip is what gives way to fit all three. */
+  .fbar .dfilter-btn .colour-pip { display: none; }
   .fbar .dfilter-btn { padding-inline: 0.5rem; }
 }
 
@@ -7228,6 +7256,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding-left: var(--space-md);
   padding-right: var(--space-md);
   white-space: nowrap;
+}
+/* A way out that throws work away: text, not a button shape. */
+.dialog-btn.btn-quiet-danger {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--danger);
+  font-weight: 600;
+  cursor: pointer;
 }
 .dialog-btn-row--stack {
   flex-direction: column;
@@ -8650,10 +8687,10 @@ html:has(> body > .edit-overlay) > body {
    board between them ends up vertically centred. Its content bottom-aligns to
    sit right above the board. */
 .pt-top {
-  /* Grows to share spare height (centring the board) but never shrinks below its
-     content, so the title stays readable and the overlay scrolls on short screens
-     rather than clipping. */
-  flex: 1 0 auto;
+  /* Its own height and no more, so the board sits right under the header and the
+     spare height goes below it, where status, hints and controls are in thumb
+     reach (UX-AUDIT 5.4). The puzzle overlay keeps its own split further down. */
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -8672,11 +8709,32 @@ html:has(> body > .edit-overlay) > body {
   font-family: system-ui, -apple-system, sans-serif;
   text-align: center;
   line-height: 1.25;
+  /* One line: a name that wrapped on some positions and not others moved the
+     board between them. */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pt-line-name[hidden] {
   display: none;
 }
+
+/* The moves so far. The height is held while it's empty, for the same reason. */
+.pt-moves {
+  max-width: 100%;
+  min-height: 1.3em;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pt-moves[hidden] { display: none; }
 
 /* ── The divert card (TRANSPOSITIONS.md §9) ─────────────────────────────────── */
 /* Appears BELOW the board only after a played move turns out to be another
@@ -9198,9 +9256,8 @@ html:has(> body > .edit-overlay) > body {
 }
 
 /* ── Bottom block: dots + your-move prompt / feedback + hint cards ──────────── */
-/* The matching flex spacer below the board. Its content top-aligns so the dots
-   and status sit right under the board; it grows to share the spare height with
-   .pt-top, centring the board between them. */
+/* Below the board. Its content top-aligns so the dots and status sit right under
+   the board, and it takes all the spare height. */
 .pt-bottom {
   flex: 1 0 auto;
   display: flex;
@@ -9277,6 +9334,23 @@ html:has(> body > .edit-overlay) > body {
   background: var(--danger);
   border-color: var(--danger);
   transform: scale(1.1);
+}
+
+/* A long run: one row of segments, each still showing right or wrong. */
+.pt-dots--bar {
+  flex-wrap: nowrap;
+  gap: 2px;
+  overflow: hidden;
+  padding-top: 0.75rem;
+}
+.pt-dots--bar .pt-dot {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  max-width: 18px;
+  height: 5px;
+  border-radius: 2px;
+  transform: none;
 }
 
 /* ── Completion confetti ───────────────────────────────────────────────────── */
@@ -14957,14 +15031,13 @@ html:has(> body > .edit-overlay) > body {
   filter: drop-shadow(0 0 6px rgba(39, 224, 255, 0.7));
 }
 
-/* The streak pill — the daily face of the streak, so it earns a cyan halo.
-   A cold (no-streak) pill stays quiet, with no glow. */
-[data-theme="gamer"] .streak-pill:not(.streak-pill--cold) {
+/* The streak pill — the daily face of the streak, so it earns a cyan halo. */
+[data-theme="gamer"] .streak-pill {
   box-shadow: 0 0 14px rgba(39, 224, 255, 0.4), inset 0 0 0 1px rgba(39, 224, 255, 0.35);
   text-shadow: 0 0 8px rgba(39, 224, 255, 0.45);
 }
 [data-theme="gamer"] .stats-streak-flame,
-[data-theme="gamer"] .streak-pill:not(.streak-pill--cold) .streak-pill-flame {
+[data-theme="gamer"] .streak-pill .streak-pill-flame {
   filter: drop-shadow(0 0 6px rgba(255, 159, 28, 0.7));
 }
 
@@ -15408,6 +15481,12 @@ html:has(> body > .edit-overlay) > body {
 #view-progress {
   overflow-y: auto;
   padding-bottom: 6rem;
+}
+
+/* Home joins them, without the overflow above: that would clip its strips, which
+   run off the screen edge on purpose. */
+@media (max-width: 959.98px) {
+  #view-home { padding-bottom: 6rem; }
 }
 
 .fab-btn {
@@ -18609,15 +18688,9 @@ button.fs-record-row:active { background: var(--bg-card); }
 
 /* ── The four-pillar switcher ── */
 @media (min-width: 960px) {
-  /* Column flow rather than a fixed repeat(4): the row stays one line whatever
-     number of pillars is rendered. A little more padding so four tabs across
-     a wide screen still read as substantial targets, not a thin strip. */
-  .lines-try .lines-tabs {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-  }
-  .lines-try .lines-tab {
+  /* A little more padding so four boxes across a wide screen still read as
+     substantial targets, not a thin strip. */
+  .lines-try .lines-tabs:not(.lines-tabs--compact) .lines-tab {
     padding: 0.85rem 0.6rem;
     font-size: 0.86rem;
   }
@@ -19574,6 +19647,12 @@ button.fs-record-row:active { background: var(--bg-card); }
 
 /* "Forgot your password?" and "Not now" — quiet, inline, never a button that
    competes with the primary action above it. */
+.account-input--code {
+  font-size: 1.3rem;
+  letter-spacing: 0.25em;
+  font-variant-numeric: tabular-nums;
+}
+
 .account-link-btn {
   align-self: flex-start;
   padding: 0.2rem 0;
@@ -19832,10 +19911,12 @@ html.picker-open body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* Near the top rather than centred: centred left a third of a phone empty above
+     the question, and the field and its button moved when the keyboard opened. */
+  justify-content: flex-start;
   gap: 0.5rem;
   min-height: 0;
-  padding: 0 0.25rem;
+  padding: clamp(1.25rem, 13vh, 7rem) 0.25rem 0;
   text-align: center;
 }
 
@@ -19882,14 +19963,6 @@ html.picker-open body {
 }
 
 .picker-start--in { animation: picker-start-in 0.26s ease both; }
-/* The beginner's other door off the colour picker (UX-AUDIT C2). */
-.picker-packs {
-  display: block;
-  width: 100%;
-  max-width: 340px;
-  margin: 0.75rem auto 0;
-}
-
 @keyframes picker-start-in {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
@@ -20030,6 +20103,32 @@ html.picker-open body {
   border-radius: 12px;
 }
 
+.where-go--second { margin-top: 0.5rem; }
+/* "Is this you?" Holds its height so the button under it doesn't move. */
+.where-who {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 62px;
+  padding: 0.3rem 0.1rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--text-muted);
+}
+.where-who--missing { color: var(--wrong, #c0531f); font-weight: 600; }
+.where-who-found { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.where-who-text { display: grid; min-width: 0; }
+.where-who-ask { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
+.where-who-name {
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.where-who-facts { font-size: 0.78rem; color: var(--text-muted); }
 .where-go:disabled {
   opacity: 0.45;
   cursor: default;
@@ -20404,11 +20503,96 @@ html.picker-open body {
 
 /* Free training slots under the save button (UX-AUDIT C3). */
 .recap-slots {
-  margin: 0.5rem 0 0;
+  margin: 0 0 0.25rem;
   font-size: 0.82rem;
   line-height: 1.4;
   text-align: center;
   color: var(--text-muted, inherit);
+}
+
+/* ── Recap: game analysis has started ── */
+.recap-analysis {
+  display: flex;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
+  color: var(--accent);
+  text-align: left;
+}
+.recap-analysis svg { flex: none; margin-top: 0.1rem; }
+.recap-analysis p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.recap-analysis strong { color: var(--text); }
+
+/* ── Recap cards: the whole card chooses; length and preview are their own row ── */
+.recap-card { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.recap-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  margin: 0.15rem 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.recap-card-more {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+}
+.recap-card-see {
+  margin-left: auto;
+  padding: 0.35rem 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Home: the game analysis is ready ── */
+.ga-ready {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: var(--space-lg) var(--space-lg) 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+}
+.ga-ready-text { flex: 1 1 8rem; min-width: 0; }
+.ga-ready-title { margin: 0; font-size: 0.92rem; font-weight: 700; color: var(--text); }
+.ga-ready-sub { margin: 0.1rem 0 0; font-size: 0.8rem; color: var(--text-muted); }
+.ga-ready-fix { min-height: 40px; padding: 0 0.9rem; font-size: 0.88rem; }
+.ga-ready-dismiss {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 @media (max-height: 620px) {
@@ -21310,23 +21494,8 @@ html.picker-open body {
   color: var(--text-muted);
 }
 
-/* Only the no-account card's "Keep going" wears this now — where the ask is
-   made, the auth form itself follows .firstwin-ask and the way past is the
-   plain dismiss below it. */
-.firstwin-cta {
-  width: 100%;
-  margin-top: 1rem;
-}
-
-/* The auth form dropped straight onto the card, in place of the button that
-   used to open a sheet around it. The form brings its own chrome from Settings;
-   all this does is undo the centring the celebration above it needs. */
-.firstwin-auth {
-  margin-top: 0.15rem;
-  text-align: left;
-}
-
-.firstwin-card .signup-sheet-dismiss { margin-top: 0.35rem; }
+.firstwin-cta, .firstwin-account { width: 100%; min-height: 48px; }
+.firstwin-card .firstwin-cta { margin-top: 1rem; }
 
 
 /* ══════════════════════════════════════════════════════════════════════════

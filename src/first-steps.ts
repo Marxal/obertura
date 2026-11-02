@@ -24,38 +24,29 @@
 //     Those are the two steps that actually change what the app can do for them;
 //     past either one, a to-do list is nagging.
 //
-// WHAT IT ASKS FOR. In the goal phase the line goal is not one item among four —
-// it is the whole point, and everything else is optional. So it gets the top of
-// the card, the bar, and the two real routes to a line as a pair of primary
-// buttons (Build a line · Starter packs) with the engine as a discrete link
-// under them; the rest are quiet checklist rows underneath:
+// WHAT IT ASKS FOR. In the goal phase the line goal is not one item among several
+// — it is the whole point, and everything else is optional. So it gets the top of
+// the card, the bar, and the two fastest routes to a line as a pair of primary
+// buttons: your games (import them, or pick from them once they're here) and the
+// starter packs. The rest are quiet checklist rows underneath:
 //   · install    — Android only, and only in a browser tab. One tap, no
 //                  explanation: people know what installing an app is.
-//   · games      — import from Chess.com / Lichess; feeds suggestions, the
-//                  mistake scan, endgames, statistics, scouting
-//   · Lichess    — the connection that unlocks the live explorer, the puzzle
-//                  dashboard and a stronger engine
 //   · an account — the only thing that survives losing the phone
+//   · games      — past the goal only, as the way to add more
+//   · the walkthrough — "Build a line by hand", the one way to the builder here
 //
-//   · the walkthrough — the builder coach-marks, on demand. First in the list
-//                  and always there, ticked off once it's been walked: the
-//                  walkthrough is offered once during the first run, and someone
-//                  who skipped it then and came back later needs a way back to
-//                  it that isn't buried in Settings.
-//
-// The middle two come with genuine payoffs, which is why they're offered HERE
-// rather than sprung on the user at the moment they're needed. The account ask
-// is last and never nags: it's a row in a checklist, and it only exists in a
-// build that has accounts at all.
+// Connecting Lichess is not a row any more (UX-AUDIT 2.4.2). It only helps someone
+// already using the explorer, and the builder's Library panel and Settings offer
+// it in the place it means something.
 
 import { Icons } from './icons';
-import { isConnected as lichessIsConnected } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { getAuthUser } from './auth';
 import { canInstallApp, isAppInstalled } from './gate';
 import { isEntitled } from './entitlement';
 import { isBuilderTourComplete } from './onboarding-tour';
 import { TRAINING_UNLOCK_LINES } from './training-goal';
+import { hasEnoughGames } from './onboarding-recap';
 
 // The three-line goal lives in training-goal.ts — a leaf module, so the daily
 // challenge can have the number without dragging this file's browser
@@ -71,7 +62,10 @@ export interface FirstStepsDeps {
   onPickStarterPack: () => void;
   onBuildLine: () => void;
   onImportGames: () => void;
-  onConnectLichess: () => void;
+  // Games are on the device already: choose lines from them again, no re-import.
+  onPickFromGames: () => void;
+  // Lines are saved and training has unlocked: start a session.
+  onStartTraining: () => void;
   onSignIn: () => void;
   onInstallApp: () => void;
   onGoPro: () => void;
@@ -202,57 +196,49 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     });
   }
 
-  // "Add openings you play", not "Import your games": the import is the
-  // mechanism, and this row should name what the user GETS from it. It is also
-  // the way back for anyone who declined the openings at first run — they never
-  // saw an "import" step there, so a row named after one describes a thing that
-  // didn't happen to them.
-  steps.push({
-    icon: Icons.download(18),
-    title: 'Add openings you play',
-    body: 'Read your games from Chess.com or Lichess, and turn the openings you '
-      + 'play most into lines.',
-    done: deps.gameCount > 0,
-    onClick: deps.onImportGames,
-  });
-
-  steps.push({
-    icon: Icons.link(18),
-    title: 'Connect Lichess',
-    body: 'Unlocks the live opening explorer, your puzzle history and a stronger engine. Free, and no personal data.',
-    done: lichessIsConnected(),
-    onClick: deps.onConnectLichess,
-  });
-
-  // Renamed from "Take the walkthrough", which described the tour rather than
-  // the thing the tour is for — and read as homework next to rows that offer
-  // something. It also no longer needs to lead: the walkthrough now fires by
-  // itself the first time anyone opens the builder (main.ts's startNewLine), so
-  // this row is the way to ask for it AGAIN, not the only way to get it.
-  //
-  // Not while the goal panel is up: its own "Build a line" button opens the same
-  // builder with the same walkthrough, and two rows offering one thing read as
-  // two different things (UX-AUDIT C2).
-  if (!firstStepsOwnsSlot(lines)) {
-    steps.push({
-      icon: Icons.play(18),
-      title: 'Build a line by hand',
-      body: 'A guided tour of the builder — the board, the panels, and how a '
-        + 'line gets saved. About a minute.',
-      done: isBuilderTourComplete(),
-      onClick: deps.onWalkthrough,
-    });
-  }
-
   // Which phase: the goal panel, or the compact checklist that rides under the
   // daily card once training has unlocked.
   const showGoal = firstStepsOwnsSlot(lines);
+  const unlocked = lines >= TRAINING_UNLOCK_LINES;
+  const hasGames = deps.gameCount > 0;
+  // Fewer than this and the openings screen has nothing honest to say.
+  const canPickFromGames = hasEnoughGames(deps.gameCount);
+
+  // "Add openings you play", not "Import your games": the import is the
+  // mechanism, and this row should name what the user GETS from it. Under the goal
+  // the goal's own first button is this same offer, and two ways to one thing
+  // read as two different things.
+  if (unlocked) {
+    steps.push({
+      icon: Icons.download(18),
+      title: 'Add openings you play',
+      body: 'Read your games from Chess.com or Lichess, and turn the openings you '
+        + 'play most into lines. The mistakes in them become exercises.',
+      done: hasGames,
+      onClick: deps.onImportGames,
+    });
+  }
+
+  // The ONE way to the builder on this card (UX-AUDIT 2.4.1). Never ticked off:
+  // it's how a second line gets built too, and a struck-through row reads as
+  // something that can't be done again. So it opens the walkthrough until that has
+  // been walked, and the builder itself after (Settings can still replay the tour).
+  const walked = isBuilderTourComplete();
+  steps.push({
+    icon: Icons.play(18),
+    title: 'Build a line by hand',
+    body: walked
+      ? 'Play the moves yourself, then save them as a line.'
+      : 'A guided tour of the builder — the board, the panels, and how a '
+        + 'line gets saved. About a minute.',
+    done: false,
+    onClick: walked ? deps.onBuildLine : deps.onWalkthrough,
+  });
 
   // The line goal counts as one step, done or not, so the "N of M" in the header
   // matches the rows the user can actually see.
   const total = steps.length + 1;
-  const doneCount = steps.filter(s => s.done).length
-    + (lines >= TRAINING_UNLOCK_LINES ? 1 : 0);
+  const doneCount = steps.filter(s => s.done).length + (unlocked ? 1 : 0);
 
   const card = document.createElement('div');
   card.className = 'card first-steps' + (showGoal ? '' : ' first-steps--compact');
@@ -296,12 +282,16 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   goalHead.className = 'first-steps-goal-head';
   const goalTitle = document.createElement('span');
   goalTitle.className = 'first-steps-goal-title';
-  goalTitle.textContent = 'Save your first lines';
+  goalTitle.textContent = unlocked ? 'Your training is ready' : 'Save your first lines';
   goalHead.appendChild(goalTitle);
   const goalCount = document.createElement('span');
   goalCount.className = 'first-steps-goal-count';
-  goalCount.textContent = `${lines} / ${TRAINING_UNLOCK_LINES}`;
-  goalHead.appendChild(goalCount);
+  // Past the goal the bar has said what it had to. A fresh import can land here
+  // with five lines, and "5 / 3" over a full bar is a sum, not a state.
+  if (!unlocked) {
+    goalCount.textContent = `${lines} / ${TRAINING_UNLOCK_LINES}`;
+    goalHead.appendChild(goalCount);
+  }
   goal.appendChild(goalHead);
 
   const bar = document.createElement('div');
@@ -314,26 +304,35 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   fill.className = 'first-steps-bar-fill';
   fill.style.width = `${Math.min(1, lines / TRAINING_UNLOCK_LINES) * 100}%`;
   bar.appendChild(fill);
-  goal.appendChild(bar);
+  if (!unlocked) goal.appendChild(bar);
 
-  // Say what the number MEANS: it's the training lock, not an arbitrary target.
+  // Say what the number is FOR, as something to do rather than a rule. Under the
+  // goal this used to read "-2 more lines and training unlocks" for anyone a fresh
+  // import had just taken past it, which is most people.
   const left = TRAINING_UNLOCK_LINES - lines;
   const goalNote = document.createElement('p');
   goalNote.className = 'first-steps-goal-note';
-  goalNote.textContent = lines === 0
-    ? `Training unlocks at ${TRAINING_UNLOCK_LINES} lines. A starter pack gets you there in one go.`
-    : left === 1
-      ? 'One more line and training unlocks.'
-      : `${left} more lines and training unlocks.`;
+  goalNote.textContent = unlocked
+    ? `${lines} lines saved. Your first session is ready when you are.`
+    : lines === 0
+      ? `Add ${TRAINING_UNLOCK_LINES} lines to start training.`
+      : left === 1
+        ? 'Add 1 more line to start training.'
+        : `Add ${left} more lines to start training.`;
   goal.appendChild(goalNote);
 
-  // The two real routes to a line, side by side and equally weighted: building
-  // one by hand is what the app IS, and taking a starter pack is the fastest way
-  // to clear the training lock. Neither is the recommendation.
   const routes = document.createElement('div');
   routes.className = 'first-steps-routes';
-  routes.appendChild(routeButton('Build a line', Icons.plus(18), deps.onBuildLine));
-  routes.appendChild(routeButton('Starter packs', Icons.build(18), deps.onPickStarterPack));
+  if (unlocked) {
+    routes.appendChild(routeButton('Start training', Icons.zap(18), deps.onStartTraining));
+  } else {
+    // The two fastest routes to a line. Their own openings come first when
+    // there's any way to reach them, because that's where the app is at its best.
+    routes.appendChild(canPickFromGames
+      ? routeButton('Pick from my games', Icons.download(18), deps.onPickFromGames)
+      : routeButton('Import my games', Icons.download(18), deps.onImportGames));
+    routes.appendChild(routeButton('Starter packs', Icons.build(18), deps.onPickStarterPack));
+  }
   goal.appendChild(routes);
 
   // "Or build one against the engine" used to sit here — a third way in that was

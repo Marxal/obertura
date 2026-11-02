@@ -44,6 +44,36 @@ export function runRepertoireRunSelfTest(): TestResult[] {
     out.push({ name, pass, detail });
   };
 
+  // ── The day's limit on new moves ──────────────────────────────────────────
+
+  {
+    const rep = book('white', 'lim', 'd4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O');
+    const whole = planRepertoireRun([rep], { minDepth: 1 });
+    const limited = planRepertoireRun([rep], { minDepth: 1, newAllowance: 2 });
+    check(
+      'the allowance cuts the run in walk order',
+      limited.positions.map(p => p.expected.san).join(' ') === 'd4 c4',
+      limited.positions.map(p => p.expected.san).join(' '),
+    );
+    check(
+      'and says how many it held back',
+      limited.newHeldBack === whole.positions.length - 2 && limited.newMoves === 2,
+      `held ${limited.newHeldBack}, new ${limited.newMoves}`,
+    );
+    const spent = planRepertoireRun([rep], { minDepth: 1, newAllowance: 0 });
+    check(
+      'a spent allowance on an all-new book leaves nothing to run',
+      spent.positions.length === 0 && spent.totalMoves === whole.totalMoves,
+      `${spent.positions.length} positions`,
+    );
+    check(
+      'includeAll is asking for everything, limit or not',
+      planRepertoireRun([rep], { minDepth: 1, includeAll: true, newAllowance: 0 }).positions.length
+        === whole.totalMoves,
+      'includeAll',
+    );
+  }
+
   // ── The dedupe, which is the whole point ──────────────────────────────────
 
   {

@@ -16,7 +16,7 @@ export interface DialogButton {
   // the Get-started card, so the one button in the app that leads to a price is
   // never dressed as an ordinary confirm. It was 'primary' in the scouting-cap
   // dialog, which made "Unlock full access" look exactly like "Save".
-  variant?: 'primary' | 'secondary' | 'danger' | 'pro';
+  variant?: 'primary' | 'secondary' | 'danger' | 'pro' | 'quiet-danger';
   onClick?: () => void;
 }
 
@@ -120,6 +120,7 @@ export function showDialog(opts: DialogOptions): void {
     btn.className = 'dialog-btn ' + (
       b.variant === 'primary' ? 'btn-primary'
       : b.variant === 'danger' ? 'btn-danger'
+      : b.variant === 'quiet-danger' ? 'btn-quiet-danger'
       : b.variant === 'pro' ? 'btn-pro'
       : 'btn-secondary'
     );

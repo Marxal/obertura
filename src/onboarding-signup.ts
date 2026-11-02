@@ -1,17 +1,8 @@
 // The sign-up sheet, and the card that closes the first run.
 //
-// THE FIRST RUN ASKS FOR AN ACCOUNT AGAIN — but as an offer, not a form. The
-// original version put the sign-up FORM on the success card, which turned the
-// one moment that should read as "that worked" into a data-entry screen. The ask
-// was then dropped altogether, which went too far the other way: the person has
-// just made something worth keeping, and the only thing standing between that
-// line and a wiped browser is an account nobody has mentioned.
-//
-// So the card celebrates first and offers second. One sentence saying what an
-// account is FOR (the line survives this phone), a button that opens the
-// ordinary sign-up sheet below, and "Not now" underneath in plain text for
-// everyone who would rather not. Nothing is entered on the card itself, and the
-// offer simply isn't built for someone already signed in.
+// The card celebrates and points at the next step; the account is an offer under
+// that, one button opening the ordinary sheet below, and it simply isn't built
+// for someone already signed in.
 //
 // The sheet is otherwise opened only when someone asks for it: the first
 // screen's log-in line, Settings, the buy flow, and the marketing site's ?auth=
@@ -26,16 +17,20 @@ import { getAuthUser, onAuthChange } from './auth';
 import { pushBack } from './back-nav';
 import { celebratePawn, burstConfetti } from './confetti';
 
-// ── The first line is done ───────────────────────────────────────────────────
+// ── First run is done ───────────────────────────────────────────────────────
 //
-// A centred card on the hub, shown once the first line has been saved AND
-// learned. Two sentences and a button: the first step is finished, and this is
-// what a repertoire looks like from here.
+// A centred card over the hub: what they now have, the one thing to do next, and
+// the account as a separate, optional thought under it.
+//
+// THE FORM IS OFF THE CARD AGAIN. It came and went more than once, and the audit
+// settled it (UX-AUDIT 2.3.1, 2.3.2): three sign-up buttons under a celebration
+// made the account the point of the moment and left the actual next step, a first
+// session, nowhere. The sheet is one tap away and says the same thing.
 export function showFirstLineSuccess(opts: {
-  /** Replaces "Your first line is set!" — the games-first run saves several. */
   title?: string;
-  /** Replaces the "add about five lines" nudge under it. */
   lead?: string;
+  // The one thing to do next. Absent: a plain "Keep going" that closes the card.
+  primary?: { label: string; onClick: () => void };
 } = {}): void {
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay firstwin-overlay';
@@ -43,8 +38,7 @@ export function showFirstLineSuccess(opts: {
   const card = document.createElement('div');
   card.className = 'firstwin-card';
 
-  // The same pawn the training finish screens use — this IS a training finish,
-  // it just happens to be the first one.
+  // The same pawn the training finish screens use.
   const pawn = celebratePawn();
   pawn.classList.add('firstwin-pawn');
   card.appendChild(pawn);
@@ -54,78 +48,45 @@ export function showFirstLineSuccess(opts: {
   title.textContent = opts.title ?? 'Your first line is set!';
   card.appendChild(title);
 
-  // The nudge under the title is optional: a caller that leads with the account
-  // ask (the games-first run) passes neither, so the card goes straight from
-  // "4 lines saved" to why that is worth protecting.
-  const leadText = opts.lead ?? (opts.title ? null
-    : 'Add about five lines when you have a minute to build a repertoire '
-      + 'worth training every day. You can save as many lines as you like.');
-  if (leadText) {
+  if (opts.lead) {
     const lead = document.createElement('p');
     lead.className = 'firstwin-lead';
-    lead.textContent = leadText;
+    lead.textContent = opts.lead;
     card.appendChild(lead);
   }
 
   let closed = false;
-  // Set below, only when the card actually offers an account. Dropping it on
-  // close is what stops a dismissed card holding a listener for the rest of the
-  // session.
-  let dropAuth: (() => void) | null = null;
   function close(): void {
     if (closed) return;
     closed = true;
-    dropAuth?.();
     overlay.remove();
     removeBack();
   }
   const removeBack = pushBack(close);
 
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'btn-primary firstwin-cta';
+  next.textContent = opts.primary?.label ?? 'Keep going';
+  next.addEventListener('click', () => { close(); opts.primary?.onClick(); });
+  card.appendChild(next);
+
   // The offer, only where it means something: accounts have to exist in this
   // build, and someone already signed in has nothing to be asked for.
-  const offerAccount = isSupabaseConfigured && !getAuthUser();
-
-  if (offerAccount) {
-    // THE ACCOUNT IS THE POINT OF THIS CARD, not a footnote under a
-    // celebration. The user has just made something, and the only thing between
-    // it and a cleared browser is an account nobody has mentioned. So the ask
-    // leads, and the way past it is a quiet word rather than a second button of
-    // equal weight — offered, never required.
-    //
-    // TWO SHORT SENTENCES. The stake, then what fixes it. The longer version
-    // ("saves your progress and brings it back on any device you sign in on")
-    // spent its second half restating the first, above three buttons that make
-    // the same point by existing.
+  if (isSupabaseConfigured && !getAuthUser()) {
     const why = document.createElement('p');
     why.className = 'firstwin-ask';
     why.textContent = 'Right now this lives only on this phone. '
       + 'A free account brings it back on any device.';
     card.appendChild(why);
 
-    // The three ways in, straight on the card. This used to be a button that
-    // opened a sheet containing exactly these buttons — a tap, an animation and
-    // a second reading of the same pitch, in front of the one action the card
-    // is asking for.
-    const auth = buildAuthForm({ initialMode: 'signup', blurb: '' });
-    auth.classList.add('firstwin-auth');
-    card.appendChild(auth);
-
-    // Google and Facebook both leave and come back, but an email sign-in
-    // resolves in place — and the card sitting over the app afterwards would be
-    // asking someone to register an account they now have.
-    dropAuth = onAuthChange(() => { if (getAuthUser()) close(); });
+    const account = document.createElement('button');
+    account.type = 'button';
+    account.className = 'btn-secondary firstwin-account';
+    account.textContent = 'Create a free account';
+    account.addEventListener('click', () => { close(); openSignUpSheet('signup'); });
+    card.appendChild(account);
   }
-
-  const cta = document.createElement('button');
-  cta.type = 'button';
-  // Two primaries side by side would ask the user to weigh the celebration
-  // against a form. The way on stays a plain word under the offer — and it says
-  // what it actually is, so nobody continues as a guest without knowing they
-  // are one.
-  cta.className = offerAccount ? 'signup-sheet-dismiss' : 'btn-primary firstwin-cta';
-  cta.textContent = offerAccount ? 'Continue as a guest' : 'Keep going';
-  cta.addEventListener('click', close);
-  card.appendChild(cta);
 
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   overlay.appendChild(card);

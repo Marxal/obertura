@@ -388,8 +388,8 @@ export function buildCapNotice(
 export function showBulkCapToast(enrolled: number, total: number): void {
   showToast(
     enrolled > 0
-      ? `${enrolled} of ${total} lines added — the free tier trains ${FREE_TRAINING_LINES} at a time.`
-      : `Already training ${FREE_TRAINING_LINES} lines — the rest were saved to My Lines.`,
+      ? `${enrolled} of ${total} lines in training. The rest are in Openings → My lines, paused.`
+      : `Already training ${FREE_TRAINING_LINES} lines. These are in Openings → My lines, paused.`,
   );
 }
 

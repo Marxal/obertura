@@ -42,7 +42,7 @@ old two does nothing and you'll land in onboarding.
 front door any more; a fresh profile lands straight on first run.
 
 **First run is now games-first** (`onboarding-where.ts`): "Where do you play?"
-with a Chess.com / Lichess / I'm new toggle, then an import, then a recap of
+with a Chess.com / Lichess / Elsewhere toggle, then an import, then a recap of
 the user's own openings (`onboarding-recap-screen.ts`). To test it you want a
 profile with `onboardingComplete` UNSET and no saved lines — the two halves of
 `shouldShowFirstRun()`. To skip it, set the flag as above.

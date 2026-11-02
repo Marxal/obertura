@@ -12,7 +12,7 @@ import { buildRunHeader } from './run-header';
 import { showDialog } from './dialog';
 import { showToast } from './toast';
 import { burstConfetti } from './confetti';
-import { formatMove } from './notation';
+import { formatMove, formatSanLine } from './notation';
 import { createStruggleNudge, type StruggleNudge } from './struggle-nudge';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -217,7 +217,14 @@ interface Task {
   // Never-trained move, taught before it is tested: the arrow is drawn and the
   // status says so. See DrillOptions.teachNewMoves.
   teach?: boolean;
+  // The moves that led here, for the strip above the board. Absent in the modes
+  // that drop you into a lone position, where there is no path to show.
+  sansBefore?: string[];
 }
+
+// How many moves the strip above the board keeps: a phone width's worth.
+const MOVES_SHOWN = 8;
+const DOTS_BEFORE_BAR = 12;
 
 interface DrillConfig {
   intro: Ply[];      // opponent plies to animate from the start (line mode)
@@ -292,6 +299,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       // The single opponent reply that follows (or nothing, at the line's end).
       replies: moves.slice(i + 1, i + 2).map(ply),
       continuous: true,
+      sansBefore: moves.slice(0, i).map(m => m.san),
     });
   }
 
@@ -315,6 +323,8 @@ interface Position {
   prevFen?: string;
   /** The line's name, shown above the board (positions modes, untimed). */
   label?: string;
+  /** The moves that led here, when the mode knows the path. */
+  sansBefore?: string[];
 }
 
 // A move the scheduler has never graded — nothing to remember yet, so it is
@@ -342,6 +352,7 @@ function positionTask(p: Position, opts: DrillOptions): Task {
     prelude: canPrelude ? { uci: p.prevUci!, fen: p.preFen } : undefined,
     preludeFen: canPrelude ? p.prevFen : undefined,
     label: opts.timedMs != null ? undefined : p.label,
+    sansBefore: opts.timedMs != null ? undefined : p.sansBefore,
     teach: !!opts.teachNewMoves && opts.timedMs == null && isUntrained(p.expected),
   };
 }
@@ -543,6 +554,20 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   titleEl.textContent = config.titleText;
   if (!config.titleText) titleEl.setAttribute('hidden', '');
   topEl.appendChild(titleEl);
+
+  // The moves so far, on one line under the name, so you can see where you are in
+  // the line (UX-AUDIT 5.2). Its height is held even when empty: this block sits
+  // on top of the board, and the board must not move.
+  const movesEl = document.createElement('div');
+  movesEl.className = 'pt-moves';
+  if (!tasks.some(t => t.sansBefore)) movesEl.hidden = true;
+  topEl.appendChild(movesEl);
+
+  function paintMovesSoFar(task: Task): void {
+    const tokens = formatSanLine(task.sansBefore ?? []).split(' ').filter(Boolean);
+    const tail = tokens.slice(-MOVES_SHOWN);
+    movesEl.textContent = (tail.length < tokens.length ? '… ' : '') + tail.join(' ');
+  }
 
   function renderTimedScore(): void {
     scoreEl.textContent = `✓ ${timedCorrect}`;
@@ -753,7 +778,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   function confirmPause(): void {
     showDialog({
       title: 'Turn off this line?',
-      body: 'It will stop appearing in your active training sessions. You can flip it back on in My Lines.',
+      body: 'It will stop appearing in your active training sessions. You can flip it back on in Openings → My lines.',
       buttons: [
         { label: 'Turn off', variant: 'danger', onClick: () => {
           cleanup();
@@ -824,6 +849,8 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // the header score + clock stand in instead.
   const dotEls: HTMLElement[] = [];
   if (!timed) {
+    // Past a dozen, one row of segments rather than dots wrapping onto a second.
+    progressEl.classList.toggle('pt-dots--bar', tasks.length > DOTS_BEFORE_BAR);
     for (let k = 0; k < tasks.length; k++) {
       const dot = document.createElement('span');
       dot.className = 'pt-dot';
@@ -1541,6 +1568,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       titleEl.textContent = task.label;
       titleEl.hidden = !task.label;
     }
+    paintMovesSoFar(task);
 
     // Fix mistakes: animate the opponent's previous move INTO the position, so you
     // see how you got here, then hand control over.

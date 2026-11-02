@@ -493,6 +493,23 @@ same way, if you ever use it.)
 The app handles both shapes — `token_hash` and the old `?code=` — so nothing
 breaks while the templates are still the defaults. It just works in fewer places.
 
+**Then add the code to the same three templates.** The app asks for a code typed
+into it (`openEmailCodeSheet` in `account-ui.ts`, `verifyEmailCode` in `auth.ts`),
+because on Android even a good link opens the browser rather than the installed
+app (UX-AUDIT C4). Paste this above the link, and leave the link in place as the
+fallback:
+
+```html
+<p>Your code: <strong style="font-size:24px;letter-spacing:3px">{{ .Token }}</strong></p>
+<p>Type it in Bito Chess. It expires after an hour.</p>
+```
+
+**Do this before the app version that asks for a code goes live**, or people will
+be asked for a code their email doesn't contain. The other order is harmless: an
+email with a code and a link works with the old app too. Keep the code length at 6
+if the Email provider's settings offer a choice. The app accepts any length, but
+the template and the wording around it read best at 6.
+
 ### ⚠️ SMTP: the built-in mailer will not do
 
 **This is the step that bites.** Supabase's default email service is for testing
@@ -893,6 +910,8 @@ hand any time from **Actions → Supabase keepalive → Run workflow**.
 - [ ] §2 Site URL and Redirect URLs set
 - [ ] §2 All three email templates switched to `token_hash` — Confirm signup,
       Reset password and **Magic Link**
+- [ ] §2 The same three templates show `{{ .Token }}`, before the app that asks for
+      a code goes live
 - [ ] §2 **Custom SMTP configured** — without it, confirmation emails stop after
       a couple per hour
 - [ ] §2 Email rate limit raised

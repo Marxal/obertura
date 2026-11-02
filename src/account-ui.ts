@@ -12,11 +12,9 @@
 // the auth state changes. Re-rendering the whole Settings screen would snap the
 // accordion shut the instant you signed in.
 //
-// ── THE TWO TABS ARE "REGISTRATION" AND "SIGN IN" ───────────────────────────
+// ── THE TWO TABS ARE "CREATE ACCOUNT" AND "SIGN IN" ─────────────────────────
 // Not "sign up" / "sign in", which differ by one letter in the middle of a word
-// and are a genuine coin-toss to read at a glance on a phone. Registration also
-// matches the checkbox underneath it, which is a registration-time consent and
-// nothing else.
+// and are a genuine coin-toss to read at a glance on a phone.
 
 import {
   getAuthUser,
@@ -28,11 +26,14 @@ import {
   sendPasswordReset,
   updatePassword,
   resendConfirmation,
+  verifyEmailCode,
   enabledOAuthProviders,
   OAUTH_PROVIDER_LABELS,
   clearPasswordRecovery,
   signOut,
   type OAuthProvider,
+  type AuthResult,
+  type EmailCodeKind,
 } from './auth';
 import {
   entitlementLabel,
@@ -307,7 +308,7 @@ function agoLabel(iso: string | null): string {
 // sign-up sheet (onboarding-signup.ts) shows the SAME form rather than a second
 // implementation of it — one place to fix a bug in, one place where the wording
 // lives. The sheet passes its own blurb (it has already made the pitch in its
-// title) and opens on Registration rather than Sign in.
+// title) and opens on Create account rather than Sign in.
 export function buildAuthForm(opts: {
   initialMode?: Mode;
   // Replacement for the standing blurb. Pass '' to drop it entirely, which is
@@ -342,13 +343,13 @@ function signedOutBody(
     wrap.appendChild(blurb);
   }
 
-  // Registration / Sign in, as a two-way switch above the shared form.
+  // Create account / Sign in, as a two-way switch above the shared form.
   // Deliberately not the `segmented` control from Settings: this picks which
   // form you're filling in, it isn't a preference being saved.
   const tabs = document.createElement('div');
   tabs.className = 'account-tabs';
   for (const tab of [
-    { value: 'signup' as Mode, label: 'Registration' },
+    { value: 'signup' as Mode, label: 'Create account' },
     { value: 'signin' as Mode, label: 'Sign in' },
   ]) {
     const btn = document.createElement('button');
@@ -372,7 +373,7 @@ function signedOutBody(
   return wrap;
 }
 
-// ── Registration ─────────────────────────────────────────────────────────────
+// ── Create account ───────────────────────────────────────────────────────────
 //
 // Leads with the three ways in — Google, Facebook, email — as equal-weight
 // buttons; tapping email swaps them for the actual form. No consent checkbox
@@ -445,26 +446,16 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
       return;
     }
     if (result.needsEmailConfirmation) {
-      // Worth more than a toast: nothing happens until they open the link, and
-      // a toast fades before they've read it. The "send it again" button is
-      // here because the commonest failure of email confirmation is an email
-      // that never arrives, and re-registering would just say "already exists".
-      showDialog({
-        title: 'Check your inbox',
-        body: `We’ve sent a confirmation link to ${emailValue}. Open it to finish `
-          + 'creating your account. It can take a minute, and it sometimes lands in spam.'
-          + (isInstalledApp()
-            ? ' If the link opens in your browser instead of this app, that’s fine: '
-              + 'your account is confirmed. Come back here and sign in with your email '
-              + 'and password.'
-            : ''),
-        buttons: [
-          {
-            label: 'Send it again',
-            onClick: () => { void resendAndReport(emailValue); },
-          },
-          { label: 'Got it', variant: 'primary' },
-        ],
+      // Worth more than a toast: nothing happens until the code is typed, and a
+      // toast fades before they've read it. "Send it again" is in the sheet
+      // because the commonest failure of email confirmation is an email that
+      // never arrives, and re-registering would just say "already exists".
+      openEmailCodeSheet({
+        email: emailValue,
+        kind: 'signup',
+        submitLabel: 'Confirm my email',
+        successToast: 'Email confirmed. You’re signed in',
+        resend: () => resendConfirmation(emailValue),
       });
       password.input.value = '';
       return;
@@ -480,7 +471,7 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
 
 // ── Sign in ──────────────────────────────────────────────────────────────────
 //
-// Same three buttons as Registration — Google, Facebook, email — because a
+// Same three buttons as Create account — Google, Facebook, email — because a
 // returning user is answering the same question ("which of these do I already
 // have?") either way. Tapping email swaps to the address/password form, with
 // the sign-in link as a quiet option under the password and a way back to the
@@ -538,7 +529,7 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   forgot.addEventListener('click', () => openPasswordResetSheet(email.input.value.trim()));
   panel.appendChild(forgot);
 
-  // The sign-in link, LAST and quiet. It is a genuinely good way in — nothing to
+  // The sign-in code, LAST and quiet. It is a genuinely good way in — nothing to
   // remember, and it survives a phone with no password manager — but it costs a
   // trip to an inbox, so it sits under the password rather than in front of it.
   const swap = document.createElement('button');
@@ -549,9 +540,9 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   const paint = (): void => {
     password.wrap.hidden = !usePassword;
     password.input.required = usePassword;
-    submit.textContent = usePassword ? 'Sign in' : 'Send me a sign-in link';
+    submit.textContent = usePassword ? 'Sign in' : 'Email me a sign-in code';
     swap.textContent = usePassword
-      ? 'Email me a sign-in link instead'
+      ? 'Email me a sign-in code instead'
       : 'Use a password instead';
     forgot.hidden = !usePassword;
   };
@@ -590,11 +581,11 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
         showDialog({
           title: 'No account with that email',
           body: `We couldn’t find an account for ${emailValue}. Sign-in links only `
-            + 'work for accounts that already exist — register first and you can use '
+            + 'work for accounts that already exist. Create one first and you can use '
             + 'them from then on.',
           buttons: [
             { label: 'Not now' },
-            { label: 'Register', variant: 'primary', onClick: () => setMode('signup') },
+            { label: 'Create account', variant: 'primary', onClick: () => setMode('signup') },
           ],
         });
         return;
@@ -609,15 +600,12 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
       return;
     }
 
-    showDialog({
-      title: 'Check your inbox',
-      body: `We’ve sent a sign-in link to ${emailValue}. Open it and you’re in — no `
-        + 'password needed. It expires after an hour, and it sometimes lands in spam.'
-        + (isInstalledApp()
-          ? ' On some phones the link opens in your browser rather than this app. '
-            + 'If that happens, sign in here with your password instead.'
-          : ''),
-      buttons: [{ label: 'Got it', variant: 'primary' }],
+    openEmailCodeSheet({
+      email: emailValue,
+      kind: 'email',
+      submitLabel: 'Sign in',
+      successToast: 'Signed in',
+      resend: () => signInWithMagicLink(emailValue),
     });
   });
 
@@ -675,16 +663,6 @@ function legalNote(): HTMLElement {
   return legal;
 }
 
-async function resendAndReport(email: string): Promise<void> {
-  const result = await resendConfirmation(email);
-  showToast(
-    result.ok
-      ? 'Sent — check your inbox again in a minute.'
-      : result.message ?? 'Couldn’t send it. Try again in a minute.',
-    result.ok ? { variant: 'success' } : undefined,
-  );
-}
-
 // `lead` is the sign-in tab's treatment: bigger, on a card of its own, and
 // identical for every provider — the choice between Google and Facebook is
 // "whichever you already use", so neither may look like the recommended one.
@@ -728,8 +706,8 @@ export function openPasswordResetSheet(prefill = ''): void {
 
   const lead = document.createElement('p');
   lead.className = 'section-desc';
-  lead.textContent = 'We’ll email you a link. Open it on this phone and you can '
-    + 'choose a new password straight away.';
+  lead.textContent = 'We’ll email you a code. Type it here and you can choose a '
+    + 'new password straight away.';
   sheet.appendChild(lead);
 
   const form = document.createElement('form');
@@ -741,7 +719,7 @@ export function openPasswordResetSheet(prefill = ''): void {
   const send = document.createElement('button');
   send.type = 'submit';
   send.className = 'btn-primary account-submit';
-  send.textContent = 'Send the link';
+  send.textContent = 'Send the code';
   form.appendChild(send);
 
   form.addEventListener('submit', async (e) => {
@@ -752,20 +730,117 @@ export function openPasswordResetSheet(prefill = ''): void {
     send.textContent = 'Sending…';
     const result = await sendPasswordReset(value);
     send.disabled = false;
-    send.textContent = 'Send the link';
+    send.textContent = 'Send the code';
     if (!result.ok) { showToast(result.message ?? 'Couldn’t send it. Try again.'); return; }
     close();
-    showDialog({
-      title: 'Check your inbox',
-      body: `If there’s an account for ${value}, a reset link is on its way. `
-        + 'It expires after an hour, and it sometimes lands in spam.',
-      buttons: [{ label: 'Got it', variant: 'primary' }],
+    openEmailCodeSheet({
+      email: value,
+      kind: 'recovery',
+      // Still doesn't say whether the address has an account: see the note above.
+      lead: `If there’s an account for ${value}, a code is on its way.`,
+      submitLabel: 'Continue',
+      // The "choose a new password" sheet takes over from here.
+      successToast: null,
+      resend: () => sendPasswordReset(value),
     });
   });
 
   sheet.appendChild(form);
   sheet.appendChild(cancelRow(close));
   document.body.appendChild(overlay);
+}
+
+/**
+ * "Check your inbox", with the box to type the code into.
+ *
+ * This is what keeps the whole flow inside the installed app (UX-AUDIT C4). The
+ * link in the same email still works, so it's mentioned, but on most Android
+ * phones it opens the browser rather than this app. Any length of digits the
+ * project is set to is accepted, so the wording never promises a number.
+ */
+function openEmailCodeSheet(opts: {
+  email: string;
+  kind: EmailCodeKind;
+  lead?: string;
+  submitLabel: string;
+  /** Null when the next thing on screen says it instead. */
+  successToast: string | null;
+  resend: () => Promise<AuthResult>;
+}): void {
+  const { overlay, sheet, close } = openSheet();
+
+  const title = document.createElement('h3');
+  title.className = 'edit-sheet-title';
+  title.textContent = 'Check your inbox';
+  sheet.appendChild(title);
+
+  const lead = document.createElement('p');
+  lead.className = 'section-desc';
+  lead.textContent = `${opts.lead ?? `We’ve sent a code to ${opts.email}.`} Type it here `
+    + 'to carry on in this app. It can take a minute, and it sometimes lands in spam.';
+  sheet.appendChild(lead);
+
+  const form = document.createElement('form');
+  form.className = 'account-form';
+  const code = field('code', 'Code from the email', '', 'one-time-code');
+  form.appendChild(code.wrap);
+
+  const submit = document.createElement('button');
+  submit.type = 'submit';
+  submit.className = 'btn-primary account-submit';
+  submit.textContent = opts.submitLabel;
+  form.appendChild(submit);
+  const setFormError = formError(form);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // People paste "123 456", or a code with a stray space from the mail app.
+    const value = code.input.value.replace(/\s/g, '');
+    if (!/^\d{4,10}$/.test(value)) {
+      code.setError('Enter the code from the email: digits only.');
+      code.input.focus();
+      return;
+    }
+    submit.disabled = true;
+    submit.textContent = 'Checking…';
+    const result = await verifyEmailCode(opts.email, value, opts.kind);
+    submit.disabled = false;
+    submit.textContent = opts.submitLabel;
+    if (!result.ok) {
+      setFormError(result.message ?? 'Something went wrong. Try again in a moment.');
+      return;
+    }
+    close();
+    if (opts.successToast) showToast(opts.successToast, { variant: 'success' });
+  });
+  sheet.appendChild(form);
+
+  const again = document.createElement('button');
+  again.type = 'button';
+  again.className = 'account-link-btn';
+  again.textContent = 'Send it again';
+  again.addEventListener('click', async () => {
+    again.disabled = true;
+    const result = await opts.resend();
+    again.disabled = false;
+    showToast(
+      result.ok
+        ? 'Sent. Check your inbox again in a minute.'
+        : result.message ?? 'Couldn’t send it. Try again in a minute.',
+      result.ok ? { variant: 'success' } : undefined,
+    );
+  });
+  sheet.appendChild(again);
+
+  const note = document.createElement('p');
+  note.className = 'account-field-hint';
+  note.textContent = 'The email has a link too. It works, but on some phones it opens '
+    + 'your browser instead of this app.';
+  sheet.appendChild(note);
+
+  sheet.appendChild(cancelRow(close));
+  document.body.appendChild(overlay);
+  code.input.focus();
 }
 
 /**
@@ -895,7 +970,7 @@ interface Field {
 }
 
 function field(
-  type: 'email' | 'password',
+  type: 'email' | 'password' | 'code',
   label: string,
   placeholder: string,
   autocomplete: AutoFill,
@@ -915,7 +990,7 @@ function field(
   row.className = 'account-input-row';
 
   const input = document.createElement('input');
-  input.type = type;
+  input.type = type === 'code' ? 'text' : type;
   input.id = id;
   input.className = 'account-input';
   input.placeholder = placeholder;
@@ -925,6 +1000,11 @@ function field(
     input.autocapitalize = 'none';
     input.spellcheck = false;
     input.inputMode = 'email';
+  }
+  if (type === 'code') {
+    input.inputMode = 'numeric';
+    input.spellcheck = false;
+    input.classList.add('account-input--code');
   }
   row.appendChild(input);
 
@@ -981,13 +1061,6 @@ function formError(form: HTMLFormElement): (message: string) => void {
   form.appendChild(el);
   form.addEventListener('input', () => { el.hidden = true; });
   return (message: string) => { el.textContent = message; el.hidden = !message; };
-}
-
-// A link opened from an email lands in the phone's BROWSER, not in the
-// installed app, on most Android phones — so the app may still look signed out
-// afterwards. Said up front, with the way through (UX-AUDIT C4).
-function isInstalledApp(): boolean {
-  try { return window.matchMedia('(display-mode: standalone)').matches; } catch { return false; }
 }
 
 // ── Provider marks ───────────────────────────────────────────────────────────

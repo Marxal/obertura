@@ -45,11 +45,9 @@ export interface PickerDeps {
   // A colour was chosen and Start pressed: open an empty builder of that colour,
   // guided. The picker has already closed itself by the time this runs.
   onStart: (colour: OnboardingColour) => void;
-  // "Start from a ready-made opening": the starter packs, for the beginner this
-  // path mostly serves. The builder is the densest screen in the app, and a
-  // pack line is a first line that's already good (UX-AUDIT C2). Absent → no
-  // link.
-  onStarterPacks?: () => void;
+  // The back gesture: one step back through first run, to the question before
+  // this one. It used to close the screen and leave an empty app.
+  onBack: () => void;
   // "I already have an account" — absent in a build with no accounts (the
   // internal GitHub Pages one), where the line would be a dead end.
   onSignIn?: () => void;
@@ -74,7 +72,8 @@ export async function shouldShowFirstRun(): Promise<boolean> {
   }
 }
 
-export function showOnboardingPicker(deps: PickerDeps): void {
+// Returns what closes it — see showWherePicker.
+export function showOnboardingPicker(deps: PickerDeps): () => void {
   // No default: picking IS the action this screen exists for.
   let colour: OnboardingColour | null = null;
 
@@ -91,9 +90,7 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     document.documentElement.classList.remove('picker-open');
     removeBack();
   };
-  // The system back gesture closes the picker the same way a pick does — it just
-  // doesn't pick anything. There's nothing behind it but Train.
-  const removeBack = pushBack(close);
+  const removeBack = pushBack(() => { close(); deps.onBack(); });
 
   // ── Identity, one line, at the top ──
   // The brand is a link out to the product page. A stranger who has landed on
@@ -112,6 +109,7 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   const brand = document.createElement('span');
   brand.className = 'picker-brand';
   brand.textContent = 'bito chess';
+  brand.setAttribute('aria-label', 'Bito Chess');
   brandRow.appendChild(brand);
   bar.appendChild(brandRow);
   overlay.appendChild(bar);
@@ -152,15 +150,6 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     }
   }));
   stage.appendChild(start);
-
-  if (deps.onStarterPacks) {
-    const packs = document.createElement('button');
-    packs.type = 'button';
-    packs.className = 'btn-secondary picker-packs';
-    packs.textContent = 'Or start from a ready-made opening';
-    packs.addEventListener('click', () => { close(); deps.onStarterPacks?.(); });
-    stage.appendChild(packs);
-  }
   overlay.appendChild(stage);
 
   // ── The returning user's way in, at the very bottom ──
@@ -187,6 +176,7 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   // supposed to be able to move. Dropped again in close().
   document.documentElement.classList.add('picker-open');
   deps.onShown?.();
+  return close;
 }
 
 // The real installed app icon (public/icons/icon-192.png) — the same art Android

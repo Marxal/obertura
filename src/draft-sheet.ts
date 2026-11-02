@@ -97,7 +97,7 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
     const moves = lines.reduce((n, l) => n + l.added, 0);
     const training = lines.filter(l => l.training).length;
     lede.textContent =
-      `${quantity(lines.length, 'line')}, ${quantity(moves, 'new move')}. `
+      `${quantity(lines.length, 'line')}${moves > 0 ? `, ${quantity(moves, 'new move')}` : ''}. `
       + (training === 0
         ? 'None of them will go into training.'
         : training === lines.length
@@ -117,16 +117,16 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
       'primary',
       () => { close(); opts.onAddAll(); },
     ));
-    if (opts.leaving) {
-      btnRow.appendChild(button('Discard them all', 'danger', () => {
-        close();
-        opts.onDiscardAll?.();
-      }));
-    }
     btnRow.appendChild(button('Keep editing', 'secondary', () => {
       close();
       opts.onKeepEditing?.();
     }));
+    if (opts.leaving) {
+      btnRow.appendChild(button('Discard them all', 'quiet-danger', () => {
+        close();
+        opts.onDiscardAll?.();
+      }));
+    }
   }
 
   function buildRow(line: DraftSheetLine): HTMLElement {
@@ -214,7 +214,7 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
 }
 
 function button(
-  label: string, variant: 'primary' | 'secondary' | 'danger', onClick: () => void,
+  label: string, variant: 'primary' | 'secondary' | 'quiet-danger', onClick: () => void,
 ): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';

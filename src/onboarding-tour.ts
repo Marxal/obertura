@@ -169,6 +169,11 @@ export interface CoachHandle {
   stepCount: number;
 }
 
+// THE ONE ON SCREEN. Two sequences on top of each other is never right: it reads
+// as the same dialog twice, doubles the dimming, and Skip only removes the top
+// one. Whoever asks last wins, and the one it replaces just goes.
+let activeCoach: (() => void) | null = null;
+
 // Show a sequence of coach-marks. `onDone` fires once, on whatever exit
 // happens: the last step's button, Skip, or the back gesture.
 export function showCoachMarks(
@@ -181,6 +186,8 @@ export function showCoachMarks(
     onDone();
     return { teardown: () => {}, goToStep: () => {}, currentStep: () => 0, stepCount: 0 };
   }
+
+  activeCoach?.();
 
   let index = Math.min(Math.max(0, startAt), all.length - 1);
 
@@ -254,6 +261,7 @@ export function showCoachMarks(
     window.removeEventListener('orientationchange', reposition);
     overlay.remove();
     removeBack();
+    if (activeCoach === teardown) activeCoach = null;
   }
   function finish(): void {
     if (finished) return;
@@ -261,6 +269,7 @@ export function showCoachMarks(
     onDone();
   }
   const removeBack = pushBack(finish);
+  activeCoach = teardown;
 
   // Next step, or the end of the sequence. The one path every advance goes
   // through — the Next button, a custom advancing action, and `watch`.
@@ -715,19 +724,9 @@ export function unmarkBuilderTourSeen(): void {
   clearBuilderTourSeen();
 }
 
-// What the walkthrough's ending tells its caller. `saveOffered` is the one thing
-// the caller can't work out for itself: whether the last bubble — the one that
-// offers Save — was actually reached. Without it the empty-board first line
-// re-arms its own standalone save prompt the instant the walkthrough hands back,
-// and someone who has just tapped "Add more moves" is answered by the identical
-// bubble a second time.
-export interface TourEnd {
-  saveOffered: boolean;
-}
-
 export interface BuilderIntroDeps {
   // Fires on whatever exit happens — the last step, Skip, or the back gesture.
-  onDone: (end: TourEnd) => void;
+  onDone: () => void;
   // Show a builder carousel slide, so each panel step opens the panel it names.
   showSlide: (id: TourSlide) => void;
   // Back off the FIRST bubble: there's nothing behind it in the builder, so it
@@ -776,13 +775,11 @@ export interface BuilderIntroDeps {
 
 export function showBuilderIntro(deps: BuilderIntroDeps): void {
   let handle: CoachHandle | null = null;
-  // Set the moment the last bubble is painted — see TourEnd.
-  let saveOffered = false;
 
   const done = (): void => {
     setSideTabsDisabled(false);
     dropTabNav();
-    deps.onDone({ saveOffered });
+    deps.onDone();
   };
 
   // Leave the walkthrough on screen but hand the screen to something else (the
@@ -797,7 +794,7 @@ export function showBuilderIntro(deps: BuilderIntroDeps): void {
   const launch = (from: number): void => {
     setSideTabsDisabled(true);
     handle = showCoachMarks(
-      markDoneOnLastStep(buildSteps(deps, launch, stepAside), () => { saveOffered = true; }),
+      markDoneOnLastStep(buildSteps(deps, launch, stepAside)),
       done,
       from,
     );
@@ -814,13 +811,13 @@ export function showBuilderIntro(deps: BuilderIntroDeps): void {
 // "Done" is reaching the LAST bubble, not surviving to whatever exit fires
 // onDone — Skip and the back gesture end the walkthrough too, and neither means
 // the user has been through it. So the last step's onEnter records it.
-function markDoneOnLastStep(steps: CoachStep[], onReached: () => void): CoachStep[] {
+function markDoneOnLastStep(steps: CoachStep[]): CoachStep[] {
   const last = steps[steps.length - 1];
   if (!last) return steps;
   const before = last.onEnter;
   return [...steps.slice(0, -1), {
     ...last,
-    onEnter: () => { before?.(); onReached(); markBuilderTourDone(); },
+    onEnter: () => { before?.(); markBuilderTourDone(); },
   }];
 }
 
@@ -1011,22 +1008,21 @@ function buildSteps(
       },
       watchDelay: 0,
       // `advance` on the LAST step is the sequence's ordinary end, which runs
-      // the walkthrough's own onDone — the tidy-up included. Calling deps.onDone
-      // directly (what this used to do) skipped that AND re-armed the standalone
-      // save prompt, so "Add more moves" was answered by the same bubble again.
+      // the walkthrough's own onDone — the tidy-up included.
       actions: [{ label: 'Add more moves', variant: 'quiet', advance: true }],
     },
   ];
 }
 
 // The save decision on its own, for a line the walkthrough isn't running on: a
-// starter-pack line months later, or an empty-board first line that had no
-// script to walk through.
+// starter-pack line, which plays itself in and then asks. Never on top of a
+// bubble already up — the walkthrough's last step IS this question.
 //
 // Not a "nothing is saved until you press this" warning — that framing tells a
 // first-time user the app is fragile, which is both unfriendly and untrue. It's
 // a choice between two good outcomes, and both are buttons.
 export function showSaveStep(o: { onSave: () => void; onKeepEditing?: () => void }): void {
+  if (activeCoach) return;
   showCoachMarks([
     {
       selector: ['#header-save', '#save-line-btn'],

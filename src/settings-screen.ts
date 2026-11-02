@@ -59,6 +59,7 @@ import {
 } from './mistake-autoscan';
 import { startEndgameAutoScan, stopEndgameAutoScan } from './endgame-autoscan';
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
+import { NEW_MOVE_CHOICES, getNewMovesPerDay, setNewMovesPerDay, type NewMoveChoice } from './new-move-limit';
 import { clearPuzzleLog } from './puzzle-log';
 import { clearDailyLog } from './daily-recap';
 import { clearPuzzleRating } from './puzzle-rating';
@@ -696,6 +697,16 @@ function buildTrainingGroup(): HTMLElement {
     'Confirm run before training',
     toggle(getConfirmRunBeforeTraining(), (on) => setConfirmRunBeforeTraining(on)),
     { sub: 'Do one clean run before a line joins training. Off adds it straight away.' },
+  ));
+
+  sec.appendChild(row(
+    'New moves per day',
+    segmented<string>(
+      NEW_MOVE_CHOICES.map(n => ({ value: String(n), label: n === 0 ? 'No limit' : String(n) })),
+      String(getNewMovesPerDay()),
+      (v) => setNewMovesPerDay(Number(v) as NewMoveChoice),
+    ),
+    { sub: 'How many never-trained moves a session brings in each day. Reviews are never limited.' },
   ));
 
   sec.appendChild(row(

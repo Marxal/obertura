@@ -456,7 +456,8 @@ export function buildDoor(o: DoorOptions): HTMLElement {
 // The figure under a domain's name in the Train switch: a rating bare, a count
 // with the shortest unit that still says what it counts.
 function switchFigure(stat: number | string, label?: string): string {
-  if (!label || label === 'rating') return String(stat);
+  if (!label) return String(stat);
+  if (label === 'rating') return `${stat} rating`;
   if (label.includes('due')) return `${stat} due`;
   if (label.startsWith('new')) return `${stat} new`;
   return `${stat} ${label}`;

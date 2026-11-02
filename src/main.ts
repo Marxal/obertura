@@ -8,7 +8,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode, hasMove, currentLineNodes } from './tree';
 import {
-  openBook, closeBook, activeBook, notePending, pendingCount, hasPending,
+  openBook, closeBook, activeBook, notePending, pendingCount, pendingOwnCount, hasPending,
   isPending, discardPending, commitPending, currentLine as bookCurrentLine,
   cursorCoverage, pendingBranches, pendingLines, lineForEnd, discardBranch,
   removeManyAndStore,
@@ -129,6 +129,10 @@ import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './impor
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { showWherePicker } from './onboarding-where';
+import {
+  ANALYSIS_SESSION_SPOTS, buildAnalysisReadyCard, isAnalysisPending, markAnalysisSeen,
+  readAnalysisMistakes, startAnalysisNotice,
+} from './game-analysis';
 import { takeImportLink } from './import-link';
 import { openLinePeek } from './line-peek';
 import type { ImportLoader } from './import-progress';
@@ -158,7 +162,6 @@ import {
   BUILDER_MOVE_EVENT,
   REPLAY_WALKTHROUGH_EVENT,
   type BuilderIntroDeps,
-  type TourEnd,
   type TourResume,
 } from './onboarding-tour';
 import { showFirstLineSuccess, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
@@ -176,6 +179,7 @@ import { openDailyPrefsSheet } from './daily-prefs';
 import { promptInstallApp, onInstallAvailable } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
+import { setSwitchCompact, watchSwitchScroll } from './switch-compact';
 import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
@@ -766,14 +770,17 @@ function setSaveChevron(btn: HTMLElement, show: boolean): void {
 /**
  * What the header says when there IS something to add.
  *
- * "Add 3 moves", and those three moves are on screen: the move strip now draws
- * the WHOLE draft — a second answer played off the same position appears there
- * as a parenthesised variation — so the count can never be bigger than what you
- * can see. It used to be able to, which is what the old "2 places" chip beside
- * this label was apologising for.
+ * "Add 3 moves", and those three are on screen: the move strip now draws the WHOLE
+ * draft — a second answer played off the same position appears there as a
+ * parenthesised variation — so the count can never be bigger than what you can
+ * see. It counts your own side only (UX-AUDIT 8.3): play 1.e4 e5 2.Nf3 Nc6 and
+ * you've played two moves, not four. A draft that is only the opponent's replies
+ * says so rather than offering to add "0 moves".
  */
 function draftLabel(pending: number): string {
-  return pending === 1 ? 'Add 1 move' : `Add ${pending} moves`;
+  const own = pendingOwnCount();
+  if (own === 0) return pending === 1 ? 'Add 1 reply' : `Add ${pending} replies`;
+  return own === 1 ? 'Add 1 move' : `Add ${own} moves`;
 }
 
 // What the header says when there is nothing to add: how much of the book runs
@@ -3274,6 +3281,9 @@ let returnView: ViewName = 'explore';
 // into one specific line, rather than the due-session list. Consumed (and
 // cleared) the next time the Train view is shown.
 let pendingTrainLineId: string | null = null;
+// Set by the first-run finish card's "Start training": the next paint of the
+// Openings pane starts its default session instead of showing the door.
+let pendingTrainAutoStart = false;
 
 // Reset the builder to an empty line of the given colour. Shared by the
 // per-colour Add buttons (which preselect the side) and the post-save redirect.
@@ -3353,12 +3363,22 @@ function startNewLine(colour: 'white' | 'black'): void {
 // Still owed-once: isBuilderTourOwed is the authority, and the Get-started
 // checklist's "Take the walkthrough" row remains the way to ask for it again.
 function maybeRunBuilderWalkthrough(): void {
-  if (!isBuilderTourOwed()) return;
+  if (!isBuilderTourOwed({ firstRun: firstRunReturn !== null })) return;
+  launchWalkthrough();
+}
+
+// ONE TIMER, so one walkthrough. "Build a line by hand" and Settings' replay both
+// go through startNewLine, which fires the walkthrough by itself when it's owed,
+// and then asked for it again — two timers, two sets of bubbles stacked up, on
+// exactly the person who had never seen it. Asking again now just restarts the
+// wait. The bubbles point at live controls, so they wait for the builder to have
+// laid itself out.
+let walkthroughTimer = 0;
+
+function launchWalkthrough(): void {
   guidedActive = true;
-  // The bubbles point at live controls, so they wait for the builder to have
-  // laid itself out.
-  setTimeout(() => {
-    if (!isBuilderTourOwed()) { armEmptyBoardSaveStep(); return; }
+  window.clearTimeout(walkthroughTimer);
+  walkthroughTimer = window.setTimeout(() => {
     markBuilderTourSeen();
     showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough));
   }, 450);
@@ -3407,15 +3427,13 @@ function refreshGamesOnDevice(): Promise<void> {
 // connects it offers (Lichess on the Library step, the games import on My
 // lines). `after` is the caller's continuation — it runs on whatever exit the
 // walkthrough takes, and exactly once, including the exit that goes via the
-// import sheet (which is why it waits for that sheet to close). It is handed a
-// TourEnd, because "did the walkthrough get as far as offering the save?" is
-// something only the walkthrough knows and the ending has to act on.
+// import sheet (which is why it waits for that sheet to close).
 function builderIntroDeps(
-  after: (end: TourEnd) => void,
+  after: () => void,
   o: { startStep?: number } = {},
 ): BuilderIntroDeps {
   let ran = false;
-  const once = (end: TourEnd): void => { if (!ran) { ran = true; after(end); } };
+  const once = (): void => { if (!ran) { ran = true; after(); } };
   return {
     onDone: once,
     showSlide: showBuilderSlide,
@@ -3427,7 +3445,12 @@ function builderIntroDeps(
     // The user's own half of the line — what the "two more moves" bubble counts.
     // With auto-reply on, the opponent's answers are on the line too, and
     // counting those would let one move of theirs finish the step.
-    ownMoveCount: () => mainline().filter(
+    //
+    // The path to the cursor, not mainline(): in a book that already holds lines
+    // mainline() is the saved main line, so "play your first move" counted moves
+    // nobody had played and a branch played off it never moved the count, which
+    // left the "two more moves" bubble waiting for ever.
+    ownMoveCount: () => pathTo(getCurrentNode().id).filter(
       (_, i) => isUserMoveAtDepth(i + 1, saveColour)).length,
     // The first bubble asks for one move and promises an answer back. This is
     // what keeps that promise — and the panel it belongs to is opened with it,
@@ -3443,16 +3466,15 @@ function builderIntroDeps(
     },
     goToLineEnd: endGuidedWalkthrough,
     onSave: () => { void saveCurrentLine(); },
-    // Back off the first bubble: there's nothing behind the builder on a first
-    // run, so it goes right back to the screen the line was picked on.
+    // Back off the first bubble: back to wherever the builder was opened from.
+    // On a first run that is the screen the line was picked on (showView's
+    // firstRunReturn) and the walkthrough hasn't really been seen yet, so the
+    // next pick gets it again. Anywhere else it used to open "Let's build your
+    // first line" over the app of someone with a whole repertoire.
     onRestart: () => {
-      guidedActive = false;
+      if (firstRunReturn) unmarkBuilderTourSeen();
       clearBuilder(saveColour);
-      // The walkthrough marked itself seen when it started; going back to the
-      // start screen means it hasn't been, so the next pick gets it again.
-      unmarkBuilderTourSeen();
-      showView('train');
-      showFirstRunPicker();
+      showView(firstRunReturn ? 'home' : returnView);
     },
     // Where the cursor and the title are, for the Lichess round-trip: the whole
     // line goes into lichess-auth's stash, this says where in it we were.
@@ -3528,73 +3550,56 @@ function startGuidedLine(line: GuidedLine): void {
 // isn't the same as the user asking for it.
 function endGuidedWalkthrough(): void {
   setEngineOn(false);
-  const line = mainline();
-  if (line.length > 0) handleMoveClick(line[line.length - 1].id);
+  if (inBook()) {
+    // The end of what they played, not of the book's main line: in a book that
+    // already holds lines the two differ, and the jump took them off their own
+    // moves onto a saved line just as the bubble said "save it".
+    let end = getCurrentNode();
+    for (;;) {
+      const next = end.children.find(c => isPending(c.id));
+      if (!next) break;
+      end = next;
+    }
+    if (end !== getCurrentNode()) handleMoveClick(end.id);
+  } else {
+    const line = mainline();
+    if (line.length > 0) handleMoveClick(line[line.length - 1].id);
+  }
   refreshBoardShapes();
 }
 
-// The same ending for an empty-board first line, which has no line to land on
-// and waits for the user's own moves before offering the save.
-//
-// UNLESS the walkthrough already offered it. Its last bubble IS the save step —
-// the same title, the same two buttons — so re-arming the standalone one here
-// answered "Add more moves" with the very bubble the user had just dismissed.
-// The Save button in the header is lit and named by then; nothing is lost by
-// letting them get on with it.
-function endEmptyBoardWalkthrough(end: TourEnd = { saveOffered: false }): void {
+// The same ending for an empty-board first line: the engine the walkthrough
+// switched on goes back off, and that is all. There used to be a second save
+// prompt armed here, for when the walkthrough ended before its own last bubble.
+// It counted the book's saved moves as moves on the board, so on Skip it popped
+// up over an empty board, and because its listener outlived the session it could
+// land on top of the walkthrough's own identical bubble on a later replay. Skip
+// now means skip: the Save button in the header stays lit and says what it does.
+function endEmptyBoardWalkthrough(): void {
   setEngineOn(false);
-  if (end.saveOffered) return;
-  armEmptyBoardSaveStep();
-}
-
-// How many moves an EMPTY-board first line waits before the save prompt shows
-// up. Someone who opted out of the curated lines has nothing to watch play in,
-// so there's no "the line has landed" moment to hang the prompt on — three moves
-// down is the point where there is visibly a line on the board to save.
-const EMPTY_BOARD_SAVE_AFTER = 3;
-
-// The empty-board first line: no line to watch, so the save step waits for the
-// user to put a few moves down themselves. It's the same guided ending as a
-// curated line — save routes straight into the confirm run — because it's the
-// same first line.
-function armEmptyBoardSaveStep(): void {
-  const check = (): void => {
-    if (!guidedActive || mainline().length < EMPTY_BOARD_SAVE_AFTER) return;
-    document.removeEventListener(BUILDER_MOVE_EVENT, check);
-    showSaveStep({ onSave: () => { void saveCurrentLine(); } });
-  };
-  document.addEventListener(BUILDER_MOVE_EVENT, check);
-  // The walkthrough is playable while it's on screen, so the three moves may
-  // already be down by the time it ends.
-  check();
 }
 
 // FIRST VISIT: "Where do you play?" — see onboarding-where.ts for why this
 // replaced the colour picker as the front door. Two ways out of it:
 //
-//   a platform  → import their games → the recap → one tap saves their first
-//                 lines. They see their OWN openings inside a minute, and the
-//                 three-line goal clears without building anything by hand.
-//   "I don't play online" → the colour picker below, unchanged.
+//   a platform → import their games → pick your openings → the finish card. The
+//                game analysis starts as the games land and reports when it's ready
+//                (game-analysis.ts), so nothing here waits on the engine.
+//   elsewhere  → a ready-made opening, or an empty board of a chosen colour.
 //
-// No beta code, no carousel, no setup wizard, no account.
-// ── BACK STEPS THROUGH THE FLOW, IT DOESN'T FALL OUT OF IT ──────────────────
+// ── NOTHING ADDED, NOT FINISHED ─────────────────────────────────────────────
 //
-// Each screen here used to register its back step as "close me", so the system
-// back gesture at any point — mid-import, or on the recap looking at four
-// openings — dropped the user straight into an empty app with no way back to
-// what they were doing. First run is a sequence, so back walks it backwards:
-// the recap and the import both return to "Where do you play?", and only that
-// first screen (which genuinely has nothing behind it) lets go.
+// A first run ends when there's something on the device to train, and at no other
+// point. setOnboardingComplete() used to run on the way INTO the builder and the
+// pack sheet, so a Skip there, or a tap on the sheet's backdrop, left someone in
+// an empty app with first run marked done and no way back to it. It now fires when
+// a line is saved, or when someone with games has been told what skipping the
+// openings means and skips them anyway.
 //
-// FINISHING IS ALSO WHAT MARKS IT COMPLETE. setOnboardingComplete() used to run
-// the moment a platform was picked, which meant backing out of the import left
-// the flag set and first run never came back — the user was stranded in an app
-// with no lines. It is now set where the flow actually ends: saving the lines,
-// skipping them deliberately, or taking the manual branch. Someone who backs
-// all the way out is offered first run again next launch, which is the honest
-// reading of what they did.
-// First run, from wherever it got to.
+// Back walks the sequence backwards: the recap and the import return to "Where do
+// you play?", the colour screen and the pack sheet too, and leaving the builder
+// with nothing saved returns to the screen that opened it (firstRunReturn). Only
+// the first screen lets go, and it lets go of the APP, not into it.
 //
 // ── WHY THIS RESUMES RATHER THAN RESTARTS ───────────────────────────────────
 // Anything that reloads the app mid-first-run — a refresh, the OS reclaiming
@@ -3613,6 +3618,11 @@ function armEmptyBoardSaveStep(): void {
 // typed username for both platforms, so first run never leaves the app. The
 // only OAuth that can interrupt it is the sign-in link, and the walkthrough's
 // own return path is guarded separately (tourResumePending, in offerFirstRun).
+//
+// Where to go if the builder is left with nothing saved during a first run. Set by
+// the two doors that open it; spent by showView on the way out.
+let firstRunReturn: (() => void) | null = null;
+
 async function showFirstRun(): Promise<void> {
   try {
     const games = await getAllGames();
@@ -3626,15 +3636,64 @@ async function showFirstRun(): Promise<void> {
   showWherePickerScreen();
 }
 
-function showWherePickerScreen(): void {
-  showWherePicker({
+function showWherePickerScreen(o: { tab?: 'manual'; notice?: string } = {}): void {
+  const close = showWherePicker({
+    initialTab: o.tab,
+    notice: o.notice,
     onPlatform: (platform, username) => runFirstRunImport(platform, username),
-    onManual: () => { hideAppSplash(); showFirstRunPicker(); },
-    onSignIn: isSupabaseConfigured ? () => openSignUpSheet('signin') : undefined,
+    onStarterPacks: () => { hideAppSplash(); openFirstRunPacks(); },
+    onBuildOwn: () => { hideAppSplash(); showFirstRunPicker(); },
+    onSignIn: isSupabaseConfigured ? () => firstRunSignIn(() => close()) : undefined,
     // This is the first screen on a first visit, so it clears the boot splash
     // itself rather than depending on the boot order to have done it.
     onShown: hideAppSplash,
   });
+}
+
+// "I already have an account" on a first-run screen. Google and Facebook leave and
+// reload, which the boot's own wait for the account copy already handles. An email
+// sign-in resolves in place, and the account's lines then landed underneath a
+// screen still asking "Where do you play?".
+function firstRunSignIn(closeScreen: () => void): void {
+  openSignUpSheet('signin', {
+    onSignedIn: () => {
+      const check = (): void => {
+        void getAllLines().then((lines) => {
+          if (lines.length === 0) return;
+          window.removeEventListener(SYNC_PULLED_EVENT, check);
+          closeScreen();
+          finishFirstRun();
+          showView('home');
+        });
+      };
+      window.addEventListener(SYNC_PULLED_EVENT, check);
+      check();
+    },
+  });
+}
+
+// The starter packs as a first-run step. A whole pack saved is the end of first
+// run; a single line goes to the builder and ends there when it's saved; walking
+// away from the sheet goes back to the question.
+function openFirstRunPacks(): void {
+  const backToWhere = (): void => showWherePickerScreen({ tab: 'manual' });
+  let added = 0;
+  void openStarterPackPicker(
+    (seed, colour, mode, onDone, onCancel) => {
+      if (mode === 'build') firstRunReturn = backToWhere;
+      addStarterLine(seed, colour, mode, () => { added++; onDone(); }, onCancel);
+    },
+    {
+      title: 'Pick your first opening',
+      onBulkAdded: () => {
+        finishFirstRun();
+        noteJustOnboarded();
+        showView('home');
+        showFirstRunFinish({ lines: added });
+      },
+      onDismissed: backToWhere,
+    },
+  );
 }
 
 // First run is over and the app proper begins. Called from every path that
@@ -3691,6 +3750,8 @@ function runFirstRunImport(platform: Platform, username: string): void {
     onImported: (_count, handOff) => {
       imported = true;
       adoptRecapLoader(handOff);
+      // Now, not at the next boot: the game analysis starts as the games land.
+      startAutoScan();
       void showFirstRunRecap();
     },
     onClose: () => { if (!imported) showWherePickerScreen(); },
@@ -3746,7 +3807,25 @@ async function nameOpenings(games: readonly ImportedGame[]): Promise<Map<RecapGa
 // Turn what just landed into the recap. Reads the games back from storage rather
 // than taking them from the import callback, so what the recap describes is
 // exactly what the device now holds.
-async function showFirstRunRecap(): Promise<void> {
+// `firstRun` off is Get started's "Pick from my games": the same screen as a tool
+// picked up later, with no steps and nothing more to walk through after it.
+async function showFirstRunRecap(firstRun = true): Promise<void> {
+  // Naming a whole library takes a moment with nothing on screen when Get started
+  // asks (first run has the import's loader up): say so, and a second tap meanwhile
+  // must not stack a second screen.
+  if (recapBuilding) return;
+  recapBuilding = true;
+  if (!firstRun) showToast('Reading your games…');
+  try {
+    await buildAndShowRecap(firstRun);
+  } finally {
+    recapBuilding = false;
+  }
+}
+
+let recapBuilding = false;
+
+async function buildAndShowRecap(firstRun: boolean): Promise<void> {
   let games: ImportedGame[];
   try {
     games = await getAllGames();
@@ -3756,15 +3835,20 @@ async function showFirstRunRecap(): Promise<void> {
     return;
   }
 
-  // Too thin to say anything honest about — see RECAP_MIN_GAMES. Hand over to
-  // the manual branch rather than showing a confident recap built on four games.
+  // Too thin to say anything honest about — see RECAP_MIN_GAMES. Back to the
+  // question, on the tab that has an answer for someone with few games online,
+  // and first run stays owed: nothing has been added yet.
   if (!hasEnoughGames(games.length)) {
     hideRecapLoader();
-    showToast('Not many games to read yet — let’s build your first line instead.');
-    finishFirstRun();
-    showFirstRunPicker();
+    showWherePickerScreen({
+      tab: 'manual',
+      notice: 'There aren’t enough games there yet to find your openings. Start '
+        + 'with a ready-made opening, or build your own line.',
+    });
     return;
   }
+
+  if (firstRun) startAutoScan();
 
   // The bundled opening table, not the platform's own `opening` field: every
   // other screen in the app names lines with nameForPath, and two different
@@ -3808,13 +3892,19 @@ async function showFirstRunRecap(): Promise<void> {
     freeLimit: isEntitled() ? Number.MAX_SAFE_INTEGER : FREE_TRAINING_LINES,
     onFilterChange: (opts) => { currentTimeClass = opts.timeClass; return build(opts); },
     onDeepen: deepen,
+    firstRun,
     onSave: (openings) => { finishFirstRun(); void saveRecapLines(openings); },
-    // "Not now" is a decision, so it ends first run. The back gesture is not —
-    // it returns to the question, with first run still owed.
-    onSkip: () => { finishFirstRun(); showView('home'); },
+    // Skipping the openings isn't skipping the games: the analysis carries on and
+    // Home's banner says so. First run ends here, with games on the device and Get
+    // started offering this screen again. The back gesture is not a decision — it
+    // returns to the question, with first run still owed.
+    onSkip: () => {
+      if (firstRun) { finishFirstRun(); noteJustOnboarded(); }
+      showView('home');
+    },
     // Back always returns to the QUESTION, never to the resume — the user is
     // stepping back from the openings, so landing on them again is a loop.
-    onBack: () => showWherePickerScreen(),
+    onBack: () => { if (firstRun) showWherePickerScreen(); else showView('home'); },
     onPreview: (opening, ctx) => previewRecapLine(opening, ctx),
   });
 }
@@ -3842,7 +3932,7 @@ function previewRecapLine(opening: OpeningGroup, ctx: PreviewContext): void {
       {
         // Same words and same shape as the card's own toggle, so the two read
         // as one control seen from two places rather than two decisions.
-        label: ctx.selected ? '✓ Added' : 'Add this line',
+        label: ctx.selected ? '✓ Selected' : 'Select',
         active: ctx.selected,
         onClick: ctx.onToggle,
       },
@@ -3894,23 +3984,80 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
   // arrived in one tap, so a challenge ABOUT them would be this person's first
   // ever view of the app. See noteJustOnboarded.
   noteJustOnboarded();
-  showView('train');
+  showView('home');
 
-  if (saved === 0) return;
+  const pausedNote = paused > 0
+    ? `${saved - paused} are training now; ${paused} are saved paused in Openings → My lines.`
+    : undefined;
 
-  // The moment to ask for an account: they have just made something worth
-  // losing, and nothing else in the app has mentioned that it lives only on
-  // this phone. Offered, never required — "Not now" is right there, and the
-  // card isn't built at all for someone already signed in.
-  // No "they're in training from today" line here any more: the card's job is
-  // the account, and a sentence about the training schedule in front of that ask
-  // is a fact competing with a decision.
+  showFirstRunFinish({ lines: saved, note: pausedNote });
+}
+
+// The card that closes first run: what they have now, and the one thing to do
+// next. Training is the next thing once it's unlocked; below that it would be a
+// locked door, so the next thing is more lines, which Get started leads with.
+function showFirstRunFinish(o: { lines: number; note?: string }): void {
+  if (o.lines === 0) return;
+  const lineWord = o.lines === 1 ? '1 line' : `${o.lines} lines`;
+  const analysing = isAnalysisPending()
+    ? ' Your game analysis keeps running, and we’ll let you know when it’s ready.'
+    : '';
   showFirstLineSuccess({
-    title: saved === 1 ? 'Your first line is saved' : `${saved} lines saved`,
-    lead: paused > 0
-      ? `${saved - paused} are training now; ${paused} are saved paused in Openings → My lines.`
-      : undefined,
+    title: 'You’re set',
+    lead: `${o.note ?? `${lineWord} saved.`}${analysing}`,
+    primary: o.lines >= TRAINING_UNLOCK_LINES
+      ? { label: 'Start training', onClick: startFirstTraining }
+      : { label: 'Add more lines', onClick: () => showView('home') },
   });
+}
+
+// ── Game analysis: the word when it's ready ─────────────────────────────────
+//
+// Held back while something has the screen. A toast with a button over a drill, or
+// over the first-run screens, is the wrong moment and easy to tap by accident.
+function analysisCanSpeak(): boolean {
+  return currentView !== 'builder'
+    && !document.querySelector('.pt-overlay, .picker-overlay, .edit-overlay, .tour-overlay');
+}
+
+function whenAnalysisCanSpeak(say: () => void): void {
+  if (analysisCanSpeak()) { say(); return; }
+  window.setTimeout(() => whenAnalysisCanSpeak(say), 4000);
+}
+
+function fixAnalysisMistakes(): void {
+  markAnalysisSeen();
+  void readAnalysisMistakes().then((refs) => {
+    startMistakeSession({
+      refs: refs.slice(0, ANALYSIS_SESSION_SPOTS),
+      modeLabel: 'Your mistakes',
+      contextLabel: 'From your games',
+      onExit: () => showView('home'),
+      onOpenGame: openGameFromSession,
+    });
+  });
+}
+
+function initAnalysisNotice(): void {
+  startAnalysisNotice({
+    onReady: (count) => whenAnalysisCanSpeak(() => {
+      if (currentView === 'home') showView('home'); // the card goes up
+      showToast(`Game analysis ready: ${count} mistake${count === 1 ? '' : 's'}`, {
+        durationMs: 8000,
+        action: { label: 'Fix them', onClick: fixAnalysisMistakes },
+      });
+    }),
+    onNothingFound: () => whenAnalysisCanSpeak(() => {
+      showToast('Game analysis finished: no clear mistakes in your games.');
+    }),
+  });
+}
+
+// Straight into a session on the lines just saved, through the Train screen's own
+// default mode, so it's the same session its Start button gives.
+function startFirstTraining(): void {
+  pendingTrainAutoStart = true;
+  showView('train');
 }
 
 // The manual branch: the original colour picker, now reached only through
@@ -3918,27 +4065,25 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
 // which is "I picked the wrong line" and whose only honest answer is the screen
 // the line was picked on).
 function showFirstRunPicker(): void {
-  showOnboardingPicker({
+  const close = showOnboardingPicker({
     // One question answered, and straight to an empty board of that colour with
     // the walkthrough on it. The walkthrough is the first line: the coach-marks
     // ask for the moves, auto-reply answers them, and the last bubble saves —
     // which routes into the confirm run exactly as any other save does.
     // The walkthrough is no longer armed here — startNewLine does it for every
     // door into the builder, this one included.
+    // Not finished yet: that's the first save (finishGuidedSave). Coming back out
+    // with nothing saved lands here again.
     onStart: (colour) => {
-      finishFirstRun();
+      firstRunReturn = showFirstRunPicker;
       startNewLine(colour);
     },
-    onStarterPacks: () => {
-      finishFirstRun();
-      showView('home');
-      void openStarterPackPicker(addStarterLine);
-    },
+    onBack: () => showWherePickerScreen({ tab: 'manual' }),
     // Only where accounts exist — in the internal build the line would be a
     // dead end, so the picker's foot simply doesn't grow one.
     // …and it opens the sheet in SIGN-IN mode, because the line says "I already
     // have an account" and the person tapping it does.
-    onSignIn: isSupabaseConfigured ? () => openSignUpSheet('signin') : undefined,
+    onSignIn: isSupabaseConfigured ? () => firstRunSignIn(() => close()) : undefined,
     // The picker is the first screen on a first visit, so it clears the boot
     // splash itself rather than depending on the boot order to have done it.
     onShown: hideAppSplash,
@@ -3951,11 +4096,7 @@ function showFirstRunPicker(): void {
 // walkthrough has already been shown.
 function replayBuilderWalkthrough(): void {
   startNewLine('white');
-  guidedActive = true;
-  setTimeout(() => {
-    markBuilderTourSeen();
-    showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough));
-  }, 450);
+  launchWalkthrough();
 }
 
 // A starter-pack (or suggested) line, opened the same way the first-run line is:
@@ -4379,6 +4520,9 @@ function updateHeaderTitle(): void {
     : currentView === 'settings' ? 'Settings'
     : 'bito chess';
   el.classList.toggle('header-title--screen', !onTab);
+  // The lower case is the logo. Said aloud, it's the product's name.
+  if (onTab) el.setAttribute('aria-label', 'Bito Chess');
+  else el.removeAttribute('aria-label');
 }
 
 // The Train screen's four domains used to be four tabs, each hiding a pane. They
@@ -4478,37 +4622,6 @@ const TRAIN_TABS: Record<DomainId, { label: string; icon: () => SVGElement }> = 
   tactics: { label: 'Tactics', icon: () => Icons.puzzlePiece(16) },
   endgames: { label: 'Endgames', icon: () => Icons.flag(16) },
 };
-
-// The switch on screen now, for the one window scroll listener below. A Train
-// repaint builds a new switch; the listener is installed once and always finds
-// the current one.
-let trainSwitchEl: HTMLElement | null = null;
-let trainScrollWired = false;
-
-// The switch slims down once you scroll into the list: the figure line folds
-// away and the icon gets a little smaller. The height it gives back is handed
-// to its bottom margin, so the page below keeps its exact length and position —
-// nothing shifts under the finger mid-scroll (the first cut moved the page by
-// ~30px each time it folded, which read as the scroll stuttering).
-function setTrainSwitchCompact(sw: HTMLElement, on: boolean): void {
-  if (sw.classList.contains('train-switch--compact') === on) return;
-  sw.style.marginBottom = '';
-  const full = sw.offsetHeight;
-  sw.classList.toggle('train-switch--compact', on);
-  if (on) sw.style.marginBottom = `${full - sw.offsetHeight}px`;
-}
-
-function wireTrainSwitchScroll(): void {
-  if (trainScrollWired) return;
-  trainScrollWired = true;
-  window.addEventListener('scroll', () => {
-    const sw = trainSwitchEl;
-    if (!sw?.isConnected || getComputedStyle(sw).display === 'none') return;
-    const y = window.scrollY;
-    if (y > 48) setTrainSwitchCompact(sw, true);
-    else if (y < 8) setTrainSwitchCompact(sw, false);
-  }, { passive: true });
-}
 
 function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
@@ -4632,7 +4745,7 @@ function renderTrainRoom(host: HTMLElement): void {
     // A repaint built a new room: this one's listener retires.
     if (!room.isConnected) { desktop.removeEventListener('change', onBreakpoint); return; }
     for (const id of DEFAULT_TRAIN_ORDER) placeDoor(id);
-    if (!isPaged()) setTrainSwitchCompact(sw, false);
+    if (!isPaged()) setSwitchCompact(sw, 'train-switch--compact', false);
   };
   desktop.addEventListener('change', onBreakpoint);
 
@@ -4737,17 +4850,22 @@ function renderTrainRoom(host: HTMLElement): void {
   });
 
   host.appendChild(room);
-  trainSwitchEl = sw;
-  wireTrainSwitchScroll();
   // Back where you left it — a trip into a drill rebuilds this screen.
   showTab(trainTab);
-  if (isPaged()) setTrainSwitchCompact(sw, window.scrollY > 48);
+  if (isPaged()) watchSwitchScroll(sw, 'train-switch--compact');
 
-  // Long-press is invisible, so say it once, the first time Train is opened
-  // on a phone.
-  if (isPaged() && !trainOrderHintSeen()) {
-    markTrainOrderHintSeen();
-    window.setTimeout(() => { if (room.isConnected) showToast('Tip: long-press a tab to reorder them'); }, 1200);
+  // Long-press is invisible, so say it once. Not on the first visit: it teaches
+  // a minor feature, so it waits for someone who has trained on two different
+  // days and has a reason to care about the order of these tabs.
+  if (isPaged() && !trainOrderHintSeen() && getTrainingDays().length >= 2) {
+    window.setTimeout(() => {
+      // Not over a session or on another screen. It only counts as seen once it
+      // has really been shown, so a suppressed tip waits for the next visit.
+      if (room.isConnected && !document.querySelector('.pt-overlay')) {
+        markTrainOrderHintSeen();
+        showToast('Tip: long-press a tab to reorder them');
+      }
+    }, 1200);
   }
 
   const openingsPane = panes.get('openings')!;
@@ -4764,11 +4882,13 @@ function renderTrainRoom(host: HTMLElement): void {
   const paintOpenings = (): void => {
     renderTrainScreen(openingsPane, {
       focusLineId: pendingTrainLineId ?? undefined,
+      autoStart: pendingTrainAutoStart,
       onOpenLine,
       onBuildLine: () => startNewLine('white'),
       onSetFabVisible: (visible) => fabController?.setVisible(visible),
     });
     pendingTrainLineId = null;
+    pendingTrainAutoStart = false;
   };
   const paintMistakes = (): void => {
     void renderMistakesScreen(mistakesPane, {
@@ -4804,7 +4924,13 @@ function renderHome(host: HTMLElement): void {
   // The scan banner is the FIRST thing on Home, above the daily card: it is a
   // notification about the app working, and a notification that arrives below
   // the day's task list is a notification nobody reads.
-  const banner = buildScanBanner();
+  //
+  // Once there's news the card replaces it: "it's ready" outranks "it's running".
+  const ready = buildAnalysisReadyCard({
+    onFix: fixAnalysisMistakes,
+    onDismiss: () => { markAnalysisSeen(); showView('home'); },
+  });
+  const banner = ready ?? buildScanBanner();
   if (banner) host.appendChild(banner);
 
   const dailyHost = document.createElement('div');
@@ -4872,12 +4998,9 @@ function renderHome(host: HTMLElement): void {
             onCancel),
         ),
         onBuildLine: () => startNewLine('white'),
-        // "Play the engine" is the engine BUILDER — a game against Stockfish you
-        // can hand to the builder at any point (the same flow the FAB and Explore
-        // open). It used to open an ordinary empty builder with the eval bar
-        // switched on, which is an analysis aid, not a way to get a line.
         onImportGames: () => openImportPanel({ onImported: () => showView('home') }),
-        onConnectLichess: () => void lichessConnect(),
+        onPickFromGames: () => void showFirstRunRecap(false),
+        onStartTraining: startFirstTraining,
         // The same replay Settings offers, in the one place a user who skipped
         // the walkthrough is actually looking.
         onWalkthrough: () => replayBuilderWalkthrough(),
@@ -5160,12 +5283,26 @@ function syncNavVisibility(): void {
   const isDesktop = desktopNavQuery.matches;
   document.getElementById('bottom-nav')!.toggleAttribute('hidden', onBack || isDesktop);
   document.getElementById('side-nav')!.toggleAttribute('hidden', onBack || !isDesktop);
-  // The FAB rides along with whichever nav is showing: visible on the five
-  // main tabs, hidden on the full-screen builder/settings.
-  fabController?.setVisible(!onBack);
+  // The FAB rides along with whichever nav is showing: visible on the main tabs,
+  // hidden on the full-screen builder/settings. Statistics doesn't get it either:
+  // nothing there is about creating a line, and it sat on the Week/Month/All
+  // switch (UX-AUDIT 12.3).
+  fabController?.setVisible(!onBack && currentView !== 'progress');
 }
 
 function showView(view: ViewName): void {
+  // Leaving the builder ends whatever guidance was running on it. Left standing,
+  // `guidedActive` carried into the next line opened by any door, weeks later.
+  if (currentView === 'builder' && view !== 'builder') {
+    window.clearTimeout(walkthroughTimer);
+    endGuided();
+    // …and on a first run, nothing saved means the first run isn't over: back to
+    // the screen that sent them here, not on to an empty app.
+    const back = firstRunReturn;
+    firstRunReturn = null;
+    if (back) void shouldShowFirstRun().then((owed) => { if (owed) back(); });
+  }
+
   // A training session suspended behind the analyser: landing back on one of the
   // two screens an exercise can start from resumes it (after the view has
   // rendered, below); landing anywhere else discards it so its hidden overlay
@@ -5677,6 +5814,7 @@ function buildSideNav(): void {
   const brand = document.createElement('div');
   brand.className = 'side-brand';
   brand.textContent = 'bito chess';
+  brand.setAttribute('aria-label', 'Bito Chess');
   nav.appendChild(brand);
 
   const items = document.createElement('div');
@@ -5972,7 +6110,7 @@ function showSaveGuard(proceed: () => void): void {
   // played and not yet added. Discard removes them from the working tree, so
   // leaving really does leave the repertoire as it was.
   if (inBook()) {
-    const n = pendingCount();
+    const n = pendingOwnCount() || pendingCount();
     const drafted = pendingLines();
     // More than one line built: the old dialog offered a single "Discard" that
     // threw away everything at once, having named none of it. Show the lines
@@ -6008,8 +6146,10 @@ function showSaveGuard(proceed: () => void): void {
           variant: 'primary',
           onClick: () => { void commitPending().then(() => { if (!hasPending()) proceed(); }); },
         },
-        { label: 'Discard', variant: 'danger', onClick: () => { discardPending(); proceed(); } },
         { label: 'Keep editing', variant: 'secondary' },
+        // Last and quiet: a filled red button right under the primary invited the
+        // one mis-tap that loses the work (UX-AUDIT 8.8).
+        { label: 'Discard', variant: 'quiet-danger', onClick: () => { discardPending(); proceed(); } },
       ],
     });
     return;
@@ -6031,8 +6171,8 @@ function showSaveGuard(proceed: () => void): void {
           void Promise.resolve(done).then(() => proceed());
         },
       },
-      { label: 'Discard', variant: 'danger', onClick: proceed },
       { label: 'Keep editing', variant: 'secondary' },
+      { label: 'Discard', variant: 'quiet-danger', onClick: proceed },
     ],
     // Backdrop tap / back gesture = keep editing (stay put).
   });
@@ -6196,7 +6336,7 @@ async function saveLineFromCurrentPath(): Promise<void> {
       // Surface the new line on My Lines (highlighted) so the save is unmistakable,
       // then bounce back to the game so more lines can be extracted from it.
       focusSavedLine(line.id);
-      showToast('Saved to My Lines ✓', { variant: 'success' });
+      showToast('Saved to My lines ✓', { variant: 'success' });
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -6485,6 +6625,13 @@ function showExtensionNotice(line: Line, overlap: DuplicateVerdict | null): void
 // is nothing to decline.
 function finishGuidedSave(line: Line): void {
   endGuided();
+  // A line exists: the first run, if this was one, is over. Before the view
+  // changes, so leaving the builder doesn't read it as walking away.
+  if (firstRunReturn) {
+    firstRunReturn = null;
+    finishFirstRun();
+    noteJustOnboarded();
+  }
 
   // "Skip this time" on the trainer's introduction, as opposed to backing out of
   // a run that had already started. Both land in onCancel; only one of them is
@@ -6494,18 +6641,15 @@ function finishGuidedSave(line: Line): void {
   void getAllLines().then(all => addLineToTraining(
     line,
     () => {
-      showView('train');
       // Land on the hub, then mark the moment: a centred success card with the
       // celebrating pawn, what to do next, and — only here, straight after
-      // something that went well — the one account ask we ever make. It no-ops
-      // into a plain well-done card when there are no accounts to make or the
-      // user is already signed in.
-      showFirstLineSuccess();
+      // something that went well — the one account ask we ever make.
+      showFirstLineDone(all.length);
     },
     () => {
       // Skipped the run on purpose: the line is saved and in training, so this
       // IS the end of the first run — hub, and the card that says so.
-      if (skipped) { showView('train'); showFirstLineSuccess(); return; }
+      if (skipped) { showFirstLineDone(all.length); return; }
       // Cancelled the run (or the cap said no): the line is saved either way, so
       // land on it rather than dropping them somewhere they didn't ask for.
       goToSavedLine(line.id);
@@ -6533,6 +6677,23 @@ function finishGuidedSave(line: Line): void {
       firstMoveHint: 'Play the first move of the line',
     },
   ));
+}
+
+// The card after a first line built by hand. Home, because that's where Get
+// started is, and its next step is the real one: the number of lines training
+// still needs, or training itself once it has them.
+function showFirstLineDone(lineCount: number): void {
+  showView('home');
+  const left = TRAINING_UNLOCK_LINES - lineCount;
+  showFirstLineSuccess({
+    title: 'Your first line is set!',
+    lead: left > 0
+      ? `Add ${left} more line${left === 1 ? '' : 's'} to start training.`
+      : 'It joins your training from today.',
+    primary: left > 0
+      ? { label: 'Add more lines', onClick: () => showView('home') }
+      : { label: 'Start training', onClick: startFirstTraining },
+  });
 }
 
 // What the confirm run says when it lands, given how many lines are now saved.
@@ -7077,6 +7238,7 @@ requestAnimationFrame(() => {
   // If the last thing this device did was take a copy down from an account and
   // reload, say so now — the page that fetched it is gone.
   reportRestoreOnBoot();
+  initAnalysisNotice();
 
   const offerFirstRun = (): void => {
     // A walkthrough returning from the Lichess round-trip owns the screen. The

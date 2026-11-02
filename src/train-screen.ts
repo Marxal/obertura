@@ -2,11 +2,12 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, getLine, saveLine } from './storage';
 import {
-  startDrill, startPositionsDrill, startTimedDrill,
+  startDrill, startPositionsDrill, startTimedDrill, isUntrained,
   type DrillOptions, type DivertChoice,
 } from './drill';
 import { positionIndex } from './position-index';
 import { siblingCredits, applyReviewAt, judgeOtherLineMove } from './train-index';
+import { newMoveLimitReason, newMovesLeftToday, noteMoveGraded } from './new-move-limit';
 import { selectIndividualPositions, selectTimedPositions } from './individual';
 import { planRepertoireRun, runSavingNote, type RunPlan, type RunPosition } from './repertoire-run';
 import { getAllRepertoires, saveRepertoire } from './storage';
@@ -55,6 +56,7 @@ import {
   describeDue,
   recentlyAddedLines,
   weakestLines,
+  lineMissCount,
 } from './scheduler';
 import {
   recordTrainingDay,
@@ -261,7 +263,7 @@ async function doRender(
     }
   }
 
-  const due = dueLines(trainingLines);
+  const due = dueLines(trainingLines, new Date(), newMovesLeftToday());
 
   // Arrived from the Home screen's "Start training": jump straight into a session
   // built from the user's default training mode (Settings), rather than showing
@@ -362,8 +364,8 @@ function buildOpeningsDoor(
   allLines: Line[],
   locked: boolean,
 ): HTMLElement {
-  const plan = locked ? null : planRepertoireRun(books);
-  const runnable = !!plan && plan.totalMoves > 0;
+  const plan = locked ? null : planRepertoireRun(books, { newAllowance: newMovesLeftToday() });
+  const runnable = !!plan && plan.positions.length > 0;
   const dueMoves = plan?.dueMoves ?? 0;
   // Moves never trained are NEW, not overdue. A freshly added pack used to read
   // "87 moves due" on day one — a debt the user never ran up (UX-AUDIT C1).
@@ -387,9 +389,19 @@ function buildOpeningsDoor(
     disabled: !runnable,
     disabledReason: locked
       ? trainingLockReason(allLines.length)
-      : 'Save a line first',
+      : plan && plan.newHeldBack > 0
+        ? newMoveLimitReason()
+        : 'Save a line first',
     progress: !locked && training.length > 0
-      ? { value: mastered, max: training.length, label: `${mastered} of ${training.length} mastered` }
+      ? {
+        value: mastered,
+        max: training.length,
+        // Nothing new on offer because today's are used up, not because the book
+        // has run out: say so, or a door with no new moves reads as a finished book.
+        label: plan && plan.newHeldBack > 0 && newMoves === 0
+          ? `${mastered} of ${training.length} mastered · new moves tomorrow`
+          : `${mastered} of ${training.length} mastered`,
+      }
       : undefined,
     onClick: () => runRepertoireRun(container, books),
   });
@@ -410,7 +422,7 @@ function renderPractiseBox(
   // still to go as the reason.
   locked: boolean,
 ): HTMLElement {
-  const runPlan = locked ? null : planRepertoireRun(books);
+  const runPlan = locked ? null : planRepertoireRun(books, { newAllowance: newMovesLeftToday() });
   // The (i) rides on the box's title, because a card's subtitle has room for one
   // short line and not for how "Whole lines" differs from the door above it.
   const box = buildBox('openings', 'Practise your openings', buildInfoButton(
@@ -425,8 +437,8 @@ function renderPractiseBox(
     const note = document.createElement('p');
     note.className = 'section-desc mode-cards-locked';
     note.textContent = allLines.length === 0
-      ? `Save ${TRAINING_UNLOCK_LINES} lines to switch practice on. Fewer than that and a `
-        + 'session is the same line over and over, which is where the habit dies.'
+      ? `Save ${TRAINING_UNLOCK_LINES} lines to switch practice on, so a session has `
+        + 'more than one line to mix.'
       : `Save at least ${TRAINING_UNLOCK_LINES} lines to switch practice on — `
         + `you have ${allLines.length}, so ${left} to go.`;
     section.appendChild(note);
@@ -449,12 +461,13 @@ function renderPractiseBox(
     ? trainingLockReason(allLines.length)
     : nothingSaved
       ? 'Save a line first — then there’s something to drill'
-      : 'Switch a line on in My Lines to drill it';
+      : 'Switch a line on in Openings → My lines to drill it';
 
   // Whole lines — the due pile walked as LINES rather than as moves. It is the
   // other of the two routes the old due hero offered as a pair of buttons; the
   // door takes the move walk, this takes the line walk.
-  const due = dueLines(allTraining);
+  const due = dueLines(allTraining, new Date(), newMovesLeftToday());
+  const heldBack = dueLines(allTraining).length > due.length;
   linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.run,
     icon: Icons.book(20),
@@ -463,7 +476,8 @@ function renderPractiseBox(
     stat: due.length > 0 ? due.length : undefined,
     statLabel: due.length === 1 ? 'line' : 'lines',
     disabled: locked || due.length === 0,
-    disabledReason: locked || nothingSaved ? noLinesReason : 'Nothing due right now',
+    disabledReason: locked || nothingSaved ? noLinesReason
+      : heldBack ? newMoveLimitReason() : 'Nothing due right now',
     onClick: () => startRounds(due, container, { explicit: true }),
   }));
 
@@ -492,15 +506,19 @@ function renderPractiseBox(
   // Review missed moves — single moves you've missed. Tappable as long as
   // there's anything deep enough to drill (the mode falls back to weak/upcoming
   // moves).
-  const missed = locked ? [] : selectIndividualPositions(allTraining);
-  const hasPositions = missed.length > 0;
+  const missed = locked ? [] : selectIndividualPositions(allTraining, { newAllowance: newMovesLeftToday() });
+  // The set also holds due and new moves, so its size isn't "moves you missed".
+  // The figure counts real misses only. The card waits for something trained:
+  // a mode about mistakes has no business testing a move nobody has been shown.
+  const missedCount = missed.filter(p => (p.expected.review?.lapses ?? 0) > 0).length;
+  const hasPositions = missed.some(p => !isUntrained(p.expected));
   singleList.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
     name: 'Missed moves',
-    sub: 'moves you got wrong',
-    stat: hasPositions ? missed.length : undefined,
-    statLabel: missed.length === 1 ? 'move' : 'moves',
+    sub: missedCount > 0 || !hasPositions ? 'moves you got wrong' : 'no misses yet, review single moves',
+    stat: missedCount > 0 ? missedCount : undefined,
+    statLabel: missedCount === 1 ? 'move' : 'moves',
     disabled: !hasPositions,
     // "Train a little more" is only true once there IS something to train.
     disabledReason: locked || nothingSaved
@@ -510,7 +528,10 @@ function renderPractiseBox(
   }));
 
   // Weak spots — full runs of the weakest lines first.
-  const weakLines = weakestLines(allTraining).slice(0, PICKER_SESSION_CAP);
+  // Only lines you've actually missed a move in: nothing is weak before training.
+  const weakLines = weakestLines(allTraining)
+    .filter(l => lineMissCount(l) > 0)
+    .slice(0, PICKER_SESSION_CAP);
   linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
@@ -519,19 +540,25 @@ function renderPractiseBox(
     stat: !locked && weakLines.length > 0 ? weakLines.length : undefined,
     statLabel: weakLines.length === 1 ? 'line' : 'lines',
     disabled: locked || weakLines.length === 0,
-    disabledReason: noLinesReason,
+    disabledReason: locked || nothingSaved || allTraining.length === 0
+      ? noLinesReason
+      : 'Nothing yet. Lines where you miss a move land here',
     onClick: () => startRounds(weakLines, container, { explicit: true }),
   }));
 
   // Fresh lines — full runs of the newest lines first.
-  const freshLines = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
+  // The figure is lines you've never trained. They go first; with none left the
+  // card still walks your newest, just without a number claiming any are new.
+  const untrainedLines = recentlyAddedLines(allTraining).filter(l => !l.lastTrained && !l.timesTrained);
+  const freshLines = (untrainedLines.length > 0 ? untrainedLines : recentlyAddedLines(allTraining))
+    .slice(0, PICKER_SESSION_CAP);
   linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
     name: 'New lines',
     sub: 'your newest lines',
-    stat: !locked && freshLines.length > 0 ? freshLines.length : undefined,
-    statLabel: freshLines.length === 1 ? 'line' : 'lines',
+    stat: !locked && untrainedLines.length > 0 ? untrainedLines.length : undefined,
+    statLabel: untrainedLines.length === 1 ? 'line' : 'lines',
     disabled: locked || freshLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(freshLines, container, { explicit: true }),
@@ -949,6 +976,7 @@ export function startPositionsSession(
           recordMissedMove(pos.preFen, expected.san, line.colour);
         }
         const quality = qualityFromMisses(wasMissed ? 1 : 0);
+        noteMoveGraded(expected.review, now);
         expected.review = gradeReview(
           expected.review ?? newReview(now), quality, now, lineSpacing(line));
         line.lastTrained = now.toISOString();
@@ -1122,6 +1150,7 @@ function runItem(
     }
 
     const now = new Date();
+    noteMoveGraded(node.review, now);
     node.review = gradeReview(
       node.review ?? newReview(now), qualityFromMisses(0), now, lineSpacing(target));
     target.lastTrained = now.toISOString();
@@ -1228,6 +1257,7 @@ function runItem(
       for (const node of gradedNodes) {
         const misses = missed.has(node.id) ? 1 : 0;
         const quality = qualityFromMisses(misses);
+        noteMoveGraded(node.review, now);
         node.review = gradeReview(node.review ?? newReview(now), quality, now, spacing);
         node.missedThisSession = false;
         credits.push({ preFen: locate(node).preFen, uci: node.uci, review: node.review });
@@ -1305,7 +1335,7 @@ function runItem(
 // saveRepertoire, the same discipline the line modes use with saveLine.
 function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
   const clones = books.map(b => ({ ...b, tree: structuredClone(b.tree) }));
-  const plan: RunPlan = planRepertoireRun(clones);
+  const plan: RunPlan = planRepertoireRun(clones, { newAllowance: newMovesLeftToday() });
   if (plan.positions.length === 0) {
     void doRender(container);
     return;
@@ -1333,6 +1363,7 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
       p => ({
         preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen,
         label: p.lineName,
+        sansBefore: p.sansBefore,
       })),
     {
       wrongMoveMode: 'full',
@@ -1361,6 +1392,7 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
         // Spacing comes from the priority resolved AT THIS NODE, so a branch
         // the user marked "less often" is respected move by move rather than
         // through whichever line happens to be named here.
+        noteMoveGraded(expected.review, now);
         expected.review = gradeReview(
           expected.review ?? newReview(now), quality, now, PRIORITY_SPACING[pos.priority]);
         // "Last trained" is a fact about a line, so it lands on the line end
@@ -1414,7 +1446,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
   // Work on clones so grading edits only persist through saveLine, never the
   // in-memory list.
   const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
-  const positions = selectIndividualPositions(clones);
+  const positions = selectIndividualPositions(clones, { newAllowance: newMovesLeftToday() });
   if (positions.length === 0) {
     void doRender(container);
     return;
@@ -1476,6 +1508,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
             recordMissedMove(pos.preFen, expected.san, line.colour);
           }
           const quality = qualityFromMisses(wasMissed ? 1 : 0);
+          noteMoveGraded(expected.review, now);
           expected.review = gradeReview(
             expected.review ?? newReview(now), quality, now, lineSpacing(line));
           line.lastTrained = now.toISOString();

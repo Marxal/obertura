@@ -583,10 +583,10 @@ function buildPrefsButton(onOpen: () => void): HTMLButtonElement {
 // with the gear beside it. The gear used to sit alone in a foot row under the
 // tasks; up here it costs no row of its own, and the bottom of the card is left
 // to the Start button, where a thumb reaches it.
-function buildHeadEnd(lead: HTMLElement, onOpenPrefs?: () => void): HTMLElement {
+function buildHeadEnd(lead: HTMLElement | null, onOpenPrefs?: () => void): HTMLElement {
   const end = document.createElement('span');
   end.className = 'daily-card-head-end';
-  end.appendChild(lead);
+  if (lead) end.appendChild(lead);
   if (onOpenPrefs) end.appendChild(buildPrefsButton(onOpenPrefs));
   return end;
 }
@@ -902,10 +902,12 @@ function buildTask(o: { icon: SVGElement; label: string; done: boolean; onClick:
   return btn;
 }
 
-function buildStreakPill(): HTMLElement {
+// Nothing until there is a streak: a 0 on day one is a score before any game.
+function buildStreakPill(): HTMLElement | null {
   const streak = currentStreak();
+  if (streak === 0) return null;
   const pill = document.createElement('span');
-  pill.className = 'streak-pill' + (streak === 0 ? ' streak-pill--cold' : '');
+  pill.className = 'streak-pill';
 
   const flame = document.createElement('span');
   flame.className = 'streak-pill-flame';
@@ -920,7 +922,7 @@ function buildStreakPill(): HTMLElement {
   label.className = 'streak-pill-label';
   label.textContent = String(streak);
   pill.appendChild(label);
-  const said = streak === 0 ? 'No streak yet' : `${streak}-day streak`;
+  const said = `${streak}-day streak`;
   pill.setAttribute('role', 'img');
   pill.setAttribute('aria-label', said);
   pill.title = said;

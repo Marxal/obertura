@@ -41,12 +41,23 @@ and its six critical fixes". In short:
 
 | | Finding | Status |
 |---|---|---|
-| C1 | Tested before taught | ✅ Fixed — new moves shown first, line name, "Show move", "new" not "due" |
+| C1 | Tested before taught | ✅ Fixed — new moves shown first, line name, "Show move", "new" not "due", daily limit on new moves |
 | C2 | Beginner path | ✅ Fixed — "Elsewhere", starter-pack door, walkthrough waits for moves, no Lichess ask |
 | C3 | Paywall in first run | ✅ Fixed — slots counter, extras saved paused, "Selected" |
-| C4 | Email links / forms | 🟡 Partly — inline errors, Show password, honest copy. 6-digit code needs a Supabase template change |
+| C4 | Email links / forms | 🟡 Partly — inline errors, Show password, code typed in the app (built, tested against a stand-in). Supabase templates changed; waiting on one real-inbox test |
 | C5 | Deleted lines come back | ✅ Fixed — tombstones, with self-tests |
-| C6 | Go Pro offer | 🟡 Partly — one action, before → after, one name. Pay-first checkout not built |
+| C6 | Go Pro offer | 🟡 Partly — one action, before → after, one name. Pay-first checkout parked in ROADMAP "Later" (owner's call, 2026-11-02) |
+
+First run (§2) was reworked on 2026-11-02; see the ROADMAP entry "First run: nothing
+added, not finished". All of §2 is done. 2.2.6 no longer applied: the chips default to
+All. C1's daily limit on new moves is done too (`new-move-limit.ts`).
+
+The small findings went on 2026-11-02 too; see the ROADMAP entry "The audit's small
+things, and the email code". Done: 2.1.6, 3.2–3.5, 4.3–4.5, 5.2, 5.4, 5.5, 8.3, 8.8, 8.9,
+9.3, 9.4, 10.1, 10.4, 12.1, 12.3, 14.3, 15.2 (without the proposed button). Two findings
+didn't hold up: **8.5** (measured: header and board stay put with a two-line title, so
+nothing changed) and half of **3.3** (the live card's rows are real buttons; only the
+locked preview rows misled, and they are plain lines now).
 
 ---
 
@@ -587,7 +598,7 @@ the daily card's "this is the habit the whole app is built around". Aim for
 16. **Tombstones** so deletions sync (C5).
 17. Analyser as its own experience, with auto-analysis and a "next mistake" stepper
     (11.1–11.2).
-18. Pay-first checkout (C6.4).
+18. Pay-first checkout (C6.4). Parked: see ROADMAP "Later".
 19. Merge Home and Train; one Middlegame deck with formats (16.2, 6.1).
 20. Service worker: offline puzzles and **daily reminders** (16.3).
 21. Accessibility pass: labels, non-colour cues, typed-move input (16.4).

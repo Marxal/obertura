@@ -38,7 +38,7 @@ import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import { TIME_CLASS_LABELS, type TimeClass } from './import-games';
-import { pickStarterOpenings, type OpeningGroup, type Recap } from './onboarding-recap';
+import { ownMoveCount, pickStarterOpenings, type OpeningGroup, type Recap } from './onboarding-recap';
 
 // How many lines are ticked when the screen opens.
 //
@@ -57,11 +57,9 @@ export const RECAP_STARTER_LINES = 5;
 // people. Four at a time keeps every reveal a glance rather than a scroll.
 const REVEAL_STEP = 4;
 
-// The length a line is built at, and the longest it may be grown to from its own
-// popup — both in the user's OWN moves. Ten is well past where a club player's
+// The longest a line may be grown to, in the user's OWN moves. Ten is well past where a club player's
 // games still agree with each other, so in practice the trunk runs out first;
 // the ceiling exists so the button can't promise depth for ever.
-const DEFAULT_OWN_MOVES = 6;
 const MAX_OWN_MOVES = 10;
 
 export interface RecapScreenDeps {
@@ -87,8 +85,14 @@ export interface RecapScreenDeps {
   onDeepen: (opening: OpeningGroup, ownMoves: number) => OpeningGroup | null;
   /** Keep these openings as lines. The screen has closed by the time this runs. */
   onSave: (openings: OpeningGroup[]) => void;
-  /** "Not now" — a decision to skip, which ends first run and goes to the app. */
+  /** Skipping the openings, on purpose and after being told what that means. */
   onSkip: () => void;
+  /**
+   * On a first run: say the game analysis has started, and ask before skipping.
+   * Off when Get started reopens this screen later, where it's a tool someone
+   * picked up and can put down without being asked.
+   */
+  firstRun: boolean;
   /** The system back gesture: step BACK to "Where do you play?". */
   onBack: () => void;
   /**
@@ -123,6 +127,12 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
   // Per-line length, in the user's own moves, set from each line's own popup.
   // Absent means the default the recap was built at.
   const depths = new Map<string, number>();
+  // Lines whose games have run out of shared moves, so their ＋ can go.
+  const exhausted = new Set<string>();
+  // The order on screen. Chosen first, but set when the list is (re)built and NOT
+  // on every tick: the whole card is a target now, and a card that jumps away the
+  // moment you tap it is a card you can't untick.
+  let listOrder: string[] = [];
   // Ticked openings, held by NAME+COLOUR rather than by object identity: every
   // filter change rebuilds the OpeningGroup objects from scratch, and a Set of
   // stale references would silently untick everything the moment a chip moved.
@@ -165,7 +175,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
 
   // Re-run the arithmetic under the current controls and repaint. Ticks survive
   // by name, so a line that still exists under the new filter stays chosen.
-  function refilter(): void {
+  function refilter(opts: { keepOrder?: boolean } = {}): void {
     const base = deps.onFilterChange({ timeClass });
     // Re-apply any per-line lengths the user set before the filter moved. A
     // line that no longer exists simply drops its override with it.
@@ -183,6 +193,13 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     if (chosen.size === 0) {
       for (const o of pickStarterOpenings(recap, RECAP_STARTER_LINES)) chosen.add(keyOf(o));
     }
+    if (!opts.keepOrder) {
+      listOrder = [
+        ...recap.openings.filter(o => chosen.has(keyOf(o))),
+        ...recap.openings.filter(o => !chosen.has(keyOf(o))),
+      ].map(keyOf);
+      visibleCount = Math.max(visibleCount, chosen.size);
+    }
     paint();
   }
 
@@ -198,6 +215,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     // where it belongs as evidence rather than as the headline.
     stage.appendChild(buildIdentity());
     stage.appendChild(buildRecord());
+    if (deps.firstRun) stage.appendChild(buildAnalysisNote());
 
     // The title is the ACTION, not the report.
     const lead = document.createElement('h1');
@@ -207,7 +225,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
 
     const sub = document.createElement('p');
     sub.className = 'recap-sub';
-    sub.textContent = 'These are the openings you play most. Tap any line to see it.';
+    sub.textContent = 'These are the openings you play most. Tap one to add or remove it.';
     stage.appendChild(sub);
 
     // ── The two controls ──
@@ -231,13 +249,11 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     heading.textContent = 'Picked for you';
     stage.appendChild(heading);
 
-    // Chosen lines always sort to the front, so the four the user is actually
-    // saving stay together at the top however far the list is expanded.
-    const ordered = [
-      ...recap.openings.filter(o => chosen.has(keyOf(o))),
-      ...recap.openings.filter(o => !chosen.has(keyOf(o))),
-    ];
-    const shown = Math.max(visibleCount, chosen.size);
+    // listOrder holds chosen lines at the front, as of when the list was built.
+    const rank = new Map(listOrder.map((k, i) => [k, i]));
+    const ordered = [...recap.openings].sort(
+      (a, b) => (rank.get(keyOf(a)) ?? 1e6) - (rank.get(keyOf(b)) ?? 1e6));
+    const shown = visibleCount;
 
     const list = document.createElement('div');
     list.className = 'recap-list';
@@ -256,6 +272,24 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     }
 
     buildFoot();
+  }
+
+  // What's happening to the rest of their games while they choose. One line, then
+  // Home's banner, then a word when it's ready (game-analysis.ts).
+  function buildAnalysisNote(): HTMLElement {
+    const note = document.createElement('div');
+    note.className = 'recap-analysis';
+    note.setAttribute('role', 'status');
+    note.appendChild(Icons.review(18));
+    const text = document.createElement('p');
+    const lead = document.createElement('strong');
+    lead.textContent = 'Game analysis has started. ';
+    text.appendChild(lead);
+    text.appendChild(document.createTextNode(
+      'Bito is looking for the mistakes in your games while the app is open. '
+      + 'We’ll let you know when they’re ready.'));
+    note.appendChild(text);
+    return note;
   }
 
   // Their picture and handle, the way every other identity surface in the app
@@ -362,6 +396,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
           if (timeClass === value) return;
           timeClass = value;
           visibleCount = RECAP_STARTER_LINES;
+          exhausted.clear(); // fewer games can agree for longer, or for less
           refilter();
         });
         row.appendChild(b);
@@ -408,9 +443,53 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     const skip = document.createElement('button');
     skip.type = 'button';
     skip.className = recap.openings.length > 0 ? 'recap-skip' : 'btn-primary recap-save';
-    skip.textContent = recap.openings.length > 0 ? 'Not now' : 'Continue';
+    skip.textContent = recap.openings.length > 0 ? 'Skip for now' : 'Continue';
+    skip.addEventListener('click', () => {
+      // One quiet word used to be all that stood between a first run and an
+      // empty app. It now says what skipping costs, once, in the place the tap
+      // landed. No dialog: this is the same decision, not a new one.
+      if (deps.firstRun && recap.openings.length > 0) { askBeforeSkipping(); return; }
+      close();
+      deps.onSkip();
+    });
+    foot.appendChild(skip);
+  }
+
+  function askBeforeSkipping(): void {
+    foot.replaceChildren();
+    const note = document.createElement('p');
+    note.className = 'recap-slots';
+    note.textContent = 'Opening training stays locked until you have 3 lines. You can '
+      + 'pick them later from Get started.';
+    foot.appendChild(note);
+
+    const keep = document.createElement('button');
+    keep.type = 'button';
+    keep.className = 'btn-primary recap-save';
+    keep.textContent = 'Keep picking';
+    keep.addEventListener('click', () => { foot.replaceChildren(); buildFoot(); });
+    foot.appendChild(keep);
+
+    const skip = document.createElement('button');
+    skip.type = 'button';
+    skip.className = 'recap-skip';
+    skip.textContent = 'Skip openings';
     skip.addEventListener('click', () => { close(); deps.onSkip(); });
     foot.appendChild(skip);
+  }
+
+  // One more of the user's own moves on this line, if their games agree on one.
+  function deepenLine(opening: OpeningGroup): void {
+    const key = keyOf(opening);
+    const next = ownMoveCount(opening.ucis.length, opening.colour) + 1;
+    const grown = next <= MAX_OWN_MOVES ? deps.onDeepen(opening, next) : null;
+    if (!grown) {
+      exhausted.add(key);
+      paint();
+      return;
+    }
+    depths.set(key, next);
+    refilter({ keepOrder: true });
   }
 
   // Add or remove a line. The free tier's ceiling is NOT enforced here: the
@@ -428,7 +507,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
   // The popup, handed everything it needs to act on this one line.
   function openPreview(opening: OpeningGroup): void {
     const key = keyOf(opening);
-    const current = depths.get(key) ?? DEFAULT_OWN_MOVES;
+    const current = ownMoveCount(opening.ucis.length, opening.colour);
     deps.onPreview(opening, {
       selected: chosen.has(key),
       canDeepen: current < MAX_OWN_MOVES && deps.onDeepen(opening, current + 1) !== null,
@@ -438,7 +517,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
         const grown = deps.onDeepen(opening, next);
         if (!grown) return;
         depths.set(key, next);
-        refilter();
+        refilter({ keepOrder: true });
         // Reopen on the longer line, so "add more moves" visibly does something
         // rather than closing the thing the user was reading.
         const fresh = recap.openings.find(o => keyOf(o) === key);
@@ -455,9 +534,8 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       fen: fenFromUcis(opening.ucis),
       orientation: opening.colour,
       className: 'recap-card' + (on ? ' recap-card--on' : ''),
-      // The miniature opens the preview; the rest of the card toggles the tick.
-      // Two different jobs, so they are two different targets rather than one
-      // ambiguous one.
+      // The miniature and "See the line" open the preview; the rest of the card
+      // toggles the tick (UX-AUDIT 2.2.3).
       onMiniClick: () => openPreview(opening),
       miniLabel: `Play through ${opening.name}`,
     });
@@ -482,25 +560,49 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     record.appendChild(text);
     content.appendChild(record);
 
-    // ── Add / added ──
+    // ── How long it is, and how to see it ──
     //
-    // A real toggle rather than a checkbox in the corner: on this screen the
-    // decision IS "keep it or not", so it deserves the card's action slot.
+    // Length was only changeable inside the preview, where most people would never
+    // find it (UX-AUDIT 2.2.5). It's the user's OWN moves: what they'd have to learn.
+    const tools = document.createElement('div');
+    tools.className = 'recap-card-tools';
+    const own = ownMoveCount(opening.ucis.length, opening.colour);
+    const length = document.createElement('span');
+    length.className = 'recap-card-length';
+    length.textContent = `${own} move${own === 1 ? '' : 's'}`;
+    tools.appendChild(length);
+    if (own < MAX_OWN_MOVES && !exhausted.has(key)) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'recap-card-more';
+      more.textContent = '＋';
+      more.setAttribute('aria-label', `Add a move to ${opening.name}`);
+      more.addEventListener('click', (e) => { e.stopPropagation(); deepenLine(opening); });
+      tools.appendChild(more);
+    }
+    const see = document.createElement('button');
+    see.type = 'button';
+    see.className = 'recap-card-see';
+    see.textContent = 'See line ›';
+    see.addEventListener('click', (e) => { e.stopPropagation(); openPreview(opening); });
+    tools.appendChild(see);
+    content.appendChild(tools);
+
+    // ── Selected or not ──
+    //
+    // What the card's own tap does, shown where it can be read. The press lands on
+    // the card behind it, so it needs no handler of its own.
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'recap-toggle' + (on ? ' recap-toggle--on' : '');
     toggle.setAttribute('aria-pressed', String(on));
     toggle.textContent = on ? '✓ Selected' : 'Select';
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation(); // the card behind it opens the popup
-      toggleChosen(key);
-    });
     content.appendChild(toggle);
 
-    // THE CARD OPENS THE POPUP; the toggle is the only thing on it that doesn't.
-    // Looking at a line before deciding is the commoner action and wants the
-    // bigger target, and the toggle already says plainly what it does.
-    card.addEventListener('click', () => openPreview(opening));
+    // THE CARD IS THE CHOICE. It used to open the preview, with a smaller pill on
+    // it doing the actual choosing: two targets, and the one people expected was
+    // the one that did something else.
+    card.addEventListener('click', () => toggleChosen(key));
 
     return card;
   }

@@ -70,11 +70,19 @@ function candidatesFor(line: Line, now: Date, minPly: number): Candidate[] {
 
 export function selectIndividualPositions(
   lines: Line[],
-  opts: { now?: Date; max?: number; includePaused?: boolean; minPly?: number } = {},
+  opts: {
+    now?: Date;
+    max?: number;
+    includePaused?: boolean;
+    minPly?: number;
+    /** Today's budget of never-trained moves (new-move-limit.ts). Absent: no limit. */
+    newAllowance?: number;
+  } = {},
 ): IndividualPosition[] {
   const now = opts.now ?? new Date();
   const max = opts.max ?? DEFAULT_MAX;
   const minPly = opts.minPly ?? MIN_PLY_INDEX;
+  const newAllowance = opts.newAllowance ?? Number.POSITIVE_INFINITY;
 
   const all: Candidate[] = [];
   for (const line of lines) {
@@ -103,7 +111,7 @@ export function selectIndividualPositions(
   // takes every third slot of the due pool instead of queueing at the back of
   // it, the same bargain dueLines strikes for whole lines.
   const duePool = interleaveNew(
-    dueSorted.filter(c => c.isNew),
+    dueSorted.filter(c => c.isNew).slice(0, newAllowance),
     dueSorted.filter(c => !c.isNew),
   );
   const weakPool = uniq.filter(c => !c.due && c.lapses > 0).sort(byWeakness);
@@ -120,7 +128,10 @@ export function selectIndividualPositions(
   // Nothing due and nothing missed yet — still give the mode something to do by
   // surfacing the positions coming up soonest.
   if (blended.length === 0) {
-    blended.push(...[...uniq].sort((a, b) => a.dueTime - b.dueTime).slice(0, max));
+    blended.push(...uniq
+      .filter(c => !c.isNew || newAllowance > 0)
+      .sort((a, b) => a.dueTime - b.dueTime)
+      .slice(0, max));
   }
 
   return blended.map(({ lineId, preFen, expected, prevUci, prevFen }) =>

@@ -27,9 +27,13 @@
 // ── A SEGMENTED TOGGLE, NOT THREE STACKED BUTTONS ───────────────────────────
 // The three answers are mutually exclusive and the third changes what the rest
 // of the screen is FOR, which is a tab strip's job rather than a menu's. It also
-// means "I'm new" can be short enough to sit in a segment while the sentence
-// that explains it ("I don't play online — build my repertoire by hand") lives
-// in the panel below, where there is room to read it.
+// means "Elsewhere" can be short enough to sit in a segment while the sentence
+// that explains it lives in the panel below, where there is room to read it.
+//
+// THERE IS NO WAY PAST THIS SCREEN THAT ADDS NOTHING. The back gesture used to
+// close it and leave a brand-new user in an empty app. It now does what back
+// does on any app's first screen: it leaves the app. Every button on it leads
+// to something being added.
 //
 // THE PRECEDENT THIS RESPECTS. onboarding-picker.ts's own comments record a
 // three-question wizard (colour / depth / style) that was built and cut, because
@@ -40,10 +44,11 @@
 // play more (buildRecap's dominantColour), so asking would make the user answer
 // something the app is about to find out. The manual branch still asks it,
 // because there is nothing to derive it from there — see onboarding-picker.ts,
-// which is now reached only through "I'm new".
+// which is now reached only through "Build my own line" on the third tab.
 
-import { pushBack } from './back-nav';
 import type { Platform } from './import-games';
+import { userAvatar } from './avatar';
+import { lookupPlayer, type FoundPlayer } from './player-lookup';
 
 // Where the brand mark points. The marketing page, not the app — same as the
 // colour picker's, and for the same reason: a stranger who landed on the app
@@ -57,8 +62,15 @@ export interface WherePickerDeps {
   // A platform and a username: open the import for them. The screen has already
   // closed itself by the time this runs.
   onPlatform: (platform: Platform, username: string) => void;
-  // "I'm new" — hand over to the manual branch (the colour picker).
-  onManual: () => void;
+  // The third tab's two routes. The ready-made one leads: the builder is the
+  // densest screen in the app, and a pack line is a first line that's already
+  // good (UX-AUDIT C2).
+  onStarterPacks: () => void;
+  onBuildOwn: () => void;
+  // Which tab to open on, and a sentence to explain why: the import that found
+  // too few games lands here on the third tab, saying so.
+  initialTab?: 'chesscom' | 'lichess' | 'manual';
+  notice?: string;
   // "I already have an account" — absent in a build with no accounts, where the
   // line would be a dead end.
   onSignIn?: () => void;
@@ -70,7 +82,7 @@ export interface WherePickerDeps {
 
 // The three segments, in order. Chess.com first: it is much the larger site, so
 // it is the likelier answer, and the likelier answer goes where the thumb
-// already is. "I'm new" is deliberately the short label — the full sentence is
+// already is. "Elsewhere" is deliberately the short label — the full sentence is
 // in the panel below it.
 const TABS: { value: Tab; label: string }[] = [
   { value: 'chesscom', label: 'Chess.com' },
@@ -83,25 +95,28 @@ const PLACEHOLDERS: Record<Platform, string> = {
   lichess: 'Your Lichess username',
 };
 
-export function showWherePicker(deps: WherePickerDeps): void {
-  let tab: Tab = 'chesscom';
+// Returns what closes it, for a caller whose reason to close arrives from outside
+// (an account's copy landing after a sign-in).
+export function showWherePicker(deps: WherePickerDeps): () => void {
+  let tab: Tab = deps.initialTab ?? 'chesscom';
 
   const overlay = document.createElement('div');
   overlay.className = 'picker-overlay picker-overlay--slim';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-label', 'Where do you play?');
 
+  const LOOKUP_PAUSE_MS = 450;
+  let lookupTimer = 0;
+  let lookupAbort: AbortController | null = null;
   let closed = false;
   const close = (): void => {
     if (closed) return;
     closed = true;
+    window.clearTimeout(lookupTimer);
+    lookupAbort?.abort();
     overlay.remove();
     document.documentElement.classList.remove('picker-open');
-    removeBack();
   };
-  // The system back gesture closes this the same way a pick does — it just
-  // doesn't pick anything. There is nothing behind it but Train.
-  const removeBack = pushBack(close);
 
   // ── Identity, one line, at the top ──
   const bar = document.createElement('div');
@@ -117,6 +132,7 @@ export function showWherePicker(deps: WherePickerDeps): void {
   const brand = document.createElement('span');
   brand.className = 'picker-brand';
   brand.textContent = 'bito chess';
+  brand.setAttribute('aria-label', 'Bito Chess');
   brandRow.appendChild(brand);
   bar.appendChild(brandRow);
   overlay.appendChild(bar);
@@ -132,7 +148,8 @@ export function showWherePicker(deps: WherePickerDeps): void {
 
   const sub = document.createElement('p');
   sub.className = 'picker-sub';
-  sub.textContent = 'We’ll read your games and show you the openings you actually play.';
+  sub.textContent = 'Bito reads your games and turns them into training: the openings '
+    + 'you play and the mistakes you make.';
   stage.appendChild(sub);
 
   // ── The segmented toggle ──
@@ -168,13 +185,20 @@ export function showWherePicker(deps: WherePickerDeps): void {
   input.setAttribute('aria-label', 'Your username');
   panel.appendChild(input);
 
+  // "Is this you?": the player behind what's been typed, before anything imports.
+  // The row keeps its height whatever it says, so the button under it stays put.
+  const who = document.createElement('div');
+  who.className = 'where-who';
+  who.setAttribute('role', 'status');
+  panel.appendChild(who);
+
   // The manual branch's explanation, in the panel where there is room for the
   // whole sentence. Hidden while a platform tab is selected.
   const manualNote = document.createElement('p');
   manualNote.className = 'where-manual-note';
-  manualNote.textContent =
-    'Over the board, or new to openings? Start from a ready-made opening or '
-    + 'build your own line.';
+  manualNote.textContent = deps.notice
+    ?? 'Over the board, or new to openings? Start with a ready-made opening, or '
+      + 'build your own line.';
   panel.appendChild(manualNote);
 
   const go = document.createElement('button');
@@ -182,10 +206,91 @@ export function showWherePicker(deps: WherePickerDeps): void {
   go.className = 'btn-primary where-go';
   panel.appendChild(go);
 
+  const buildOwn = document.createElement('button');
+  buildOwn.type = 'button';
+  buildOwn.className = 'btn-secondary where-go where-go--second';
+  buildOwn.textContent = 'Build my own line';
+  buildOwn.addEventListener('click', () => { close(); deps.onBuildOwn(); });
+  panel.appendChild(buildOwn);
+
+  // ── The lookup ──
+  // Waits for a pause in the typing, so a site is asked about a name rather than
+  // about every letter of one, and a newer name cancels an older question.
+  // Only a definite "no such player" holds the import back. Still looking, or the
+  // site not answering, never does: this is a courtesy in front of the import.
+  let missing = false;
+
+  function paintWho(content: HTMLElement | string | null, cls = ''): void {
+    who.className = `where-who ${cls}`.trim();
+    who.replaceChildren();
+    if (typeof content === 'string') who.textContent = content;
+    else if (content) who.appendChild(content);
+  }
+
+  function foundRow(p: FoundPlayer): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'where-who-found';
+    row.appendChild(userAvatar(p.avatarUrl, 36));
+    const text = document.createElement('div');
+    text.className = 'where-who-text';
+    const ask = document.createElement('span');
+    ask.className = 'where-who-ask';
+    ask.textContent = 'Is this you?';
+    text.appendChild(ask);
+    const name = document.createElement('span');
+    name.className = 'where-who-name';
+    name.textContent = p.username;
+    text.appendChild(name);
+    const facts: string[] = [];
+    if (p.rating) facts.push(`${p.rating.label} ${p.rating.value}`);
+    if (p.games !== undefined) {
+      facts.push(`${p.games.toLocaleString()} game${p.games === 1 ? '' : 's'}`);
+    }
+    if (facts.length > 0) {
+      const line = document.createElement('span');
+      line.className = 'where-who-facts';
+      line.textContent = facts.join(' · ');
+      text.appendChild(line);
+    }
+    row.appendChild(text);
+    return row;
+  }
+
+  function scheduleLookup(): void {
+    window.clearTimeout(lookupTimer);
+    lookupAbort?.abort();
+    lookupAbort = null;
+    missing = false;
+    paintWho(null);
+    const name = input.value.trim();
+    if (tab === 'manual' || name.length < 2) return;
+    const platform: Platform = tab;
+    lookupTimer = window.setTimeout(() => {
+      const ctrl = new AbortController();
+      lookupAbort = ctrl;
+      paintWho('Looking…', 'where-who--quiet');
+      lookupPlayer(platform, name, ctrl.signal).then((res) => {
+        if (ctrl.signal.aborted || closed) return;
+        if (res.status === 'found') {
+          paintWho(foundRow(res));
+        } else if (res.status === 'missing') {
+          missing = true;
+          paintWho(`No player called “${name}” on `
+            + `${platform === 'chesscom' ? 'Chess.com' : 'Lichess'}. Check the spelling.`,
+          'where-who--missing');
+        } else {
+          paintWho(null);
+        }
+      }).catch(() => { /* cancelled by newer typing */ });
+    }, LOOKUP_PAUSE_MS);
+  }
+
+  input.addEventListener('input', scheduleLookup);
+
   const submit = (): void => {
-    if (tab === 'manual') { close(); deps.onManual(); return; }
+    if (tab === 'manual') { close(); deps.onStarterPacks(); return; }
     const username = input.value.trim();
-    if (!username) { input.focus(); return; }
+    if (!username || missing) { input.focus(); return; }
     close();
     deps.onPlatform(tab, username);
   };
@@ -194,17 +299,12 @@ export function showWherePicker(deps: WherePickerDeps): void {
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); submit(); }
   });
-  // The button says nothing can happen yet, rather than failing on a tap.
-  input.addEventListener('input', () => reflectGo());
 
+  // Always lit. A greyed button read as broken rather than as "waiting for you",
+  // and a tap on it with nothing typed already puts the cursor in the field,
+  // which is the answer to the only question a tap there can be asking.
   function reflectGo(): void {
-    if (tab === 'manual') {
-      go.textContent = 'Choose my first opening →';
-      go.disabled = false;
-      return;
-    }
-    go.textContent = 'Import my games →';
-    go.disabled = input.value.trim().length === 0;
+    go.textContent = tab === 'manual' ? 'Start with a ready-made opening →' : 'Import my games →';
   }
 
   function select(next: Tab): void {
@@ -217,11 +317,15 @@ export function showWherePicker(deps: WherePickerDeps): void {
     const manual = next === 'manual';
     input.hidden = manual;
     manualNote.hidden = !manual;
+    buildOwn.hidden = !manual;
+    who.hidden = manual;
     if (!manual) input.placeholder = PLACEHOLDERS[next];
     reflectGo();
+    // The same name on the other site is a different person.
+    scheduleLookup();
   }
 
-  select('chesscom');
+  select(tab);
   overlay.appendChild(stage);
 
   // ── The returning user's way in, at the very bottom ──
@@ -244,6 +348,7 @@ export function showWherePicker(deps: WherePickerDeps): void {
   // Freeze the page behind the screen — see onboarding-picker.ts for why.
   document.documentElement.classList.add('picker-open');
   deps.onShown?.();
+  return close;
 }
 
 // The real installed app icon (public/icons/icon-192.png) — the same art Android

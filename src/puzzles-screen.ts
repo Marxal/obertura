@@ -24,7 +24,7 @@ import { openingFamily } from './analysis';
 import { startPuzzleSession, type PuzzleMode, type PuzzleDraw, type AnalyseRequest } from './puzzle-run';
 import { recordPuzzleResult, getPuzzlesByOpening } from './puzzle-log';
 import { reviewResult, takeDueRepeat } from './puzzle-repeat';
-import { getPuzzleRating, difficultyForRating, difficultyForStreak, difficultyStep, targetRatingForStreak } from './puzzle-rating';
+import { getPuzzleRating, hasPlayedRated, difficultyForRating, difficultyForStreak, difficultyStep, targetRatingForStreak } from './puzzle-rating';
 import { track } from './metrics';
 import type { TaskOutcome } from './daily-recap';
 import { renderLoadError } from './load-error';
@@ -423,7 +423,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       name: 'Tactics',
       sub: `${DAILY_COUNT} rated puzzles`,
       heroTitle: 'Daily rated mix',
-      stat: getPuzzleRating(),
+      // No figure until there's a rated result: the starting 1000 reads as a count.
+      stat: hasPlayedRated() ? getPuzzleRating() : undefined,
       statLabel: 'rating',
       progress: ratingProgress(getPuzzleRating()),
       onClick: () => startSession(

@@ -2222,12 +2222,14 @@ and Esc were driven from the keyboard.
 
 Deliberately deferred. Revisited once the app has had more real use on the phone.
 
-- 💤 **Deletion tombstones.** Two-device sync now works (the account round), but
-  a *deletion* still doesn't travel: lines and games merge, so removing a line on
-  one phone leaves it on the other. Needs per-line `updatedAt` plus a remembered
-  list of deleted ids — design note in `PUBLISHING.md`. Until then the escape
-  hatch is Settings → Data → "Replace this device from your account".
 - 💤 Monetization build-out (options and recommended path now in `PUBLISHING.md`)
+- 💤 **Pay first, account second (UX-AUDIT C6.4).** The owner parked this on 2026-11-02 as
+  not important for now. Today a guest creates an account, then pays. The idea is to pay
+  first, with the account created from the Stripe webhook and sign-in by the emailed code
+  (C4). It touches the money flow: `worker/stripe-checkout.ts`, `worker/stripe-webhook.ts`,
+  `src/checkout.ts`, refunds (they find the account through the id on the charge, which
+  wouldn't exist yet at checkout) and the privacy wording. Look again if people are seen
+  dropping off between the offer and paying.
 - 💤 Offline support (service worker / installable cache)
 - 💤 Deeper engine features and richer explanations
 - 💤 More opening-database coverage and naming
@@ -2511,3 +2513,138 @@ findings. This round fixes the six it marks critical:
 
 Two self-tests were failing before this round and still fail (the daily shuffle
 ordering in `train-index`), unrelated.
+
+## 2026-11-02 — First run: nothing added, not finished
+
+**The audit's fixes first.** `604b172` ("Fix the six critical UX findings") was on
+`claude/modest-babbage-ajki27` and had never been merged, though the audit page
+reported it as fixed. Fast-forwarded into `dev` before this round.
+
+**The flow.** Where do you play? → import → *Your openings* → *Your mistakes* → finish
+card. Or Elsewhere → a ready-made opening / build my own line.
+
+- **No more falling into an empty app.** `setOnboardingComplete()` now fires when a
+  line is saved, or when someone with games skips the openings after being told what
+  that costs. It used to fire on the way INTO the builder and the pack sheet. Closed:
+  back on the first screen and the colour screen; a dismissed pack sheet; leaving the
+  builder with nothing saved (`firstRunReturn`); too few games; the one-word "Not now".
+- **Game analysis, in the background.** New `game-analysis.ts`. The import starts the
+  pass and nothing waits for it: one line on the recap, a countdown in Home's banner,
+  then a toast with "Fix them" and a card at the top of Home. Ready means 5 mistakes
+  found, or the pass ending with fewer, not the whole library read. It only runs while
+  the app is open. (A separate "Your mistakes" onboarding step was tried first and
+  dropped: Marçal preferred being told over being shown a step.)
+- **"Is this you?"** New `player-lookup.ts`: picture, main rating and game count as the
+  username is typed. A definite "no such player" holds the import back; a site not
+  answering never does. Privacy policy updated, since the username is now sent while
+  typing.
+- **Recap cards.** Tapping a card selects it; the miniature and "See line" preview it.
+  Line length and a ＋ are on the card. Cards no longer jump when ticked.
+- **Daily limit on new moves.** New `new-move-limit.ts`, Settings → Training (5 / 10 /
+  20 / No limit, default 10). Governs the Openings door, Whole lines and Missed moves.
+  Reviews are never limited. Not governed, on purpose: a line opened by name, a confirm
+  run, the "New lines" card, and the daily challenge's fixed lines, though new moves
+  trained in any of them count. The counter stays on the device; the preference syncs.
+- **The finish card** leads with the next step ("Start training" goes straight into a
+  session) and offers the account underneath as one button, not the whole form.
+- **Get started.** "Pick from my games" reopens the openings with no re-import; "Connect
+  Lichess" is gone from it; one way to the builder, not three; "Add 3 lines to start
+  training" replaces the rule; the "habit dies" copy is gone.
+- **Where.** Says what Bito does and names both halves; pinned higher; Import is never
+  greyed out.
+
+**Double dialogs in the builder (all reproduced in a browser first):**
+
+- "Build a line by hand" and Settings' replay stacked **two walkthroughs**: `startNewLine`
+  fires it when owed and the replay asked again, on two timers. One timer now
+  (`launchWalkthrough`), and only one coach-mark can be up (`activeCoach`).
+- **Skip popped "Ready when you are" over an empty board** in any book with saved lines,
+  because the second save prompt counted the book's moves as moves played. Its listener
+  also outlived the session, so it could land on the walkthrough's own identical bubble.
+  That prompt is gone: Skip means skip.
+
+**Other bugs found on the way:**
+
+- Past the goal, Get started said **"-2 more lines and training unlocks"**, which was
+  the first thing most imports saw.
+- A regression in `604b172`: with saved lines, "Back to your line" could wait for ever,
+  with Next hidden, because `ownMoveCount` counted the book's main line. It counts the
+  path to the cursor now, which also stops bubble 1 offering Next before any move.
+- "Ready when you are" jumped the cursor to the book's main line, off the moves just
+  played (`endGuidedWalkthrough`).
+- Back on the first bubble opened "Let's build your first line" for someone with a whole
+  repertoire. It returns to where the builder was opened from.
+- `guidedActive` outlived the builder, so the next line by any door was still "guided".
+- An email sign-in from a first-run screen left "Where do you play?" over the account's
+  lines (`firstRunSignIn`). **Not run in a browser**: it needs a real account.
+- The recap's preview popup still said "✓ Added".
+- The first-line card said "add about five lines" (the unlock is 3) and landed on Train.
+
+**Supabase cost:** one new preference in the synced settings, about 25 bytes per user,
+fixed. It doesn't grow per day or per event. The analysis notice and the day's counter
+stay on the device (`local-keys.ts`).
+
+Validation: Playwright at 412×915 drove every route against the built app with stubbed
+Lichess games and the real engine, and the username check against the real Chess.com and
+Lichess APIs. No console errors. `tsc` and the build pass; selftest 1712/1714 (ten new
+tests; the same two date-dependent scheduler tests still fail).
+
+
+---
+
+## 2026-11-02 — The audit's small things, and the email code
+
+Not committed or live when this was written. The owner asked for all of this to stay on
+`dev` until told otherwise.
+
+**Words.** "Scan" → "Import" on the import buttons (the engine pass keeps "Scan my games",
+which is what it does). "Registration" → "Create account". "My Lines" → "My lines" in what
+users read, and the bulk message says where the lines went: Openings → My lines, paused.
+Username placeholders start with a capital. The wordmark stays lower case and is announced
+as "Bito Chess".
+
+**Home.** Room under the ＋ on Home. No ＋ on Statistics, where it sat on Week/Month/All and
+nothing is about creating a line. No 🔥 until there's a streak. The locked card's preview
+rows are plain lines. The analysis banner gives a time ("about 10 min"), from a 25-second
+guess until three games have been timed.
+
+**Train.** A figure now has to be true. Weak spots only holds lines with a real miss. New
+lines counts lines never trained, and walks those first. Missed moves counts real misses
+and stays off until something has been trained, so it can't quiz a move nobody has been
+shown. Ratings say "1012 rating", and don't show until the first rated result. The reorder
+tip waits for a second day of training, and only counts as seen once it has really shown.
+Before this it was marked seen even when a session suppressed it, so it could be lost.
+
+**Drill.** The board sits right under the header, with the spare height below it (the
+puzzle overlay keeps its own split). The moves so far show under the line name, in whole
+lines and the Repertoire run. The line name is one line, and the strip holds its height,
+so neither can move the board. Past 12 moves the dots become one row of segments.
+
+**Builder.** "Add N moves" counts your own side, the same unit as the daily limit: 1.e4 e5
+2.Nf3 Nc6 is 2. A draft of only replies says "Add 1 reply". The filled red Discard is text,
+last, under Keep editing. Draft moves are italic with a dotted underline, not dashed boxes.
+
+**Openings tab.** Four boxes side by side, in the same shape as Train's switch (icon in a
+disc over a short name, the selected one filled), instead of a 2×2 grid of cards. They stay
+pinned while scrolling and get a little smaller, using the same code as Train's
+(`switch-compact.ts`). The colour filter says White and Black on a phone.
+
+**Statistics.** Saved lines but nothing trained: one line and Start training, instead of
+empty rings and zeros. Real data, such as imported games, still shows under it.
+
+**The email code (UX-AUDIT C4).** Sign-up, sign-in by email and password reset now ask for
+a code typed into the app, through `verifyEmailCode` (`auth.ts`) and `openEmailCodeSheet`
+(`account-ui.ts`). The link stays in the email as a fallback. It depends on the three
+templates carrying `{{ .Token }}` (`SUPABASE-SYNC.md` §2). The owner made that change in the
+dashboard on 2026-11-02.
+
+**Audit findings that didn't hold up.** 8.5: measured at 412×915, a two-line title moves
+neither the header nor the board, so nothing changed. 3.3: the live card's rows were always
+real buttons; only the locked preview rows misled.
+
+**Supabase cost:** none. No new synced key and no new write.
+
+Validation: Playwright at 412×915 against the built app, no console errors. The code screen
+ran against a stand-in for Supabase, covering a wrong code, a resend and the right code, so
+**it has not been run against the real service or a real inbox**. `tsc` and the build pass;
+selftest 1712/1714 (the same two date-dependent scheduler tests).

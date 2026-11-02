@@ -38,6 +38,7 @@ import { colourPip } from './card-position';
 import { formatMove } from './notation';
 import { renderForgottenSection } from './forgotten-section';
 import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-autoscan';
+import { isAnalysisPending } from './game-analysis';
 import type { GrowTarget } from './grow-line';
 import type { MistakeCategory, SpotRef } from './mistake-scan';
 import type { BrilliantRef } from './brilliant';
@@ -173,9 +174,13 @@ export function buildScanBanner(): HTMLElement | null {
 
   const write = (st: AutoScanState): void => {
     const left = Math.max(0, st.total - st.done);
-    text.textContent = left > 0
-      ? `Reading your games — ${left} to go`
-      : 'Reading your games';
+    const progress = left > 0
+      ? `Game analysis: ${left} game${left === 1 ? '' : 's'} to go, ${timeLeftLabel(st, left)}.`
+      : 'Game analysis is running.';
+    // The promise only while it's still owed (game-analysis.ts).
+    text.textContent = isAnalysisPending()
+      ? `${progress} We’ll let you know when it’s ready.`
+      : progress;
   };
   const paint = (st: AutoScanState): void => {
     // Detached: a newer Home render owns the screen, or the user has left it.
@@ -198,6 +203,31 @@ export function buildScanBanner(): HTMLElement | null {
 // The live banner's unsubscribe, module-level so a new render can cancel the
 // old one before it makes another.
 let stopScanWatch: (() => void) | null = null;
+
+// What a game usually costs until this pass has timed a few of its own. Games
+// take 15 to 40 seconds, and most of that is waiting on the network, so the
+// phone's speed says little about it.
+const TYPICAL_MS_PER_GAME = 25_000;
+const GAMES_BEFORE_TRUSTING_PACE = 3;
+
+// Where the timing started. Module-level because every Home render builds a new
+// banner, and the pace shouldn't start over each time.
+let paceFrom: { at: number; done: number } | null = null;
+
+/** "about 10 min": rounded on purpose, because it's an estimate that moves. */
+function timeLeftLabel(st: AutoScanState, left: number): string {
+  const now = Date.now();
+  if (!paceFrom || st.done < paceFrom.done) paceFrom = { at: now, done: st.done };
+  const read = st.done - paceFrom.done;
+  const perGame = read >= GAMES_BEFORE_TRUSTING_PACE
+    ? (now - paceFrom.at) / read
+    : TYPICAL_MS_PER_GAME;
+  const minutes = Math.round((left * perGame) / 60_000);
+  if (minutes < 1) return 'under a minute';
+  if (minutes < 60) return `about ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return `about ${hours} hour${hours === 1 ? '' : 's'}`;
+}
 
 // ── Grow your lines ──────────────────────────────────────────────────────────
 

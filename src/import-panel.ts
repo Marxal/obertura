@@ -65,6 +65,7 @@ import { track } from './metrics';
 import { pushBack } from './back-nav';
 import { createImportLoader, approxScanFraction, type ImportLoader } from './import-progress';
 import { userAvatar } from './avatar';
+import { armAnalysisNotice } from './game-analysis';
 import { Icons } from './icons';
 import { wdlBlock } from './wdl-bar';
 import { showToast } from './toast';
@@ -220,6 +221,7 @@ export async function saveMyGames(
   setLastGamesRefresh(now);
   // Update the header picture / "you" strips for the new account.
   announceIdentityChange();
+  void armAnalysisNotice();
 }
 
 // Add this import to whatever's already stored, without clearing — the "Add to
@@ -244,6 +246,7 @@ export async function addMyGames(
   });
   setLastGamesRefresh(now);
   announceIdentityChange();
+  void armAnalysisNotice();
 }
 
 // ── How far back the scan reaches ─────────────────────────────────────────────
@@ -492,7 +495,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       platform = p;
       reflectPlatform();
       userInput.value = opts.username ?? savedUsername(platform);
-      userInput.placeholder = `your ${PLATFORM_LABELS[platform]} username`;
+      userInput.placeholder = `Your ${PLATFORM_LABELS[platform]} username`;
       resetScan();
     });
     platButtons.push(b);
@@ -515,7 +518,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   userInput.autocomplete = 'off';
   userInput.autocapitalize = 'none';
   userInput.spellcheck = false;
-  userInput.placeholder = `your ${PLATFORM_LABELS[platform]} username`;
+  userInput.placeholder = `Your ${PLATFORM_LABELS[platform]} username`;
   userInput.value = opts.username ?? savedUsername(platform);
   userInput.addEventListener('input', resetScan);
   step1.appendChild(field('Username', userInput));
@@ -533,7 +536,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   const scanBtn = document.createElement('button');
   scanBtn.type = 'button';
   scanBtn.className = 'btn-primary import-scan-btn';
-  scanBtn.textContent = 'Scan';
+  scanBtn.textContent = 'Import';
   scanBtn.addEventListener('click', runScan);
   step1.appendChild(scanBtn);
 
@@ -568,7 +571,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     // Bring the prominent Scan button back: editing step 1 invalidates the scan,
     // so the obvious next action is to scan again (step 2 hides its quiet link).
     scanBtn.hidden = false;
-    scanBtn.textContent = 'Scan';
+    scanBtn.textContent = 'Import';
     clearError();
   }
 
@@ -612,7 +615,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     resetScan();
     if (opts.rememberUser !== false) setLastPlatform(platform);
     scanBtn.disabled = true;
-    scanBtn.textContent = 'Scanning…';
+    scanBtn.textContent = 'Importing…';
 
     // The scan takes over the whole screen. Neither platform reports a known
     // total up front, so the fill tracks approxScanFraction(gamesSoFar) the
@@ -628,7 +631,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       scanCancelled = true;
       unmountLoader();
       scanBtn.disabled = false;
-      scanBtn.textContent = 'Scan';
+      scanBtn.textContent = 'Import';
     });
 
     // Fetch the subject's Chess.com picture alongside the scan and fade it into
@@ -655,7 +658,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         onGames: (batch) => { loader?.openings.add(batch.map(g => g.opening)); },
         onProgress: (p) => {
           loader?.setStatus(p.monthsTotal > 1
-            ? `Scanning ${p.label} (${p.monthsDone}/${p.monthsTotal}) — ${p.gamesSoFar} games so far…`
+            ? `Reading ${p.label} (${p.monthsDone}/${p.monthsTotal}): ${p.gamesSoFar} games so far…`
             : `${p.gamesSoFar} games so far…`);
           loader?.set(approxScanFraction(p.gamesSoFar));
         },
@@ -697,7 +700,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       showError(friendlyError(err, platform));
     } finally {
       scanBtn.disabled = false;
-      scanBtn.textContent = 'Scan';
+      scanBtn.textContent = 'Import';
     }
   }
 

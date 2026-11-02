@@ -27,6 +27,7 @@
 //
 // (Distinct from explore.ts, the in-board explorer.)
 
+import { watchSwitchScroll } from './switch-compact';
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
 import { fetchAvatar } from './chesscom';
@@ -336,8 +337,10 @@ function exploreTabsSection(
     btn.type = 'button';
     btn.className = 'lines-tab';
     btn.dataset.tab = tab;
-    icon.classList.add('lines-tab-icon');
-    btn.appendChild(icon);
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'lines-tab-icon';
+    iconWrap.appendChild(icon);
+    btn.appendChild(iconWrap);
     const span = document.createElement('span');
     span.className = 'lines-tab-label';
     span.textContent = label;
@@ -346,19 +349,24 @@ function exploreTabsSection(
       if (exploreTab === tab) return;
       exploreTab = tab;
       render();
+      // From far down a long list, land at the top of the new one, just under
+      // the switch. Train's switch does the same.
+      const above = content.getBoundingClientRect().top - tabs.getBoundingClientRect().bottom;
+      if (above < 0) window.scrollBy({ top: above - 8 });
     });
     return btn;
   };
 
-  tabs.appendChild(makeTab('mylines', 'My lines', Icons.pawn(18)));
-  tabs.appendChild(makeTab('coverage', 'Coverage', Icons.target(18)));
+  tabs.appendChild(makeTab('mylines', 'My lines', Icons.pawn(16)));
+  tabs.appendChild(makeTab('coverage', 'Coverage', Icons.target(16)));
   // NOT called "Openings": the tab strip already sits under a tab called
   // Openings, and a tab with its parent's name says nothing about itself.
-  tabs.appendChild(makeTab('openings', 'Discover', Icons.sparkles(18)));
-  tabs.appendChild(makeTab('packs', 'Packs', Icons.build(18)));
+  tabs.appendChild(makeTab('openings', 'Discover', Icons.sparkles(16)));
+  tabs.appendChild(makeTab('packs', 'Packs', Icons.build(16)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();
+  watchSwitchScroll(tabs, 'lines-tabs--compact');
   return wrap;
 }
 
