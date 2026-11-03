@@ -213,7 +213,9 @@ export function runDailyChallengeSelfTest(): TestResult[] {
 
   // ── pickDailyLines: due first, then the longest unseen ─────────────────────
   {
-    const now = new Date('2026-08-25T09:00:00Z');
+    // The real clock, not a fixed date: pickDailyLines asks what is due TODAY,
+    // so a pinned date quietly turns every "not due" review due a month later.
+    const now = new Date();
     const day = (n: number): string => new Date(now.getTime() - n * 86400000).toISOString();
 
     const due = makeLine({ id: 'due', daysUntilDue: -1, lastTrained: day(9), now });
