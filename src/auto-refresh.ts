@@ -1,17 +1,28 @@
-// The weekly games auto-refresh. A PWA without a service worker can't wake
-// itself, so this runs only when the app opens — which, in practice, lands at
-// roughly weekly. On startup (after the first view renders, never blocking
-// launch) it quietly pulls only the games played since the last refresh, merges
-// them exactly as a manual import would (dedupe included), advances the refresh
-// date, and reports any new games with a toast. Failures — offline, an API
-// hiccup — are silent; the next open simply tries again.
+// The games auto-refresh. A PWA without a service worker can't wake itself, so
+// this runs when the app opens and when it comes back on screen, at most once
+// every REFRESH_GAP_MS. It quietly pulls the games played since the last refresh,
+// merges them exactly as a manual import would (dedupe included), advances the
+// refresh date, and reports any new games with a toast. Failures (offline, an API
+// hiccup) are silent; a later open simply tries again.
+//
+// It used to be weekly, which left someone who plays every evening reading last
+// week's mistakes. New games are the only input the exercises and suggestions
+// have. It costs the database nothing: a free account's games never sync, and the
+// date below is device-local (local-keys.ts). It isn't every open because
+// Chess.com only serves whole months, so each check downloads this month's games.
 
 import { getGamesSource, getLastGamesRefresh, mergeRefreshedGames } from './import-panel';
 import { getAllGames } from './storage';
 import { importGames, DEFAULT_TIME_CLASSES, type TimeClass, type ImportedGame } from './import-games';
 
 const ENABLED_KEY = 'obertura.autoRefreshGames';
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const REFRESH_GAP_MS = 6 * 60 * 60 * 1000;
+// A failed check doesn't advance the date, so without this a phone with no signal
+// would try again on every app switch.
+const RETRY_GAP_MS = 10 * 60 * 1000;
+
+let inFlight = false;
+let lastAttemptAt = 0;
 
 // On by default. It only does anything once a username has been saved by a
 // previous import, so it's safe to leave on for everyone.
@@ -47,7 +58,7 @@ function allowedTimeClasses(existing: ImportedGame[]): Set<TimeClass> {
 }
 
 // Pull the latest games right now — the My-games "Refresh" button — bypassing
-// the weekly gate and the enabled flag. Returns how many genuinely new games
+// the time gate and the enabled flag. Returns how many genuinely new games
 // were merged. Throws 'no-source' when no username is saved yet (the button
 // should be hidden then) and rethrows fetch failures so the caller can report
 // them. Always merges (even an empty batch) so the refresh date advances.
@@ -69,7 +80,7 @@ export async function refreshGamesNow(): Promise<number> {
   return fresh.length;
 }
 
-// Run the weekly refresh if it's due. Returns how many genuinely new games were
+// Run the refresh if it's due. Returns how many genuinely new games were
 // merged (0 when off, not connected, not yet due, or on any failure). Never
 // throws — the caller can fire-and-forget it after the first paint.
 export async function maybeAutoRefreshGames(): Promise<number> {
@@ -82,7 +93,11 @@ export async function maybeAutoRefreshGames(): Promise<number> {
   if (!lastIso) return 0;
   const lastMs = new Date(lastIso).getTime();
   if (!Number.isFinite(lastMs)) return 0;
-  if (Date.now() - lastMs < WEEK_MS) return 0; // refreshed within the week
+  const now = Date.now();
+  if (now - lastMs < REFRESH_GAP_MS) return 0;
+  if (inFlight || now - lastAttemptAt < RETRY_GAP_MS) return 0;
+  inFlight = true;
+  lastAttemptAt = now;
 
   try {
     const result = await importGames(source.platform, source.username, {
@@ -95,6 +110,8 @@ export async function maybeAutoRefreshGames(): Promise<number> {
     await mergeRefreshedGames(fresh); // also advances the refresh date
     return fresh.length;
   } catch {
-    return 0; // offline / API hiccup — leave the date be and retry next open
+    return 0; // offline / API hiccup: leave the date be and retry later
+  } finally {
+    inFlight = false;
   }
 }

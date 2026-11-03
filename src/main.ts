@@ -7296,30 +7296,39 @@ requestAnimationFrame(() => {
     offerFirstRun();
   }
 
-  // Weekly games auto-refresh: runs after the first view has rendered, never
-  // blocks launch, and stays silent on zero or on failure. New games trigger a
-  // toast and re-render the current tab so game-derived views pick them up
-  // (Statistics win rates, From-my-games suggestions, scout aggregates) exactly
-  // as they would after a manual import.
-  void maybeAutoRefreshGames().then((newCount) => {
-    if (newCount <= 0) return;
-    showToast(`Games refreshed · ${newCount} new`);
-    repaintInBackground();
-  }).finally(() => {
-    // …and then read whatever games are now on the device for mistakes, quietly
-    // (mistake-autoscan.ts). It used to sit behind an "Analyse my games" button
-    // that asked for ten minutes up front, which is a question almost nobody
-    // says yes to — so the Middle game pane stayed empty for people who had
-    // imported hundreds of games. Deliberately last and deliberately delayed:
-    // launch, the first paint and any refresh above all come first, and the
-    // engine worker is left alone until the app has settled.
-    window.setTimeout(() => {
-      startAutoScan();
-      // …and the End game tab's own pass behind it. It queues itself on the
-      // mistake pass finishing (endgame-autoscan.ts), so this only puts it in
-      // the queue — it never competes for the worker.
-      startEndgameAutoScan();
-    }, AUTO_SCAN_DELAY_MS);
+  // Games auto-refresh: runs after the first view has rendered and again whenever
+  // the app comes back on screen, never blocks launch, and stays silent on zero or
+  // on failure. New games trigger a toast and re-render the current tab so
+  // game-derived views pick them up (Statistics win rates, From-my-games
+  // suggestions, scout aggregates) exactly as they would after a manual import.
+  const refreshGamesThenScan = (): void => {
+    void maybeAutoRefreshGames().then((newCount) => {
+      if (newCount <= 0) return;
+      showToast(`Games refreshed · ${newCount} new`);
+      repaintInBackground();
+    }).finally(() => {
+      // …and then read whatever games are now on the device for mistakes, quietly
+      // (mistake-autoscan.ts). It used to sit behind an "Analyse my games" button
+      // that asked for ten minutes up front, which is a question almost nobody
+      // says yes to — so the Middle game pane stayed empty for people who had
+      // imported hundreds of games. Deliberately last and deliberately delayed:
+      // launch, the first paint and any refresh above all come first, and the
+      // engine worker is left alone until the app has settled.
+      window.setTimeout(() => {
+        startAutoScan();
+        // …and the End game tab's own pass behind it. It queues itself on the
+        // mistake pass finishing (endgame-autoscan.ts), so this only puts it in
+        // the queue — it never competes for the worker.
+        startEndgameAutoScan();
+      }, AUTO_SCAN_DELAY_MS);
+    });
+  };
+  refreshGamesThenScan();
+  // Back from Chess.com or Lichess is the moment new games exist. Android fires
+  // this on every app switch, which is fine: both calls above return at once
+  // when there is nothing to do (a time check, one IndexedDB read).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshGamesThenScan();
   });
   // One cheap count, so anything painted synchronously (the walkthrough's
   // bubbles) knows whether this device has games without awaiting IndexedDB.

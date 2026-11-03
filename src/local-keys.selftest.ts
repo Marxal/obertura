@@ -112,6 +112,23 @@ export function runLocalKeysSelfTest(): TestResult[] {
       + 'results that do not sync',
   );
 
+  check(
+    'exercise rest logs stay on the device',
+    !backupLocalKey('obertura.spotRest') && !backupLocalKey('obertura.detectiveLog')
+      && !backupLocalKey('obertura.whichMoveLog') && !backupLocalKey('obertura.brilliantLog'),
+    'they would cost an account push for every answer, about games another device may not hold',
+  );
+  check(
+    'the games-refresh date stays on the device',
+    !backupLocalKey('obertura.lastGamesRefresh'),
+    'a check that found nothing must not rewrite the account row',
+  );
+  check(
+    'the retired YouTube cache is never carried',
+    !backupLocalKey('obertura.ytCache.v1') && !backupLocalKey('obertura.ytCache.v2'),
+    'up to 48 KB of a cache no code reads was being uploaded',
+  );
+
   // ── What SHOULD travel, so the deny list can't quietly swallow everything ──
   const carried = [
     'obertura.onboardingComplete',

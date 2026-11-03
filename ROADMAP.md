@@ -2821,3 +2821,30 @@ every arrow and suggestion checked as legal and the board checked not to be stuc
   whoever was playing on them. Found by the stress test. Those redraws now wait while a board has
   moves of yours on it.
 
+
+## 2026-11-03 — A generous free tier
+
+- ✅ **Free training goes from 10 to 30 lines.** About three weeks of daily training at the default
+  pace, and a starter pack no longer reaches the limit on day one.
+- ✅ **No free limit on anything read from your own games.** The 50-game window, 10 unfixed mistakes
+  and 3 endgames are gone. They guarded nothing, because a free account's games and scans stay on the
+  phone, and they starved the exercises: Time pressure repeated the same ten positions.
+- ✅ **New games are checked at most every six hours**, when the app opens or comes back on screen,
+  instead of weekly. A check that finds nothing writes only a device-local date.
+- ✅ **Less goes up with each push.** Exercise rest logs and the refresh date stay on the phone, and a
+  retired YouTube cache (up to 48 KB) can no longer be uploaded.
+- ✅ **`TRANSLATION-PLAN.md`** records the plan for Catalan, Spanish and Swedish. Not started.
+- ⏳ **`scripts/sql/2026-11-database-fix.sql` waits to be run by the owner.** The live database never
+  received the active-only and 400-day stats rules. It also moves stats to weekly, stops free accounts
+  storing games at the database level, and removes one old login session from a row.
+- 💡 **Not built:** Pro doesn't sync scan results yet, so a Pro user on a new device still re-scans
+  and loses their fixed marks. Rest logs left the sync in this round too, and that work should bring
+  them back for Pro.
+
+**Checked:** at 412 wide as a signed-out free user, with seeded games: all 160 mistakes shown with no
+limit notice, a new game scanned while 160 were already unfixed, one fetch when a refresh is due,
+none on returning inside six hours. The SQL ran twice on a throwaway Postgres.
+
+**Not checked:** the SQL against the live database, a real phone, a real Chess.com fetch, or how long
+a very large first scan feels on a phone. Two selftests in `daily-challenge.selftest.ts` fail, and
+fail the same way without this round's changes.

@@ -31,7 +31,7 @@ import { getAllGames } from './storage';
 import { buildInlineImport } from './import-inline';
 import type { ImportedGame } from './import-core';
 import {
-  scanEndgames, collectEndgameSpots, unscannedEndgameCount, capEndgameGamesForTier, endgameSpotId,
+  scanEndgames, collectEndgameSpots, unscannedEndgameCount, endgameSpotId,
   type EndgameSpotRef, type EndgameScanProgress,
 } from './endgame-scan';
 import { createPawnProgress, createFactsTicker } from './import-progress';
@@ -42,9 +42,6 @@ import {
 import { pushBack } from './back-nav';
 import { Chessground } from 'chessground';
 import { showToast } from './toast';
-import {
-  isEntitled, buildCapNotice, FREE_ENDGAME_GAME_WINDOW, FREE_ENDGAME_SPOTS,
-} from './entitlement';
 
 export interface EndgameScreenDeps {
   // Open a finished puzzle in the full analyser (engine on) — wired from main.ts.
@@ -393,15 +390,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       return section;
     }
 
-    const entitled = isEntitled();
-    // Free tier: a view-only cap (games/spots on disk are never touched) — the
-    // 50 most recent games, and a rolling top 3 unplayed spots (played-out
-    // ones are never hidden). `gs` below drives the scan-trigger count and the
-    // carousel, so the cap holds in both places with no further branching.
-    const capResult = entitled
-      ? { games: gsAll, capped: false }
-      : capEndgameGamesForTier(gsAll, FREE_ENDGAME_GAME_WINDOW, FREE_ENDGAME_SPOTS);
-    const gs = capResult.games;
+    const gs = gsAll;
 
     const unscanned = unscannedEndgameCount(gs);
     if (unscanned > 0) {
@@ -499,9 +488,6 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
         none.textContent = 'No playable endgames found in your games yet.';
         section.appendChild(none);
       }
-      if (capResult.capped) {
-        section.appendChild(buildCapNotice(`Showing your ${FREE_ENDGAME_SPOTS} most recent endgames`));
-      }
       return section;
     }
 
@@ -543,9 +529,6 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       more.className = 'eg-fg-more';
       more.textContent = `Showing ${shown.length} of ${spots.length} — the most instructive first.`;
       section.appendChild(more);
-    }
-    if (capResult.capped) {
-      section.appendChild(buildCapNotice(`Showing your ${FREE_ENDGAME_SPOTS} most recent endgames`));
     }
     return section;
   }
@@ -696,14 +679,8 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       const result = await scanEndgames({
         signal: ctrl.signal,
         onProgress,
-        cap: isEntitled() ? undefined : { windowGames: FREE_ENDGAME_GAME_WINDOW, maxUnplayed: FREE_ENDGAME_SPOTS },
       });
       lastScanUnreachable = result.unreachable;
-      // A cap already met before scanning anything burns zero tablebase/engine
-      // calls, but that also looks like the button did nothing — say so.
-      if (result.capped && result.scanned === 0 && !result.aborted && !result.unreachable) {
-        showToast(`You're at ${FREE_ENDGAME_SPOTS} endgames — clear some to find more, or unlock full history.`);
-      }
       pawn.done();
     } finally {
       facts.stop();

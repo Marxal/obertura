@@ -1,6 +1,6 @@
 import {
   firstEndgameSpot, isEndgameToMove, didConvert, outcomeFromEval,
-  capEndgameGamesForTier, endgameSpotId,
+  endgameSpotId,
   SCAN_MAX_PIECES,
 } from './endgame-scan';
 import type { EndgameSpot } from './endgame-scan';
@@ -119,55 +119,6 @@ export function runEndgameScanSelfTest(): TestResult[] {
   check('draw available, drawn → converted', didConvert('draw', 'draw') === true);
   check('draw available, won → converted', didConvert('draw', 'win') === true);
   check('draw available, lost → not converted', didConvert('draw', 'loss') === false);
-
-  // ── capEndgameGamesForTier (the free-tier view cap) ──────────────────────────
-  {
-    // gA is newest with two unplayed spots (ply 10, 20), gB is older with one
-    // unplayed spot (ply 30). No play-out records at all yet.
-    const gA = mkGame('a', 3000, [mkSpot(10), mkSpot(20)]);
-    const gB = mkGame('b', 2000, [mkSpot(30)]);
-    const noProgress: EndgameProgress = {};
-    const beforeSnapshot = JSON.stringify([gA, gB]);
-    const originalASpots = gA.endgame!.spots;
-    const originalBSpots = gB.endgame!.spots;
-
-    const capped = capEndgameGamesForTier([gA, gB], 50, 2, noProgress);
-    const visibleIds = capped.games.flatMap(g => g.endgame!.spots.map(s => endgameSpotId(g.id, s.ply)));
-    check('cap keeps only the N most recent unplayed spots',
-      visibleIds.length === 2 && visibleIds.includes(endgameSpotId('a', 10)) && visibleIds.includes(endgameSpotId('a', 20)),
-      JSON.stringify(visibleIds));
-    check('the oldest game\'s spot is the one hidden', !visibleIds.includes(endgameSpotId('b', 30)));
-    check('capped=true once something is actually hidden', capped.capped === true);
-
-    // Clone safety, same guarantee as capMistakeGamesForTier.
-    check('source games are never mutated', JSON.stringify([gA, gB]) === beforeSnapshot);
-    check('gA needed no trimming → returned by reference',
-      capped.games[0] === gA && capped.games[0].endgame!.spots === originalASpots);
-    check('gB WAS trimmed → a new game object with a new spots array',
-      capped.games[1] !== gB && capped.games[1].endgame!.spots !== originalBSpots);
-    check('the original gB.endgame.spots array is untouched',
-      gB.endgame!.spots === originalBSpots && gB.endgame!.spots.length === 1);
-
-    // Rolling: playing out gA's ply-10 spot at least once frees a slot, and
-    // the previously hidden gB spot surfaces — no re-scan needed.
-    const playedOnce: EndgameProgress = {
-      [endgameSpotId('a', 10)]: { solved: false, attempts: 1, lastTrained: 1 },
-    };
-    const afterPlay = capEndgameGamesForTier([gA, gB], 50, 2, playedOnce);
-    const idsAfterPlay = afterPlay.games.flatMap(g => g.endgame!.spots.map(s => endgameSpotId(g.id, s.ply)));
-    check('playing a spot frees a slot for the next one in line',
-      idsAfterPlay.includes(endgameSpotId('b', 30)), JSON.stringify(idsAfterPlay));
-    check('the played spot itself stays visible (played ones are never hidden)',
-      idsAfterPlay.includes(endgameSpotId('a', 10)));
-    check('cap goes quiet once nothing is left to hide', afterPlay.capped === false);
-
-    // The game window itself: a third, much older game beyond the window is
-    // dropped entirely and trips `capped` even with room to spare on spots.
-    const gOldWindow = mkGame('old-window', 1, [mkSpot(5)]);
-    const windowed = capEndgameGamesForTier([gA, gB, gOldWindow], 2, 10, noProgress);
-    check('games outside the window are dropped', windowed.games.every(g => g.id !== 'old-window'));
-    check('window truncation alone marks capped=true', windowed.capped === true);
-  }
 
   return results;
 }

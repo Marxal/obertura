@@ -4,7 +4,7 @@
 // rotation. Everything else stays wide open: building and saving lines is
 // unlimited, and so are the library, packs, traps, studies, import, puzzles,
 // endgames, the engine, sparring, the analyser, statistics and sync. A free user
-// can keep five hundred lines in My Lines; they just train ten at a time, and
+// can keep five hundred lines in My Lines; they just train thirty at a time, and
 // they can rotate which ten whenever they like.
 //
 // WHO IS ENTITLED
@@ -46,7 +46,14 @@ import { trackOnce } from './metrics';
 import { Icons } from './icons';
 
 // How many lines a free account may have in training at once.
-export const FREE_TRAINING_LINES = 10;
+//
+// Thirty, not a number chosen for the database: a training cap costs almost
+// nothing to raise, because saved lines were already allowed. At the default ten
+// new moves a day and about seven of your own moves per line, thirty lines is
+// roughly three weeks of daily training, so the offer arrives once someone has a
+// habit rather than on the first day. A starter pack (9-12 lines) fits with room
+// for a second one.
+export const FREE_TRAINING_LINES = 30;
 
 // What the unlock costs is no longer written here. It comes from Stripe, per
 // currency, via src/pricing.ts — €12 or a round 139 kr, picked by the device's
@@ -57,29 +64,24 @@ export const FREE_TRAINING_LINES = 10;
 // pricing.ts is safe to import from here: it depends only on supabase.ts, so it
 // stays clear of the entitlement ⇄ checkout cycle described below.
 
-// ── The coaching caps: Mistake Retry, endgames-from-your-games, Scouting ─────
+// ── Everything read from your own games is free ─────────────────────────────
 //
-// These three all read YOUR imported games and burn the app's heaviest
-// resources doing it (cloud eval calls, tablebase probes, local engine time).
-// A free account gets a real, always-fresh taste of each rather than either
-// an empty tab or an untouched full history:
-//   • Mistake Retry only considers the FREE_MISTAKE_GAME_WINDOW most recent
-//     games, and keeps a ROLLING top FREE_MISTAKE_SPOTS unfixed spots — fixing
-//     one frees a slot for the next; importing a newer game can push the
-//     window forward. Fixed spots are never hidden; only the unfixed list is
-//     capped.
-//   • Endgames from your games: same game window, ROLLING top
-//     FREE_ENDGAME_SPOTS unplayed positions (played-out ones stay visible).
-//   • Scouting: FREE_SCOUT_OPPONENTS saved opponent instead of MAX_OPPONENTS
-//     (scout.ts) — adding a new one offers to REPLACE the existing one rather
-//     than refusing, as long as there's exactly one to replace. A user who
-//     already holds more (grandfathered from being entitled, or an early
-//     tester) gets the same "delete one to make room" refusal an entitled
-//     user over MAX_OPPONENTS would — nothing is ever auto-deleted.
-export const FREE_MISTAKE_GAME_WINDOW = 50;
-export const FREE_MISTAKE_SPOTS = 10;
-export const FREE_ENDGAME_GAME_WINDOW = 50;
-export const FREE_ENDGAME_SPOTS = 3;
+// Mistake Retry and its exercises, and Endgames from your games, have no free
+// limit. There used to be a 50-game window, a rolling 10 unfixed mistakes and 3
+// endgames, and all of it guarded nothing: the games and their scan results stay
+// on the phone for a free account, so they cost the database nothing. What the
+// cap did do was starve the exercises. Time pressure, Blunder detective and Which
+// move all draw from the same pool, and ten positions repeat within one round.
+//
+// The scan's real cost is the phone's own engine time, and it is bounded by the
+// games on the device and only runs while the app is open, newest game first.
+//
+// Scouting is still capped: FREE_SCOUT_OPPONENTS saved opponent instead of
+// MAX_OPPONENTS (scout.ts). Adding a new one offers to REPLACE the existing one
+// rather than refusing, as long as there's exactly one to replace. A user who
+// already holds more (grandfathered from being entitled, or an early tester) gets
+// the same "delete one to make room" refusal an entitled user over MAX_OPPONENTS
+// would. Nothing is ever auto-deleted.
 export const FREE_SCOUT_OPPONENTS = 1;
 
 // How many repertoires (books) a free account may keep. Two are created for you
@@ -115,7 +117,7 @@ export const FREE_SAVED_LINES = 500;
 
 // Where the counter starts appearing on the Train hub, so the ceiling is visible
 // before it's hit rather than a surprise at line eleven.
-export const TRAINING_COUNT_VISIBLE_FROM = 7;
+export const TRAINING_COUNT_VISIBLE_FROM = 25;
 
 // Fired on window when the answer actually changes, so an open Settings screen
 // can refresh its plan pill without polling. The profile fetch lands a moment

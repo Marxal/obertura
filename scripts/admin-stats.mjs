@@ -20,8 +20,8 @@
 // Two sources, both read-only here:
 //   • public.profiles      — one row per account, `stats` written by the app
 //                            (src/account-stats.ts). The CURRENT picture.
-//   • public.stats_daily   — a copy of every account's summary per day, taken
-//                            by a pg_cron job at 03:17 UTC. The HISTORY, which
+//   • public.stats_daily   — a copy of each active account's summary per week,
+//                            taken by a pg_cron job, Mondays at 03:17 UTC. The HISTORY, which
 //                            profiles.stats cannot give because it is
 //                            overwritten on every push.
 //   • public.metrics       — (name, day, hits) from the anonymous counter. No
@@ -117,7 +117,7 @@ const accounts = query(`
   order by p.repertoire_updated_at desc nulls last
 `);
 
-// The history the snapshot job accumulates. Totals per day across everyone who
+// The history the snapshot job accumulates. Totals per run across everyone who
 // reported that day.
 const history = query(`
   select
@@ -392,7 +392,7 @@ const html = `<title>Bito Chess — owner dashboard</title>
 
   <section>
     <h2>Over time</h2>
-    <p class="note">From the daily snapshot job — <span class="mono">profiles.stats</span> is overwritten on every push, so this table is the only history there is.</p>
+    <p class="note">From the weekly snapshot job — <span class="mono">profiles.stats</span> is overwritten on every push, so this table is the only history there is.</p>
     <div class="cols">
       <div>
         <h3>Lines built, all accounts</h3>

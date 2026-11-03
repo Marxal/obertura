@@ -20,8 +20,6 @@
 //   • ABORTING COSTS NOTHING. scanGames persists each game the moment it
 //     finishes and picks up from "which games have no result yet", so a stop is
 //     a pause and a resume is just another start().
-//   • THE TIER CAP IS THE SAME ONE the button obeys — a free account never
-//     spends more cloud calls in the background than it would in the foreground.
 //
 // It reports through a plain listener list rather than a DOM event so the pane
 // can paint live counts, and the counts survive the pane being closed and
@@ -29,7 +27,6 @@
 
 import { scanGames, unscannedCount, type ScanProgress } from './mistake-scan';
 import { getAllGames, onGamesChanged } from './storage';
-import { isEntitled, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS } from './entitlement';
 
 const ENABLED_KEY = 'obertura.autoScanGames';
 
@@ -155,9 +152,6 @@ async function run(): Promise<void> {
         if (signal.aborted) return;
         publish({ done: p.gamesDone, total: p.gamesTotal, spots: p.spotsFound, opponent: p.opponent });
       },
-      cap: isEntitled()
-        ? undefined
-        : { windowGames: FREE_MISTAKE_GAME_WINDOW, maxUnfixed: FREE_MISTAKE_SPOTS },
     });
   } catch {
     // Offline, a wedged worker, a deleted game — the next start() tries again

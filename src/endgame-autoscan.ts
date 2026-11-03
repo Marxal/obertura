@@ -23,12 +23,11 @@
 //
 // Everything else is deliberately the same: one pass at a time, the manual scan
 // always wins, aborting costs nothing (scanEndgames writes each game as it
-// finishes), and the free-tier cap is the one the button obeys.
+// finishes).
 
 import { scanEndgames, unscannedEndgameCount } from './endgame-scan';
 import type { EndgameScanProgress } from './endgame-scan';
 import { getAllGames, onGamesChanged } from './storage';
-import { isEntitled, FREE_ENDGAME_GAME_WINDOW, FREE_ENDGAME_SPOTS } from './entitlement';
 import { autoScanState, onAutoScanChange, getAutoScanEnabled } from './mistake-autoscan';
 
 /** What the background endgame pass is doing right now. */
@@ -174,9 +173,6 @@ async function run(): Promise<void> {
           done: p.gamesDone, total: p.gamesTotal, found: p.found, opponent: p.opponent,
         });
       },
-      cap: isEntitled()
-        ? undefined
-        : { windowGames: FREE_ENDGAME_GAME_WINDOW, maxUnplayed: FREE_ENDGAME_SPOTS },
     });
     // Latch off until something suggests the network is worth another try, and
     // not for at least OFFLINE_RETRY_MS whatever that something is. The games are

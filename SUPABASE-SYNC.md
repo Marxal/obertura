@@ -27,7 +27,7 @@ One row per user, holding the copy of their data.
 | `games`                    | `jsonb`       | your imported games                                       |
 | `games_updated_at`         | `timestamptz` | when the games were last pushed — **the sync reads this**  |
 | `stats`                    | `jsonb`       | a ~300-byte summary of how much has been built and trained |
-| *(and `public.stats_daily`)* | —           | a daily copy of each **active** account's `stats`, kept 400 days |
+| *(and `public.stats_daily`)* | —           | a weekly copy of each **active** account's `stats`, kept 400 days |
 | `entitled`                 | `boolean`     | has this account paid? Gates the training cap             |
 | `entitled_at`              | `timestamptz` | when the purchase webhook granted it (a record only)      |
 | `stripe_customer_id`       | `text`        | the Stripe customer behind that purchase (a record only)  |
@@ -62,7 +62,7 @@ export follows different rules from a shared, quota-bearing database row. The
 fingerprint is taken over the slimmed payload, so analysing or scanning a game
 costs no upload at all. See `src/sync-core.ts`.
 
-`entitled` is the free tier's switch: false (the default) caps the account at 10
+`entitled` is the free tier's switch: false (the default) caps the account at 30
 lines in training at once, true lifts the cap. The app only ever READS it. Two
 things write it: your own hand in the dashboard, and the Stripe purchase webhook
 (`worker/stripe-webhook.ts`, set up in STRIPE-SETUP.md), which sets it together
@@ -230,7 +230,7 @@ grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at, st
 -- ── THE HISTORY TABLE ───────────────────────────────────────────────────────
 -- `profiles.stats` is OVERWRITTEN on every push, so on its own it can only ever
 -- answer "what does the user base look like right now". This is the tape, and
--- a pg_cron job appends to it once a day.
+-- a pg_cron job appends to it once a week. (The name is older than the schedule.)
 --
 -- The browser must never see one row of it: RLS is on with NO policies at all,
 -- and the grants are revoked outright. Both, because Supabase grants new public
@@ -249,7 +249,7 @@ create table if not exists public.stats_daily (
 alter table public.stats_daily enable row level security;
 revoke all on public.stats_daily from anon, authenticated;
 
--- One row per account per day; re-running on the same day overwrites, so the
+-- One row per account per run; re-running on the same day overwrites, so the
 -- job is idempotent and a manual run is always safe.
 --
 -- ── IT ONLY SNAPSHOTS ACCOUNTS THAT HAVE BEEN USED LATELY ───────────────────
@@ -258,9 +258,10 @@ revoke all on public.stats_daily from anon, authenticated;
 -- an account that pushed once in 2026 and never came back still cost a row a
 -- day, holding the same unchanging numbers, until the database filled up.
 --
--- At roughly 420 bytes a row (the jsonb, the tuple header and the primary key's
--- index entry) that is ~0.15 MB per account per year — about TWICE the entire
--- profile row of a typical free account, spent on data nobody would ever read.
+-- At roughly 600 bytes a row (the jsonb, the tuple header and the primary key's
+-- index entry, measured 2026-11) that was ~0.22 MB per account per year, more
+-- than the whole profile row of a typical free account. Weekly rows bring an
+-- active account's 400 days down to about 33 KB.
 --
 -- So the snapshot is scoped to accounts active within ACTIVE_DAYS, which turns
 -- the table's growth from "everyone who ever signed up" into "whoever used the
@@ -301,7 +302,9 @@ begin
 end;
 $$;
 
-revoke all on function public.snapshot_profile_stats() from anon, authenticated;
+-- PUBLIC too: Postgres grants EXECUTE on new functions to PUBLIC by default, and
+-- naming only the two roles leaves that grant standing.
+revoke all on function public.snapshot_profile_stats() from public, anon, authenticated;
 
 -- ── AND THE TAPE HAS AN END ─────────────────────────────────────────────────
 -- The scope above bounds how many rows are written a day; this bounds how long
@@ -332,7 +335,7 @@ begin
 end;
 $$;
 
-revoke all on function public.prune_profile_stats() from anon, authenticated;
+revoke all on function public.prune_profile_stats() from public, anon, authenticated;
 
 -- pg_cron is free on every Supabase plan and installs into its own `cron`
 -- schema. 03:17 UTC rather than a round hour so it isn't queued behind
@@ -342,16 +345,46 @@ revoke all on function public.prune_profile_stats() from anon, authenticated;
 -- so a second call updates the existing job rather than adding a duplicate.
 create extension if not exists pg_cron;
 select cron.schedule(
-  'snapshot-profile-stats', '17 3 * * *',
+  'snapshot-profile-stats', '17 3 * * 1',
   'select public.snapshot_profile_stats()'
 );
--- Weekly, and well clear of the nightly snapshot: a prune has nothing to do on
--- six days out of seven, and running it daily would only mean six no-op
--- deletes a week competing with the job that matters.
+-- Weekly, and on a different day from the snapshot.
 select cron.schedule(
   'prune-profile-stats', '47 3 * * 0',
   'select public.prune_profile_stats()'
 );
+
+-- ── GAMES ARE PRO, ENFORCED HERE TOO ────────────────────────────────────────
+-- gateGamesToEntitlement (src/sync-core.ts) stops the app sending games for a free
+-- account, but the browser holds an UPDATE grant on the column, so anyone with
+-- devtools could store 4 MB in it. This holds whatever the browser sends.
+--
+-- It ignores rather than refuses. A refused write fails the whole push, lines
+-- included, and a device acting on an out-of-date paid flag shouldn't lose that.
+-- Games a row already holds are left alone, so a refund deletes nothing.
+create or replace function public.profiles_free_games_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.entitled then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new.games := null;
+    new.games_updated_at := null;
+  else
+    new.games := old.games;
+    new.games_updated_at := old.games_updated_at;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_free_games_guard on public.profiles;
+create trigger profiles_free_games_guard
+  before insert or update on public.profiles
+  for each row execute function public.profiles_free_games_guard();
 
 -- ── THE SIZE CEILING, ENFORCED WHERE IT CAN'T BE ARGUED WITH ────────────────
 -- The app refuses to push a column over 4 MB (SYNC_PART_LIMIT_BYTES in
@@ -820,7 +853,10 @@ have games that could never say anything about time.
 | 500 games (the sync's cap)  | 0.68 MB  | ~0.20 MB              |
 
 (`jsonb` over about 2 KB is TOASTed and compressed; the right-hand column is a
-gzip stand-in for that, which is a fair proxy on data this repetitive.)
+gzip stand-in for that. **It is optimistic.** Postgres here uses pglz, measured at
+about 2.7× on this data in 2026-11, not gzip's ~5×, so expect roughly twice the
+right-hand figures. Live numbers from the same date: an average repertoire column
+of 41 KB across 6 accounts, at a median of 41 lines.)
 
 **So the 4 MB ceiling on the `repertoire` column falls at roughly 1,600 lines**,
 snapshot included. The games column cannot reach its ceiling at all: the 500-game
@@ -836,13 +872,14 @@ exists to enforce it against a client that has been tampered with.
 **And the free project overall.** Supabase's free tier gives 500 MB of database,
 5 GB of egress a month, and 50,000 monthly active users.
 
-- A typical user (150 lines, 200 games) stores about **0.13 MB**. That's roughly
-  **3,800 users** in 500 MB.
-- A **free** account is cheaper still, because games never sync for one
-  (`gateGamesToEntitlement`): 150 lines and the snapshot is about **0.07 MB**,
-  and the 500-line cap puts its ceiling at **0.31 MB**.
-- A worst-case user at both ceilings stores about **1.05 MB** — roughly **475**
-  of those would fill it, and there is no way to have 475 of them.
+- A **free** account never syncs games (`gateGamesToEntitlement`, and the trigger
+  in §1). At the live average it stores about **50 KB**, login tables included, and
+  repeated pushes hold a busy row at up to twice its size even with vacuum.
+- A **paid** account adds its games: up to 376 KB stored on the largest live one.
+- With 1 account in 5 active in a month, about **7,000 accounts** fit in the usable
+  ~420 MB. Free accounts saving 100-150 lines would bring that to about 2,000-2,500.
+- Scans, game reviews and the exercise rest logs cost nothing here for a free
+  account: all of them stay on the phone (`src/local-keys.ts`, `src/sync-core.ts`).
 - Egress is the one to watch, and the pull loop is built around it: the routine
   question costs two timestamps (a few hundred bytes), so a phone left open all
   day costs well under 100 KB. Blobs only come down when the other device has
@@ -855,12 +892,13 @@ anybody stores — and the two rules in §1 are what flatten it:
 
 | | rows a day | in 500 MB |
 | --- | --- | --- |
-| every account, kept for ever *(the original shape)* | every account that ever pushed | fills in 2–3 years at 1,000 accounts |
-| active-only, pruned at 400 days *(what §1 does now)* | this month's active accounts | ~0.17 MB per **active** account, and it stops growing |
+| every account, kept for ever *(the original shape)* | every account that ever pushed | ~0.22 MB per account per year |
+| active-only, pruned at 400 days | this month's active accounts | ~0.23 MB per **active** account, and it stops growing |
+| the same, weekly *(what §1 does now)* | this month's active accounts, on one day a week | ~33 KB per **active** account |
 
-At 420 bytes a row, 500 monthly-active accounts hold the table at about **84 MB
-in a steady state** — a number that stops climbing rather than one that climbs
-slower. A signed-up-and-never-returned account costs nothing at all here: it
+At 600 bytes a row and 57 runs in 400 days, 500 monthly-active accounts hold the
+table at about **17 MB in a steady state** — a number that stops climbing rather
+than one that climbs slower. A signed-up-and-never-returned account costs nothing at all here: it
 has no `stats` until its first push, and no row after 35 quiet days.
 
 **Don't take any of this on trust — measure it.** Both numbers, any time, from

@@ -173,7 +173,7 @@ Build a daily challenge around opening lines, tactics, endgames and exercises fr
 **FREE** · **Everything you need to get started.**
 
 - Build up to 500 lines
-- Train 10 at a time
+- Train 30 at a time
 - Sync across your devices
 - Import up to 1,000 games, kept on your device
 - Library and starter packs
@@ -195,7 +195,7 @@ Build a daily challenge around opening lines, tactics, endgames and exercises fr
 - Opponent scouting
 - One-time payment, no subscription ever
 
-(In the app's popup each line also shows what the free plan has — "free: 10",
+(In the app's popup each line also shows what the free plan has — "free: 30",
 "free: 3", "free: 1", "free: this phone only" — because there the reader is
 deciding against what they already have. 2026-10, UX-AUDIT C6.)
 

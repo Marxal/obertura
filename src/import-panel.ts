@@ -81,9 +81,9 @@ import {
 
 const PLATFORM_KEY = 'obertura.importPlatform';
 const SOURCE_KEY = 'obertura.gamesSource';
-// The one timestamp the weekly auto-refresh checks against (see auto-refresh.ts).
-// Set by every "my games" import AND by each successful auto-refresh, so the
-// 7-day window is driven by a single key the user can poke from the console.
+// The one timestamp the auto-refresh checks against (see auto-refresh.ts). Set by
+// every "my games" import AND by each successful auto-refresh. Device-local
+// (local-keys.ts): a refresh that finds nothing must not cost an account push.
 const REFRESH_KEY = 'obertura.lastGamesRefresh';
 
 // Where each site shows you your own handle, and the page it's on. Used only by
@@ -162,11 +162,11 @@ export function platformLabel(p: Platform): string {
   return PLATFORM_LABELS[p];
 }
 
-// ── Auto-refresh bookkeeping (the weekly games refresh) ───────────────────────
+// ── Auto-refresh bookkeeping (the games refresh) ───────────────────────
 
 // When games were last pulled (a manual import or an auto-refresh), as ISO — or
 // null if never. Falls back to the source's sync date for installs that imported
-// before this key existed, so the weekly check has a sensible baseline.
+// before this key existed, so the refresh check has a sensible baseline.
 export function getLastGamesRefresh(): string | null {
   try {
     return localStorage.getItem(REFRESH_KEY) ?? getGamesSource()?.syncedAt ?? null;
@@ -180,12 +180,14 @@ function setLastGamesRefresh(iso: string): void {
 }
 
 // Merge an auto-refresh's new games into what's already stored (no clear), then
-// stamp the refresh date and keep the source card honest. Called even with an
-// empty batch so the date advances and we don't re-fetch on the next open.
+// stamp the refresh date. Called even with an empty batch so the date advances and
+// we don't re-fetch on the next open. The source only changes when games arrived:
+// it travels with the account, so rewriting it on an empty refresh would push the
+// whole row to say nothing happened, and make an idle account look active.
 export async function mergeRefreshedGames(newGames: ImportedGame[]): Promise<void> {
   const now = new Date().toISOString();
   if (newGames.length) await saveGames(newGames); // put() dedupes by id
-  const source = getGamesSource();
+  const source = newGames.length ? getGamesSource() : null;
   if (source) {
     // Re-fetch the picture so a newly-set Chess.com avatar shows up after an
     // auto-refresh; keep the one we had if the lookup turns up nothing.

@@ -22,7 +22,6 @@ import { buildModeCard } from './train-screen';
 import { buildDoor, buildBox, boxBody, boxSection, DOMAIN_ACCENT } from './train-doors';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import {
-  isEntitled, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS,
 } from './entitlement';
 import {
   startMistakeSession,
@@ -35,7 +34,6 @@ import {
   collectSpots,
   pickSpots,
   countRetry,
-  capMistakeGamesForTier,
 } from './mistake-scan';
 import type { MistakeCategory, RetryCounts, SpotRef } from './mistake-scan';
 import { startBrilliantSession } from './brilliant-run';
@@ -265,23 +263,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return;
   }
 
-  const entitled = isEntitled();
-  // Free tier: a view-only cap (games/spots on disk are never touched) — the
-  // 50 most recent games, and a rolling top 10 unfixed spots (fixed spots are
-  // never hidden). `games` below drives every stat, card and carousel, so the
-  // cap holds everywhere with no further branching.
-  const capResult = entitled
-    ? { games: allGames, capped: false }
-    : capMistakeGamesForTier(allGames, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS);
-  const games = capResult.games;
+  const games = allGames;
 
   const rerender = (): void => { void renderMistakesScreen(host, deps); };
-  // "Games analysed" stays the TRUE lifetime count (never windowed) so an
-  // existing tester's history never reads as having vanished; only the spot
-  // counts/cards/carousel below are capped.
-  const spotCounts = countRetry(games);
-  const { scanned, total } = entitled ? spotCounts : countRetry(allGames);
-  const counts: RetryCounts = { ...spotCounts, scanned, total };
+  const counts: RetryCounts = countRetry(games);
   const refs = collectSpots(games);
   // The two whole-game exercises, both read off the same scan. The detective
   // runs are stored one per game; the two-move questions are the spots above,

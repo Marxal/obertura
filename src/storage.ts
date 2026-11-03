@@ -552,7 +552,6 @@ const STATS_KEY_PREFIXES = [
   'obertura-review-log',
   'obertura-reviewed-today',
   'obertura-training-days',
-  'obertura.brilliantLog',
   'obertura.dailyChallenge.log',
   'obertura.endgameProgress',
   'obertura.endgamePuzzleRating',

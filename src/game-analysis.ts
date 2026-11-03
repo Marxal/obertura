@@ -9,9 +9,8 @@
 // and when it's ready a toast with a button, then a card on Home that stays until
 // it's been acted on.
 //
-// "READY" IS NOT "FINISHED". A paying account's pass over 500 games runs for hours,
-// and a free account's stops at 10 mistakes. Waiting for the end would mean saying
-// nothing for a very long time about something usable after a few minutes, so it's
+// "READY" IS NOT "FINISHED". A pass over 500 games runs for hours. Waiting for the
+// end would mean saying nothing for a very long time about something usable after a few minutes, so it's
 // ready at READY_MISTAKES found, or when the pass ends with fewer.
 //
 // IT ONLY RUNS WHILE THE APP IS OPEN. There is no service worker and no push: close
@@ -23,8 +22,7 @@
 // describes don't sync either. Someone who already has analysed games never gets it.
 
 import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-autoscan';
-import { capMistakeGamesForTier, collectSpots, pickSpots, type SpotRef } from './mistake-scan';
-import { FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS, isEntitled } from './entitlement';
+import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
 import { Icons } from './icons';
 import { getAllGames } from './storage';
 
@@ -33,6 +31,9 @@ type NoticeState = 'armed' | 'ready' | 'done';
 
 /** How many mistakes make the analysis worth announcing. */
 const READY_MISTAKES = 5;
+
+/** How many mistakes the notice reads, best first. */
+const NOTICE_MISTAKES = 10;
 
 /** The most a session started from the notice deals. */
 export const ANALYSIS_SESSION_SPOTS = 5;
@@ -52,11 +53,7 @@ function writeState(state: NoticeState): void {
 
 /** Every unfixed mistake this account can see, best first. */
 export async function readAnalysisMistakes(): Promise<SpotRef[]> {
-  const all = await getAllGames();
-  const games = isEntitled()
-    ? all
-    : capMistakeGamesForTier(all, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS).games;
-  return pickSpots(collectSpots(games), null, FREE_MISTAKE_SPOTS);
+  return pickSpots(collectSpots(await getAllGames()), null, NOTICE_MISTAKES);
 }
 
 /** Is an analysis running that the user will hear about when it's ready? */

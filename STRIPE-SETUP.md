@@ -331,7 +331,7 @@ You want to see `stripe checkout: session cs_… for <uuid>` on the tap, then
 `stripe webhook: entitled <uuid> from session cs_…` a second later. In Supabase,
 the row's `entitled` flips to true and `entitled_at` gets a timestamp. On the
 phone you shouldn't have to do anything: within a few seconds of coming back from
-the checkout the app says **"You're in"** and the Train hub's "10 lines" counter
+the checkout the app says **"You're in"** and the Train hub's "30 lines" counter
 is gone. If it doesn't, Settings → **"Already paid? Check again"** is the same
 check on demand, and it always answers one way or the other.
 

@@ -1405,9 +1405,10 @@ import-panel.ts  (the two-step sheet)      import-inline.ts (the boxed empty-sta
 - **`import-inline.ts`** — six screens are useless without games, and each used to
   show a button that opened a sheet that then asked the question. The first step
   of the form now lands directly on those screens.
-- **`auto-refresh.ts`** — a weekly pull on app open (a PWA with no service worker
-  cannot wake itself), merging exactly as a manual import would, silent on zero
-  or on failure.
+- **`auto-refresh.ts`** — a pull when the app opens or comes back on screen, at
+  most every six hours (a PWA with no service worker cannot wake itself), merging
+  exactly as a manual import would, silent on zero or on failure. An empty check
+  writes only a device-local date, so it costs no account push.
 - **`import-last.ts`** — the FAB shortcut. Idempotent: a game already held is
   returned as stored, so its analysis, tags and scan data survive.
 - **`my-games-screen.ts`** — the library: filter bar (colour · group · tags), a
@@ -1559,8 +1560,9 @@ build step. It holds no key either — it shells out to `supabase db query
 --linked`, so the credential is the CLI's own stored login.
 
 Because `profiles.stats` is overwritten on every push, it carries no history at
-all. `public.stats_daily` is the tape: a `pg_cron` job copies every account's
-summary once a day at 03:17 UTC. RLS on with no policies *and* grants revoked —
+all. `public.stats_daily` is the tape: a `pg_cron` job copies each account active
+in the last 35 days once a week (Mondays, 03:17 UTC), and another prunes past 400
+days. RLS on with no policies *and* grants revoked —
 Supabase grants new public tables to anon/authenticated by default, which is how
 `profiles` acquired a table-wide INSERT grant nobody intended. It cascades on
 account deletion, because the privacy policy promises it does.
@@ -1598,12 +1600,10 @@ import is unbounded; only a *free account* met the 100-game wall).
 
 | Constant | Value | Means |
 |---|---|---|
-| `FREE_TRAINING_LINES` | 10 | lines in the rotation at once |
-| `TRAINING_COUNT_VISIBLE_FROM` | 7 | where the counter starts showing |
+| `FREE_TRAINING_LINES` | 30 | lines in the rotation at once |
+| `TRAINING_COUNT_VISIBLE_FROM` | 25 | where the counter starts showing |
 | `FREE_REPERTOIRES` | 3 | the two defaults plus one; archived books still count |
 | `FREE_SAVED_LINES` | 500 | storage guardrail, not a sales wall — every book, regardless of training status |
-| `FREE_MISTAKE_GAME_WINDOW` / `_SPOTS` | 50 / 10 | rolling window and rolling top-N *unfixed* spots |
-| `FREE_ENDGAME_GAME_WINDOW` / `_SPOTS` | 50 / 3 | same, for endgames |
 | `FREE_SCOUT_OPPONENTS` | 1 | offers to *replace* rather than refusing |
 | `FREE_GUEST_IMPORT` | 500 | what a signed-out visitor may import at a time, and what first run SCANS (the only games-import cap left) |
 
@@ -2167,7 +2167,7 @@ Every non-selftest module in `src/`, exactly once.
 | `import-last.ts` | "import my last game" — the FAB shortcut |
 | `import-progress.ts` | the pixel-pawn progress bar + facts ticker |
 | `import-tier.ts` | the pure "how many games may this person import?" |
-| `auto-refresh.ts` | the weekly games auto-refresh |
+| `auto-refresh.ts` | the games auto-refresh, at most every six hours |
 | `my-games-screen.ts` | the My games tab |
 | `lichess-auth.ts` | "Connect to Lichess" — OAuth 2.0 + PKCE, browser-only |
 

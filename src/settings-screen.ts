@@ -856,7 +856,7 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   meta.className = 'settings-connected-meta';
   meta.textContent =
     `${gameCount} game${gameCount === 1 ? '' : 's'} on this device · ` +
-    `synced ${relativeDate(source.syncedAt)}`;
+    `synced ${relativeDate(getLastGamesRefresh() ?? source.syncedAt)}`;
   card.appendChild(meta);
 
   sec.appendChild(card);

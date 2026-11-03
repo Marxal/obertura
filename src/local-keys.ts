@@ -14,7 +14,10 @@
 
 // Retired features' leftovers. Cheap to keep listed: it costs one comparison and
 // it guarantees a phone that still has them can't push them anywhere.
-export const RETIRED_KEY_PREFIXES = ['obertura.drive.'];
+//
+// `obertura.ytCache.` was a YouTube lookup cache no code reads any more. It still
+// sat in old browsers, and up to 48 KB of it was being uploaded on every push.
+export const RETIRED_KEY_PREFIXES = ['obertura.drive.', 'obertura.ytCache.'];
 
 // ── THE KEYS THAT MUST NEVER TRAVEL ─────────────────────────────────────────
 //
@@ -108,6 +111,18 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.'];
 // `obertura.replyAuto` — whether the boards reply for you. A preference for this phone;
 // not worth a push for each flick of the switch.
 //
+// `obertura.spotRest`, `obertura.detectiveLog`, `obertura.whichMoveLog`,
+// `obertura.brilliantLog` — when each exercise from your games may come back. They
+// name game ids, and a free account's games stay on the phone, so another device
+// has nothing to apply them to. Syncing them meant an account push for every
+// answer, and with the free scan limits gone these can each reach a few hundred
+// entries. The cost of leaving them here is that an exercise can come back sooner
+// on a second phone, or after restoring a backup file.
+//
+// `obertura.lastGamesRefresh` — when this device last checked for new games. A
+// check every few hours would otherwise push the row each time to say nothing
+// happened (auto-refresh.ts). A new device falls back on the source's date.
+//
 // (`obertura.metricsSession`, the once-per-launch flag, is in sessionStorage,
 // which nothing in the backup path ever walks — so it needs no entry here.)
 const PRIVATE_KEY_PREFIXES = [
@@ -127,6 +142,11 @@ const PRIVATE_KEYS = [
   'obertura.nextReplyLog',
   'obertura.homeCards',
   'obertura.replyAuto',
+  'obertura.spotRest',
+  'obertura.detectiveLog',
+  'obertura.whichMoveLog',
+  'obertura.brilliantLog',
+  'obertura.lastGamesRefresh',
 ];
 
 /**

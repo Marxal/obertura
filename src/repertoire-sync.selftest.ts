@@ -806,7 +806,7 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
   check(
     'training history, streaks, ratings and bests are statistics',
     ['obertura-review-log', 'obertura-training-days', 'obertura.puzzleRating',
-      'obertura.timedBest.blitz', 'obertura.endgameProgress', 'obertura.brilliantLog']
+      'obertura.timedBest.blitz', 'obertura.endgameProgress', 'obertura.puzzleStreak']
       .every((k) => localKeyPart(k) === 'stats'),
     'the things training earns',
   );

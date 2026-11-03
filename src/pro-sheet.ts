@@ -30,7 +30,7 @@ import { showToast } from './toast';
 
 export interface ProSheetOptions {
   // Optional context line above the title, for when the offer was *run into*
-  // rather than asked for — "You've got 10 lines in training". Omitted when the
+  // rather than asked for — "You've got 30 lines in training". Omitted when the
   // user opened the offer themselves, where a number they haven't reached would
   // just be wrong.
   eyebrow?: string;
