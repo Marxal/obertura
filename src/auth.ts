@@ -15,7 +15,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { showToast } from './toast';
-import { track, trackOnce } from './metrics';
+import { track, trackOncePerLaunch } from './metrics';
 import type { AuthError, User, EmailOtpType } from '@supabase/supabase-js';
 
 // ENTITLEMENT LIVES IN entitlement.ts, not here. There is exactly one answer to
@@ -335,7 +335,7 @@ export async function signUpWithPassword(email: string, password: string): Promi
     // response to a confirmation email that never arrived (see account-ui.ts's
     // "Send it again" dialog), and counting each attempt would inflate the one
     // number a registration figure is for.
-    trackOnce('signed_up_email');
+    trackOncePerLaunch('signed_up_email');
     // No session back means Supabase wants the email confirmed first.
     if (!data.session) return { ok: true, needsEmailConfirmation: true };
     // A project with confirmation switched off signs the new account straight

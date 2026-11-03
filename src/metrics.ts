@@ -12,25 +12,17 @@
 // Nothing here can answer "how many users" or "was that the same person" — and
 // the whole design exists so that it never can.
 //
-// ── WHY THE STATE BELOW STAYS ON THE DEVICE ─────────────────────────────────
-// Three keys are read here and none of them is ever sent anywhere: they exist
-// only to stop this device counting the same once-ever thing twice. All three
-// are registered as never-synced in local-keys.ts, each with its reason — a
-// synced copy would make a second phone inherit the first phone's history and
-// silently stop counting.
-//
-// ── NOTHING UNTIL A YES ─────────────────────────────────────────────────────
-// Those keys are kept for statistics, so EU rules want a yes before they're
-// written: they count as cookies, whatever they're called. counts-consent.ts asks
-// once per device. Until it's answered, events wait in memory, nothing is written
-// and nothing is sent, so a yes still counts the launch that asked. A no drops
-// them and removes the notes.
+// ── NOTHING IS STORED FOR COUNTING ──────────────────────────────────────────
+// It used to keep notes on the device of what it had already counted. Those are
+// gone (2026-11), and storage.ts removes any left behind. "Once" now means once in
+// this launch, held in memory. A first time is worked out from data the app keeps
+// anyway: no games yet, no training days yet (first-use.ts, streak.ts). The only
+// counting key left is the "leave me out" switch, which is the person's own answer.
 //
 // ── FAILURE IS ALWAYS SILENT ────────────────────────────────────────────────
 // Every path here swallows everything: no throw reaches a caller, no error
 // surfaces to the user, nothing retries. A count is worth exactly one attempt
-// and never worth a millisecond of anyone's attention — which is also why a
-// once-ever event is marked as spent BEFORE it is sent. If the request fails,
+// and never worth a millisecond of anyone's attention. If the request fails,
 // that count is simply gone, and that is the correct outcome.
 
 // The endpoint is a root-absolute path, so it resolves the same from the
@@ -39,23 +31,8 @@
 // root, not under the app's base.
 const ENDPOINT = '/api/event';
 
-// Which once-ever events this device has already spent. One key holding a
-// comma-joined list rather than a key per event, so the whole feature is three
-// entries in localStorage instead of a growing family of them.
-const SEEN_KEY = 'obertura.metricsSeen';
-// When this browser profile first opened the app. Read ONLY to subtract from
-// `Date.now()`; the value itself never leaves the device, and neither does
-// anything derived from it beyond "a threshold was crossed".
-const INSTALLED_KEY = 'obertura.installedAt';
-// The "don't count me" switch in Settings.
+// The "leave me out" switch in Settings.
 const OPT_OUT_KEY = 'obertura.metricsOptOut';
-// A yes to counting. Neither key set means this device hasn't been asked yet.
-const CONSENT_KEY = 'obertura.metricsConsent';
-// One cold launch. sessionStorage, so it survives an in-app reload (the sync
-// path reloads after applying an account snapshot) but not a fresh launch.
-const SESSION_KEY = 'obertura.metricsSession';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Every name the Worker will accept. Kept in step with the ALLOWED set in
 // worker/metrics.ts BY HAND: the app and the Worker are separate builds with
@@ -63,7 +40,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // shared module bundled into both. A name that drifts out of step here is a
 // 400 and a dropped count, never an error the user sees.
 export type MetricName =
-  | 'counts_asked'
   | 'install'
   | 'app_open'
   | 'return_after_d2'
@@ -95,11 +71,11 @@ export type MetricName =
  * The GitHub Pages build has no Worker behind it — /api/event does not exist
  * there, and never will — so the entire feature is compiled down to nothing on
  * that target rather than firing requests into a 404. Settings also reads this,
- * so the "don't count me" switch only appears where there is something to
- * switch off.
+ * so the "leave me out" switch only appears where there is something to switch
+ * off. The self-tests have no build target at all, which also means no counting.
  */
 export function metricsActive(): boolean {
-  return __DEPLOY_TARGET__ === 'cloudflare';
+  return typeof __DEPLOY_TARGET__ !== 'undefined' && __DEPLOY_TARGET__ === 'cloudflare';
 }
 
 /**
@@ -110,21 +86,8 @@ export function metricsActive(): boolean {
  * navigate away, which is what `keepalive` covers.
  */
 export function track(name: MetricName): void {
-  if (!metricsActive()) return;
-  const choice = countChoice();
-  if (choice === 'no') return;
-  if (choice === null) {
-    hold({ name, once: false });
-    return;
-  }
-  sendStateless(name);
-  const first = FIRST_TIME[name];
-  if (first) trackOnce(first);
-}
-
-// Sends one word and touches no storage. Everything else in this file goes
-// through the answer check first; only the question itself comes here directly.
-export function sendStateless(name: MetricName): void {
+  if (!metricsActive() || isMetricsOptedOut()) return;
+  if (USE_EVENTS.has(name)) noteAppUsed();
   try {
     void fetch(ENDPOINT, {
       method: 'POST',
@@ -146,225 +109,81 @@ export function sendStateless(name: MetricName): void {
 }
 
 /**
- * Track something that should be counted at most once on this device, ever.
- *
- * Spent BEFORE it is sent, on purpose: "once ever" means one attempt, not one
- * success. A failed send that stayed unspent would try again on every launch
- * forever, which is how a quiet counter turns into a loop.
+ * Count something at most once in this launch. Held in memory, so a walled-off
+ * button pressed five times is one count, and the next launch can count again.
  */
-export function trackOnce(name: MetricName): void {
-  if (!metricsActive()) return;
-  const choice = countChoice();
-  if (choice === 'no') return;
-  if (choice === null) {
-    hold({ name, once: true });
-    return;
-  }
-  const seen = readSeen();
-  if (seen.has(name)) return;
-  seen.add(name);
-  writeSeen(seen);
+const spentThisLaunch = new Set<MetricName>();
+export function trackOncePerLaunch(name: MetricName): void {
+  if (spentThisLaunch.has(name)) return;
+  spentThisLaunch.add(name);
   track(name);
 }
 
 /**
- * Called once from the boot path, after the gate has let the app through.
+ * One cold launch, called once from the boot path.
  *
- * Does three things in order: stamps the install date (and counts the install
- * if this is the first launch), counts one cold launch, and counts any
- * retention milestone this launch has just crossed.
- *
- * ── "COLD LAUNCH", NOT "SESSION" ────────────────────────────────────────────
- * The session flag lives in sessionStorage, which belongs to the document. So:
- *   • backgrounding the PWA and coming straight back does NOT count again — the
- *     document survives, and so does the flag;
- *   • a back/forward restore from bfcache does not count again either;
- *   • BUT Android evicts a backgrounded PWA's document freely under memory
- *     pressure, and resuming then re-navigates: new document, new flag, new
- *     count.
- * So this number is closer to "launches, plus however often the OS reclaimed
- * the app" than to "sessions", and it must never be read as a headcount. There
- * is no way to close that gap without a persistent per-device marker, which is
- * exactly what this feature refuses to have.
+ * A launch is a document, so backgrounding and coming back doesn't count again,
+ * but a reload does, and Android reclaims backgrounded PWAs freely. So this is
+ * closer to "launches, plus however often the OS reclaimed the app" than to
+ * "sessions", and it must never be read as a headcount.
  */
 export function trackAppOpen(): void {
-  if (!metricsActive()) return;
-  const choice = countChoice();
-  if (choice === 'no') return;
-  if (choice === null) {
-    launchWaiting = true;
-    return;
-  }
-
-  stampInstall();
-
-  if (readRaw(sessionStore(), SESSION_KEY) === '1') return;
-  writeRaw(sessionStore(), SESSION_KEY, '1');
-
-  track('app_open');
-  trackReturnMilestones();
+  trackOncePerLaunch('app_open');
 }
 
-// ── First times ─────────────────────────────────────────────────────────────
-// The plain events count every time, so they can't say how many devices got that
-// far. These add a once-per-device count for the steps the funnel needs.
-const FIRST_TIME: Partial<Record<MetricName, MetricName>> = {
-  games_imported: 'first_games_imported',
-  line_saved: 'first_interaction',
-  drill_completed: 'first_interaction',
-  puzzle_session: 'first_interaction',
-  daily_completed: 'first_interaction',
-  endgame_solved: 'first_interaction',
-};
+// ── Used the app ────────────────────────────────────────────────────────────
+//
+// Finishing some training counts as using the app. first-use.ts reads at boot
+// whether this device had trained before this launch, because by the time an event
+// fires, its own result has already been saved. Saving a line isn't on the list:
+// nothing the app keeps says whether that was the first, so it would count again
+// on every launch for someone who builds and never trains.
+const USE_EVENTS: ReadonlySet<MetricName> = new Set<MetricName>([
+  'drill_completed',
+  'puzzle_session',
+  'daily_completed',
+  'endgame_solved',
+]);
 
-// ── Waiting for an answer ───────────────────────────────────────────────────
-// In memory only, so an unanswered launch leaves nothing behind.
-const MAX_HELD = 100;
-let held: { name: MetricName; once: boolean }[] = [];
-let launchWaiting = false;
+let usedBefore: boolean | null = null;
 
-function hold(event: { name: MetricName; once: boolean }): void {
-  if (held.length < MAX_HELD) held.push(event);
+export function setUsedBefore(used: boolean): void {
+  usedBefore = used;
 }
 
-/** Only for the self-test: forgets what's waiting between cases. */
+export function noteAppUsed(): void {
+  if (usedBefore !== false) return;
+  usedBefore = true;
+  track('first_interaction');
+}
+
+/** Only for the self-test: forgets this launch between cases. */
 export function resetMetricsForTest(): void {
-  held = [];
-  launchWaiting = false;
+  spentThisLaunch.clear();
+  usedBefore = null;
 }
 
-// ── The answer ──────────────────────────────────────────────────────────────
+// ── The "leave me out" switch ───────────────────────────────────────────────
 //
-// It also keeps the owner's own phone out of the numbers, which is otherwise
-// impossible: with no identifier there is nothing to filter on afterwards.
+// Off by default. It also keeps the owner's own phone out of the numbers, which is
+// otherwise impossible: with no identifier there is nothing to filter on afterwards.
 //
-// A no doesn't delete anything already counted, because there is nothing to delete
-// it BY. It stops this device contributing and removes the notes kept on it.
-
-export function countChoice(): 'yes' | 'no' | null {
-  const store = localStore();
-  if (readRaw(store, OPT_OUT_KEY) === '1') return 'no';
-  return readRaw(store, CONSENT_KEY) === '1' ? 'yes' : null;
-}
-
-export function setCountChoice(allow: boolean): void {
-  const store = localStore();
-  const session = sessionStore();
-  try {
-    if (allow) {
-      store?.setItem(CONSENT_KEY, '1');
-      store?.removeItem(OPT_OUT_KEY);
-    } else {
-      store?.setItem(OPT_OUT_KEY, '1');
-      store?.removeItem(CONSENT_KEY);
-      store?.removeItem(INSTALLED_KEY);
-      store?.removeItem(SEEN_KEY);
-      session?.removeItem(SESSION_KEY);
-    }
-  } catch {
-    /* storage full or blocked */
-  }
-  const waiting = held;
-  const launch = launchWaiting;
-  held = [];
-  launchWaiting = false;
-  if (!allow) return;
-  if (launch) trackAppOpen();
-  for (const event of waiting) {
-    if (event.once) trackOnce(event.name);
-    else track(event.name);
-  }
-}
+// Turning it on doesn't delete anything already counted, because there is nothing
+// to delete it BY. It only stops this device contributing from now on.
 
 export function isMetricsOptedOut(): boolean {
-  return readRaw(localStore(), OPT_OUT_KEY) === '1';
+  try {
+    return window.localStorage.getItem(OPT_OUT_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
 export function setMetricsOptedOut(on: boolean): void {
-  setCountChoice(!on);
-}
-
-// ── Install date and retention ──────────────────────────────────────────────
-
-// The milestones, in the only shape that survives having no identifier: each is
-// counted once ever, the first time the app is opened at least that many days
-// after it was installed.
-//
-// THEY NEST. Someone who comes back after 40 days trips d2, d7 and d30 in the
-// same launch, so `return_after_d30 ⊆ return_after_d7 ⊆ return_after_d2`. That
-// makes these "ever came back after N days", NOT classic day-N retention — the
-// numbers are read as a ratio against `install` from an earlier period, and the
-// lag smears across the boundary. That imprecision is the price of cohorts that
-// cannot be reconstructed, and it was paid deliberately.
-const RETURN_MILESTONES: { days: number; name: MetricName }[] = [
-  { days: 2, name: 'return_after_d2' },
-  { days: 7, name: 'return_after_d7' },
-  { days: 30, name: 'return_after_d30' },
-];
-
-// Stamp the install date if this profile has none, and count the install.
-//
-// "Install" means the first launch on THIS browser profile, which is not the
-// same as a person or a phone: clearing site data, using a private window or
-// switching browsers all mint a new one. It is the closest honest thing to a
-// new-user count that leaves no identifier behind.
-function stampInstall(): void {
-  if (installedAt() !== null) return;
-  writeRaw(localStore(), INSTALLED_KEY, String(Date.now()));
-  trackOnce('install');
-}
-
-function installedAt(): number | null {
-  const raw = readRaw(localStore(), INSTALLED_KEY);
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-// Count every milestone this launch has crossed. The `>=` also handles a clock
-// that has moved backwards (elapsed goes negative, nothing fires); a clock
-// moved forwards will trip a milestone early, which is not worth defending
-// against for a number read as a trend.
-function trackReturnMilestones(): void {
-  const since = installedAt();
-  if (since === null) return;
-  const elapsed = Date.now() - since;
-  for (const m of RETURN_MILESTONES) {
-    if (elapsed >= m.days * DAY_MS) trackOnce(m.name);
+  try {
+    if (on) window.localStorage.setItem(OPT_OUT_KEY, '1');
+    else window.localStorage.removeItem(OPT_OUT_KEY);
+  } catch {
+    /* storage full or blocked */
   }
-}
-
-// ── Storage plumbing ────────────────────────────────────────────────────────
-//
-// Every access is wrapped, because storage genuinely throws in the wild —
-// Safari private mode, a browser set to block site data, a full quota. A phone
-// that cannot store anything still runs the app perfectly; it just counts its
-// once-ever events more than once, which is a rounding error and not a bug
-// worth carrying code for.
-
-function localStore(): Storage | null {
-  try { return window.localStorage; } catch { return null; }
-}
-
-function sessionStore(): Storage | null {
-  try { return window.sessionStorage; } catch { return null; }
-}
-
-function readRaw(store: Storage | null, key: string): string | null {
-  if (!store) return null;
-  try { return store.getItem(key); } catch { return null; }
-}
-
-function writeRaw(store: Storage | null, key: string, value: string): void {
-  if (!store) return;
-  try { store.setItem(key, value); } catch { /* storage off or full */ }
-}
-
-function readSeen(): Set<string> {
-  const raw = readRaw(localStore(), SEEN_KEY);
-  return new Set(raw ? raw.split(',').filter(Boolean) : []);
-}
-
-function writeSeen(seen: Set<string>): void {
-  writeRaw(localStore(), SEEN_KEY, [...seen].join(','));
 }

@@ -5533,9 +5533,9 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 <script>
   /* Anonymous counts on the landing page: a visit from elsewhere, and a press of a
      try button. One word goes to this site's own server (worker/metrics.ts). No
-     cookie, nothing stored, nothing that could tell two visitors apart, so these
-     don't need the question the app asks. Reloads, returning with the back button
-     and moving around this site aren't new visits. Only the real domain counts. */
+     cookie, nothing stored, nothing that could tell two visitors apart. Reloads,
+     returning with the back button and moving around this site aren't new visits.
+     Only the real domain counts. */
   (function () {
     if (location.hostname !== 'bitochess.com' || navigator.webdriver) return;
     try {

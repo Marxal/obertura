@@ -17,7 +17,7 @@
 //
 // `obertura.ytCache.` was a YouTube lookup cache no code reads any more. It still
 // sat in old browsers, and up to 48 KB of it was being uploaded on every push.
-export const RETIRED_KEY_PREFIXES = ['obertura.drive.', 'obertura.ytCache.'];
+export const RETIRED_KEY_PREFIXES = ['obertura.drive.', 'obertura.ytCache.', 'obertura.installedAt', 'obertura.metricsSeen'];
 
 // ── THE KEYS THAT MUST NEVER TRAVEL ─────────────────────────────────────────
 //
@@ -61,29 +61,9 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.', 'obertura.ytCache.'];
 // `obertura.lichessReturnTo` — the OAuth return-path crumb. Mid-flight state for
 // one redirect on one device.
 //
-// ── THE THREE METRICS KEYS (src/metrics.ts) ─────────────────────────────────
-// All three exist so that a device does not count the same once-ever event
-// twice, and all three would do active harm if they travelled. They are the
-// only local state the anonymous event counter has, and none of them is ever
-// SENT anywhere — they are read to decide whether to send, never transmitted.
-//
-// `obertura.installedAt` — when this browser profile first opened the app. It
-// is the input to the retention milestones: the app subtracts it from the
-// current time and counts `return_after_d7` the first time the gap is a week.
-// Carried in a backup, it would arrive on a fresh phone claiming that phone was
-// installed months ago — so the new install would count no install, and would
-// trip all three return milestones on its very first launch. Every retention
-// number would then be measuring how often people restore backups.
-//
-// `obertura.metricsSeen` — which once-ever events this device has already
-// spent. The same failure, from the other end: a second phone signing in would
-// inherit "already counted" and go silent for its whole life, and a restored
-// backup would suppress counting on the device that restored it. It describes
-// what this install has done, exactly as `obertura.sync.` describes what this
-// install has pushed.
-//
-// `obertura.metricsConsent` — a yes to counting. Asked per device, like the no
-// below, because the notes it allows are per device too.
+// ── THE METRICS KEY (src/metrics.ts) ────────────────────────────────────────
+// The counter once kept `obertura.installedAt` and `obertura.metricsSeen` too. Both
+// are retired, above, because counting no longer stores anything on the device.
 //
 // `obertura.metricsOptOut` — the "don't count me" switch in Settings. This one
 // is subtler and is the reason it is listed rather than left to inherit the
@@ -127,8 +107,6 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.', 'obertura.ytCache.'];
 // check every few hours would otherwise push the row each time to say nothing
 // happened (auto-refresh.ts). A new device falls back on the source's date.
 //
-// (`obertura.metricsSession`, the once-per-launch flag, is in sessionStorage,
-// which nothing in the backup path ever walks — so it needs no entry here.)
 const PRIVATE_KEY_PREFIXES = [
   'obertura.supabase.',
   'obertura.sync.',
@@ -138,10 +116,7 @@ const PRIVATE_KEYS = [
   'obertura.entitled',
   'obertura.pricing',
   'obertura.lichessReturnTo',
-  'obertura.installedAt',
-  'obertura.metricsSeen',
   'obertura.metricsOptOut',
-  'obertura.metricsConsent',
   'obertura.analysisNotice',
   'obertura.newMovesToday',
   'obertura.nextReplyLog',

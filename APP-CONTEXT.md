@@ -1551,7 +1551,7 @@ Three things about it are deliberate and worth not undoing:
   promo or trial that read `stats->>'drillsCompleted'` server-side would be
   free for the asking. Nothing in the app reads the column back.
 
-**Reading it back: `npm run admin`.** `scripts/admin-stats.mjs` queries the
+**Reading it back: `bitostats` (or `npm run admin`).** `scripts/admin-stats.mjs` queries the
 three tables and writes a self-contained HTML dashboard to `.admin/stats.html`
 (gitignored — it is a file full of real account rows). It is a LOCAL page on
 purpose: hosting it would send those rows to a service that is not in the
@@ -1832,7 +1832,6 @@ sentence starting "how many users…" is unanswerable here by construction.
 | | |
 |---|---|
 | `landing_visit`, `landing_try` | the landing page; these store nothing |
-| `counts_asked` | the app showed its counting question |
 | `install`, `app_open` | reach |
 | `first_games_imported`, `first_scan_done`, `first_interaction` | first time on this device, for the funnel |
 | `return_after_d2` / `_d7` / `_d30` | retention |
@@ -1848,27 +1847,25 @@ count, never a user-visible error. Every name must also satisfy the
 
 ### `app_open` is cold launches, not sessions
 
-Gated by a `sessionStorage` flag, which belongs to the *document*. Backgrounding
-and resuming does not re-count, and neither does a bfcache restore — but Android
-evicts a backgrounded PWA's document freely under memory pressure, and resuming
-then re-navigates into a fresh document and a fresh flag. So the number is
-"launches, plus however often the OS reclaimed the app". **Never read it as a
-headcount.** Closing that gap needs a persistent per-device marker, which is
-exactly what this feature refuses to have.
+Counted once per document, in memory. Backgrounding and resuming does not re-count,
+but a reload does, and Android evicts a backgrounded PWA's document freely under memory
+pressure. So the number is "launches, plus however often the OS reclaimed the app".
+**Never read it as a headcount.**
 
 ### Retention has no cohorts, deliberately
 
-`return_after_dN` fires once ever, on the first launch at least N days after
-`obertura.installedAt`. **The sets nest** (`d30 ⊆ d7 ⊆ d2`), so these mean "ever
-came back after N days", *not* classic day-N retention. Read as a lagged ratio
-against `install` from an earlier period; the lag smears across the boundary.
+`return_after_dN` fires when a new training day is the first one at least N days after
+the very first training day (`returnsCrossed` in `streak.ts`), so it needs no stored mark.
+**The sets nest** (`d30 ⊆ d7 ⊆ d2`), so these mean "ever trained again after N days", *not*
+classic day-N retention. Read as a lagged ratio against `first_interaction`. Training days
+only come from the Train screen, so someone who only does puzzles never shows as a return.
+Counts before 2026-11 meant "opened the app again", against `install`.
 
 That imprecision is the price of something specific. The obvious design — naming
 the metric `retained_d7:2026-w36` — was rejected: a rotating name cannot sit on
 a literal allowlist (so the endpoint becomes writable with unbounded distinct
 rows), and at this project's traffic a cohort week with one member is a
-pseudo-identifier that follows a device across sessions. Nothing derived from
-`installedAt` beyond "a threshold was crossed" ever leaves the device.
+pseudo-identifier that follows a device across sessions.
 
 ### OAuth sign-ups cannot be distinguished from OAuth sign-ins
 
@@ -1885,7 +1882,7 @@ on every sign-in, to learn something no decision depends on. **We are
 deliberately not doing it.** So `signed_up_email` is a floor on registrations,
 not the total, and the gap is however many people use a social button.
 
-`signed_up_email` is `trackOnce`, not `track`: re-registering is the normal
+`signed_up_email` is `trackOncePerLaunch`, not `track`: re-registering is the normal
 response to a confirmation email that never arrived (see the "Send it again"
 dialog in `account-ui.ts`), and counting each attempt would inflate the one
 number a registration figure exists to give.
@@ -1907,17 +1904,17 @@ path walks, so it needs no entry.
 
 ### The switch
 
-**Nothing until a yes (2026-11).** EU rules treat the notes kept on the device for
-statistics (`obertura.installedAt`, `obertura.metricsSeen`, `obertura.metricsSession`)
-like cookies, so a switch in Settings wasn't enough. `counts-consent.ts` asks once per
-device, with equal buttons. Before an answer, events wait in memory and nothing is
-stored or sent, except the bare word `counts_asked`. A yes counts what waited; a no
-drops it and removes the notes. The landing page's `landing_visit` and `landing_try`
-store nothing and honour a no, so they aren't asked about. App numbers now cover only
-devices that said yes; read them against `counts_asked`.
+**Nothing is stored for counting (2026-11).** The counter used to keep
+`obertura.installedAt`, `obertura.metricsSeen` and `obertura.metricsSession`. They're
+gone, and `purgeRetiredLocalKeys` removes what's left on devices. "Once" now means once
+in this launch, in memory. A first time comes from data the app keeps anyway: `install`
+when first run is owed, `first_games_imported` when no games are stored,
+`first_scan_done` when no game has ever been scanned, `first_interaction` when
+`first-use.ts` finds no training at boot. So someone who leaves first run unfinished
+counts as `install` again on the next launch. The owner decided against asking first.
 
-**Settings → Feedback & about → "Leave me out of the counts."** The same answer as
-the question above, device-local. It exists because with no identifier there is nothing to filter on
+**Settings → Feedback & about → "Leave me out of the counts."** Off by default,
+device-local. It exists because with no identifier there is nothing to filter on
 afterwards — the only way for the owner or a tester to stay out of the numbers
 is to say so up front, on the device. Built only when `metricsActive()`, so it
 never appears on a build that counts nothing.
@@ -2196,7 +2193,8 @@ Every non-selftest module in `src/`, exactly once.
 | `repertoire-sync.ts` | account sync — the cross-device copy |
 | `sync-core.ts` | the sync's pure logic: no Supabase, no auth, no browser |
 | `account-stats.ts` | the `profiles.stats` summary (§16.2) — **forgeable; never gate on it** |
-| `scripts/admin-stats.mjs` | `npm run admin` — the owner's local dashboard (§16.2) |
+| `scripts/admin-stats.mjs` | `bitostats` or `npm run admin` — the owner's local dashboard (§16.2): reads the data, writes the page |
+| `scripts/admin-model.mjs`, `admin-page.mjs` | that dashboard's numbers, then its page; no I/O, so it can be rehearsed with made-up data |
 | `scripts/backup.mjs`, `restore.mjs`, `backup-core.mjs` | `bitobackup` and `bitorestore` (`SUPABASE-SYNC.md` §10) |
 | `scripts/supabase-read.mjs` | The one read route to the live database, through the Supabase CLI's login |
 | `signing-in.ts` | the cover that makes signing in look like one step |
@@ -2207,7 +2205,7 @@ Every non-selftest module in `src/`, exactly once.
 | `pro-sheet.ts` | the Full Access popup |
 | `gate.ts` | captures the PWA install prompt (`beforeinstallprompt`) and offers it — the beta gate it used to hold was removed 2026-09 |
 | `metrics.ts` | the anonymous event counter's app half (§18) — a no-op off Cloudflare |
-| `counts-consent.ts` | the one question about counting, asked once per device (§18) |
+| `first-use.ts` | reads at boot whether this device has trained before, for the "used the app" count (§18) |
 
 ### Onboarding, settings, feedback
 | Module | |

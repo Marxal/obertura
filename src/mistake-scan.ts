@@ -43,7 +43,7 @@ import { gradeMove } from './review';
 import { moveFacts } from './move-facts';
 import { isBookMove } from './book-check';
 import type { CloudTopMove } from './engine';
-import { trackOnce } from './metrics';
+import { noteAppUsed, trackOncePerLaunch } from './metrics';
 
 // ── Tunable thresholds (one place to adjust the whole feel) ──────────────────
 // All cp values are USER-perspective (positive = good for you), mate-flattened
@@ -458,6 +458,7 @@ export async function scanGames(opts: {
 }): Promise<ScanResult> {
   const all = await getAllGames();
   const pending = all.filter(needsRetryScan).sort((a, b) => b.endTime - a.endTime);
+  const neverScanned = !all.some((g) => g.retry);
   const onAbort = (): void => cancelLocalAnalysis();
   opts.signal.addEventListener('abort', onAbort, { once: true });
 
@@ -498,7 +499,8 @@ export async function scanGames(opts: {
         // background pass rather than only from games you opened by hand.
         applyBrilliantTag(fresh);
         await saveGames([fresh]);
-        trackOnce('first_scan_done');
+        // Nothing had ever been scanned here when this pass began.
+        if (neverScanned) trackOncePerLaunch('first_scan_done');
       }
       scanned++;
       spotsFound += spots.length;
@@ -928,7 +930,7 @@ function bumpMistakeDrills(): void {
   } catch {
     /* storage unavailable/full — a counter is a nicety, never block a drill. */
   }
-  trackOnce('first_interaction');
+  noteAppUsed();
 }
 
 /**

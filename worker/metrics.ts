@@ -62,12 +62,9 @@ const RPC = 'bump_metric';
 // separate builds with separate typechecks, and a list short enough to read in
 // one glance is cheaper than a shared module that has to be bundled twice.
 const ALLOWED: ReadonlySet<string> = new Set([
-  // The landing page: a visit from elsewhere and a press of a try button. They use
-  // no storage at all, which is why they don't wait for the app's yes. Asked: the
-  // app put its counting question on screen, for reading the app's numbers against.
+  // The landing page: a visit from elsewhere and a press of a try button.
   'landing_visit',
   'landing_try',
-  'counts_asked',
   // Reach. `install` is the first launch on a browser profile; `app_open` is
   // one cold launch (see src/metrics.ts on why that is not quite "a session").
   'install',
@@ -87,7 +84,8 @@ const ALLOWED: ReadonlySet<string> = new Set([
   'daily_completed',
   'endgame_solved',
   'games_imported',
-  // First time on this device, for the funnel. The plain events count every time.
+  // First time on this device, worked out from what the app keeps anyway, for the
+  // funnel. The plain events count every time.
   'first_games_imported',
   'first_scan_done',
   'first_interaction',

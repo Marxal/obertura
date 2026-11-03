@@ -2880,12 +2880,29 @@ page.
 - Umami's API needs a paid plan, so the page doesn't use it. Sources, countries and languages
   stay on Umami's website. Visits now come from Bito's own counter: `landing_visit` and
   `landing_try` on the landing page, which store nothing.
-- New once-per-device counts for the funnel: `first_games_imported`, `first_scan_done` and
+- New first-time counts for the funnel: `first_games_imported`, `first_scan_done` and
   `first_interaction`. Registered comes from the accounts, because 7 of 9 accounts have a
   Google or Facebook login and the sign-up event only covers email.
-- **The app now asks before counting** (`counts-consent.ts`). Its "already counted" notes are
-  kept for statistics, so EU rules treat them like cookies and want a yes first. The privacy
-  page's "no banner needed" line was wrong and is gone. App numbers now cover only devices
-  that say yes, so expect them to fall against earlier weeks. Not reviewed by a lawyer.
+- **The app stores nothing for counting.** Its "already counted" notes were kept for statistics,
+  which EU rules treat like cookies. Asking first was built and then dropped at the owner's
+  request, so the notes went instead. First times now come from data the app keeps anyway. The
+  privacy page's "no banner needed" line is gone. Not reviewed by a lawyer.
+- Returns now mean training again after 2, 7 or 30 days, not opening the app again, so old and new
+  numbers don't compare. Pro offer and checkout count per launch, and sales come from the accounts.
 - `.admin/own-accounts.txt` leaves the owner's account out. It held 1,476 of 1,509 drills and
   was the only bought account, so real founders are 0.
+
+## A dashboard to read at a glance
+
+`bitostats` opens the owner dashboard from any folder. The page now leads with a sentence and
+the four numbers that matter: visitors, scanned games, used the app, registered. Each has a
+12-week trend, and 7 days, 30 days or all time is one tap.
+
+- **Where people stop:** a funnel marking the biggest drop, shaded by where each step happens:
+  landing page, in the app, or signing up and paying.
+- **At the side:** founders out of 100, database space, last backup and accounts.
+- **Below:** staying and paying, return rates, week by week with campaigns marked, and what gets
+  used. Raw detail is folded away.
+- Steps the current version doesn't count yet are striped and say so, instead of showing 0.
+- Split into `admin-stats.mjs` (reads), `admin-model.mjs` (numbers) and `admin-page.mjs` (page).
+

@@ -12,6 +12,8 @@
 // thing in the morning. It only breaks once a whole calendar day passes with
 // no session — i.e. the most recent counted day is older than yesterday.
 
+import { track, type MetricName } from './metrics';
+
 const KEY = 'obertura-training-days';
 const REVIEWED_KEY = 'obertura-reviewed-today';
 
@@ -56,8 +58,28 @@ export function recordTrainingDay(now: Date = new Date()): void {
   const days = loadDays();
   const key = dayKey(now);
   if (days.has(key)) return;
+  const earlier = [...days].sort();
   days.add(key);
   saveDays(days);
+  for (const name of returnsCrossed(earlier, key)) track(name);
+}
+
+// The first time training comes N days or more after the very first training day,
+// worked out from the days themselves, so it counts once with nothing stored for it.
+// They nest: a return after 40 days crosses all three.
+const RETURNS: { days: number; name: MetricName }[] = [
+  { days: 2, name: 'return_after_d2' },
+  { days: 7, name: 'return_after_d7' },
+  { days: 30, name: 'return_after_d30' },
+];
+
+export function returnsCrossed(earlierDays: string[], newDay: string): MetricName[] {
+  if (!earlierDays.length) return [];
+  const gap = (from: string, to: string): number => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+  const first = earlierDays[0];
+  const before = gap(first, earlierDays[earlierDays.length - 1]);
+  const now = gap(first, newDay);
+  return RETURNS.filter((r) => before < r.days && now >= r.days).map((r) => r.name);
 }
 
 // Whether today already has a completed session.

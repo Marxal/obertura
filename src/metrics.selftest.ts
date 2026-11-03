@@ -1,10 +1,11 @@
-// The counter's promise: nothing stored and nothing sent before a yes. Runs the
-// real module against stand-ins for the browser's storage and network.
+// The counter's promise: it stores nothing to count, and a first time is worked out
+// from the app's own data. Runs the real module against stand-ins for the browser.
 
 import {
-  countChoice, isMetricsOptedOut, resetMetricsForTest, sendStateless, setCountChoice,
-  setMetricsOptedOut, track, trackAppOpen, trackOnce,
+  isMetricsOptedOut, noteAppUsed, resetMetricsForTest, setMetricsOptedOut, setUsedBefore,
+  track, trackAppOpen, trackOncePerLaunch,
 } from './metrics';
+import { returnsCrossed } from './streak';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -48,81 +49,71 @@ export function runMetricsSelfTest(readFile: (path: string) => string): TestResu
 
   try {
     fresh();
-    check('a new device has no answer yet', countChoice() === null);
     trackAppOpen();
-    track('games_imported');
-    trackOnce('onboarding_complete');
-    check('before an answer nothing is sent', sent.length === 0, sent.join());
-    check('before an answer nothing is stored locally', local.length === 0, `${local.length} keys`);
-    check('before an answer nothing is stored for the session', session.length === 0, `${session.length} keys`);
-
-    sendStateless('counts_asked');
-    check('the question itself is one bare word', sent.join() === 'counts_asked', sent.join());
-    check('and stores nothing', local.length === 0);
-
-    fresh();
     trackAppOpen();
-    track('games_imported');
-    setCountChoice(true);
-    check('a yes counts what was waiting, the launch first',
-      sent.join() === 'install,app_open,games_imported,first_games_imported', sent.join());
-    check('a yes is remembered', countChoice() === 'yes');
-    const count = sent.length;
-    track('games_imported');
-    check('a first-time event counts once, the plain one each time',
-      sent.slice(count).join() === 'games_imported', sent.slice(count).join());
+    track('line_saved');
+    trackOncePerLaunch('pro_sheet_shown');
+    trackOncePerLaunch('pro_sheet_shown');
+    check('counts go straight out, no question first',
+      sent.join() === 'app_open,line_saved,pro_sheet_shown', sent.join());
+    check('nothing is stored locally to count', local.length === 0, `${local.length} keys`);
+    check('nothing is stored for the session', session.length === 0, `${session.length} keys`);
 
-    for (const name of ['drill_completed', 'puzzle_session', 'daily_completed', 'endgame_solved', 'line_saved'] as const) {
+    resetMetricsForTest();
+    sent = [];
+    trackOncePerLaunch('pro_sheet_shown');
+    check('a new launch can count again', sent.join() === 'pro_sheet_shown', sent.join());
+
+    for (const name of ['drill_completed', 'puzzle_session', 'daily_completed', 'endgame_solved'] as const) {
       fresh();
-      setCountChoice(true);
+      setUsedBefore(false);
       track(name);
-      check(`${name} counts as using the app`, sent.includes('first_interaction'), sent.join());
+      check(`${name} is a first use on a device that had never trained`,
+        sent.includes('first_interaction'), sent.join());
     }
     fresh();
-    setCountChoice(true);
-    track('starter_pack_added');
-    check('adding a starter pack alone is not using the app', !sent.includes('first_interaction'), sent.join());
+    setUsedBefore(true);
+    track('drill_completed');
+    check('a device that trained before is not a first use', !sent.includes('first_interaction'), sent.join());
+    fresh();
+    track('drill_completed');
+    check('without a reading of the device, no first use is claimed', !sent.includes('first_interaction'), sent.join());
+    fresh();
+    setUsedBefore(false);
     track('drill_completed');
     track('puzzle_session');
-    check('using the app counts once per device',
+    noteAppUsed();
+    check('first use counts once in a launch',
       sent.filter((s) => s === 'first_interaction').length === 1, sent.join());
-
     fresh();
-    trackAppOpen();
+    setUsedBefore(false);
     track('line_saved');
-    setCountChoice(false);
-    check('a no sends nothing that was waiting', sent.length === 0, sent.join());
-    check('a no is remembered', countChoice() === 'no' && isMetricsOptedOut());
-    track('line_saved');
-    trackOnce('install');
-    trackAppOpen();
-    check('after a no nothing is counted', sent.length === 0, sent.join());
-    const leftover = [...Array(local.length).keys()].map((i) => local.key(i));
-    check('after a no only the answer is stored', leftover.join() === 'obertura.metricsOptOut', leftover.join());
-
+    track('starter_pack_added');
+    check('saving a line or adding a pack alone is not a first use', !sent.includes('first_interaction'), sent.join());
     fresh();
-    local.setItem('obertura.installedAt', '1000');
-    local.setItem('obertura.metricsSeen', 'install');
-    session.setItem('obertura.metricsSession', '1');
-    setCountChoice(false);
-    check('a no removes notes kept before the question existed',
-      local.getItem('obertura.installedAt') === null && local.getItem('obertura.metricsSeen') === null
-        && session.getItem('obertura.metricsSession') === null);
+    setUsedBefore(false);
+    noteAppUsed();
+    check('a mistake exercise is a first use', sent.join() === 'first_interaction', sent.join());
 
     fresh();
     setMetricsOptedOut(true);
-    check('the Settings switch is the same answer', countChoice() === 'no');
+    setUsedBefore(false);
+    trackAppOpen();
+    track('drill_completed');
+    noteAppUsed();
+    check('left out: nothing is counted', sent.length === 0 && isMetricsOptedOut(), sent.join());
     setMetricsOptedOut(false);
-    check('turning it back off is a yes', countChoice() === 'yes');
+    check('the switch turns back off', !isMetricsOptedOut());
 
-    fresh();
-    local.setItem('obertura.metricsOptOut', '1');
-    check('someone already opted out is not asked again', countChoice() === 'no');
-
-    fresh();
-    for (let i = 0; i < 500; i++) track('line_saved');
-    setCountChoice(true);
-    check('what waits for an answer has a ceiling', sent.length <= 110, `${sent.length}`);
+    const crossed = (days: string[], day: string): string => returnsCrossed(days, day).join();
+    check('the first training day is not a return', crossed([], '2026-11-03') === '');
+    check('the next day is not a return yet', crossed(['2026-11-03'], '2026-11-04') === '');
+    check('two days on is', crossed(['2026-11-03'], '2026-11-05') === 'return_after_d2');
+    check('and it counts only once', crossed(['2026-11-03', '2026-11-05'], '2026-11-06') === '');
+    check('a week on crosses the next', crossed(['2026-11-03', '2026-11-05'], '2026-11-10') === 'return_after_d7');
+    check('a long gap crosses all three',
+      crossed(['2026-11-03'], '2026-12-20') === 'return_after_d2,return_after_d7,return_after_d30');
+    check('across a clock change it still counts whole days', crossed(['2026-10-24'], '2026-10-26') === 'return_after_d2');
 
     // The app and the Worker keep the list by hand; a name missing from the
     // Worker is a dropped count that nobody sees.

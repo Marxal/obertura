@@ -89,8 +89,8 @@ import { buildBook, bookNodeAt, loadBookEntries } from './book-tree';
 import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome } from './daily-recap';
 import { showRecapForDay } from './daily-review';
 import { showDailyCelebration, showPerfectDayCelebration, showWhenClear } from './daily-celebration';
-import { track, trackOnce, trackAppOpen } from './metrics';
-import { maybeAskAboutCounts } from './counts-consent';
+import { track, trackOncePerLaunch, trackAppOpen } from './metrics';
+import { readFirstUse } from './first-use';
 import { currentStreak, getTrainingDays } from './streak';
 import { masteredLines } from './stats';
 import { collectSpots, pickSpots, countRetry, type SpotRef } from './mistake-scan';
@@ -3706,7 +3706,7 @@ function finishFirstRun(): void {
   // NOT hooked to setOnboardingComplete itself: train-screen.ts calls that on
   // every render once the goal is reached, so counting there would count
   // repaints. These are the places a person actually finishes first run.
-  trackOnce('onboarding_complete');
+  trackOncePerLaunch('onboarding_complete');
 }
 
 // The games path: the ordinary import panel, handed the platform AND username
@@ -7002,12 +7002,10 @@ function hideAppSplashWhenReady(): void {
 // fresh browser profile. Removed 2026-09; gate.ts keeps only the install-prompt
 // plumbing, which was always a separate job that merely lived in the same file.
 requestAnimationFrame(() => {
-  // The app is really starting: stamp the install date if this profile has
-  // none, count one cold launch, and count any retention milestone this launch
-  // just crossed. A complete no-op on the GitHub Pages build — see
-  // src/metrics.ts.
+  // The app is really starting: count one cold launch. A complete no-op on the
+  // GitHub Pages build — see src/metrics.ts.
   trackAppOpen();
-  maybeAskAboutCounts();
+  readFirstUse();
 
   cg = Chessground(boardEl, {
     movable: {
@@ -7275,6 +7273,9 @@ requestAnimationFrame(() => {
     // run on a new install, as an ordinary import otherwise (import-link.ts).
     const link = takeImportLink();
     void shouldShowFirstRun().then((show) => {
+      // A new device: first run is owed. Someone who leaves before finishing it
+      // counts again when they come back, which nothing kept here can tell apart.
+      if (show) trackOncePerLaunch('install');
       if (link && show) { hideAppSplash(); runFirstRunImport(link.platform, link.username); return; }
       if (link) { openImportPanel({ platform: link.platform, username: link.username, autoScan: true }); return; }
       if (show) void showFirstRun();

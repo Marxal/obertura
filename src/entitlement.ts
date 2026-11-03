@@ -42,7 +42,7 @@ import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './ent
 import { openProSheet, POINTS } from './pro-sheet';
 import { formatPrice, primePricing, PRICING_CHANGE_EVENT } from './pricing';
 import { showToast } from './toast';
-import { trackOnce } from './metrics';
+import { trackOncePerLaunch } from './metrics';
 import { Icons } from './icons';
 
 // How many lines a free account may have in training at once.
@@ -213,7 +213,7 @@ export async function requestTrainingSlots(count: number): Promise<boolean> {
   if (isEntitled() || count <= 0) return true;
   const free = await freeTrainingSlots();
   if (count <= free) return true;
-  trackOnce('training_cap_hit');
+  trackOncePerLaunch('training_cap_hit');
   openUpgradeDialog(
     free === 0
       ? `You’ve got ${FREE_TRAINING_LINES} lines in training`
@@ -226,7 +226,7 @@ export async function requestTrainingSlots(count: number): Promise<boolean> {
 export async function requestRepertoireSlot(existing: number): Promise<boolean> {
   if (isEntitled()) return true;
   if (existing < FREE_REPERTOIRES) return true;
-  trackOnce('repertoire_cap_hit');
+  trackOncePerLaunch('repertoire_cap_hit');
   openUpgradeDialog(`Free accounts keep ${FREE_REPERTOIRES} repertoires`);
   return false;
 }
@@ -246,7 +246,7 @@ export async function requestLineSaveRoom(newLines = 1): Promise<boolean> {
   if (isEntitled() || newLines <= 0) return true;
   const count = await countSavedLines();
   if (count + newLines <= FREE_SAVED_LINES) return true;
-  trackOnce('lines_cap_hit');
+  trackOncePerLaunch('lines_cap_hit');
   openUpgradeDialog(`Free accounts store ${FREE_SAVED_LINES} lines`);
   return false;
 }
@@ -257,7 +257,7 @@ export async function requestLineSaveRoom(newLines = 1): Promise<boolean> {
 // quieter toast below). A paywall in the first minute, before the user has
 // drilled anything, is the wrong first impression.
 export function showTrainingCapDialog(): void {
-  trackOnce('training_cap_hit');
+  trackOncePerLaunch('training_cap_hit');
   // Says what happened and what the free way out is, not just a count: pausing
   // a line frees a slot at once (UX-AUDIT C6).
   openUpgradeDialog(`All ${FREE_TRAINING_LINES} free training slots are in use. `
@@ -287,7 +287,7 @@ function openUpgradeDialog(eyebrow?: string): void {
   // Start a fetch now rather than when they tap buy, so the id is usually in hand
   // by the time it's needed.
   primePricing();
-  trackOnce('pro_sheet_shown');
+  trackOncePerLaunch('pro_sheet_shown');
 
   openProSheet({
     eyebrow,

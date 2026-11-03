@@ -82,9 +82,7 @@ export interface AccountStats {
   currentStreak: number;
   /**
    * Days with a COMPLETED TRAINING SESSION — not days the app was opened.
-   * Nothing on the device records the latter: the two keys that could
-   * (`obertura.installedAt`, `obertura.metricsSeen`) are deliberately
-   * device-local and never travel. Named for what it measures.
+   * Nothing on the device records the latter. Named for what it measures.
    */
   trainingDays: number;
   /** 1 once the first-run flow has ever been finished, else 0. */

@@ -47,11 +47,8 @@ the user's own openings (`onboarding-recap-screen.ts`). To test it you want a
 profile with `onboardingComplete` UNSET and no saved lines — the two halves of
 `shouldShowFirstRun()`. To skip it, set the flag as above.
 
-⚠️ **The Cloudflare build asks about counting** on a fresh profile (`counts-consent.ts`),
-over everything. Set `obertura.metricsOptOut` to `'1'` to skip it. The default build counts
-nothing, so it never asks. To test the landing page's counts, the hostname must be
-`bitochess.com` and `navigator.webdriver` false: route every request yourself, so nothing
-reaches the live site.
+⚠️ To test the landing page's counts, the hostname must be `bitochess.com` and
+`navigator.webdriver` false: route every request yourself, so nothing reaches the live site.
 
 ## Seeding data
 

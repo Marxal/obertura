@@ -594,12 +594,14 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     const games = result.games;
     if (games.length === 0) { close(); return; }
     try {
+      const firstGames = (await countGames()) === 0;
       await saveMyGames(games, {
         platform: result.platform,
         username: userInput.value.trim(),
         avatarUrl: scannedAvatarUrl,
       });
       track('games_imported');
+      if (firstGames) track('first_games_imported');
       // HAND THE LOADER OVER rather than tearing it down and letting the caller
       // build another: a second instance starts blank, so the picture, the
       // status and the openings slider all vanished at the exact moment the
@@ -989,6 +991,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       scanBtn.disabled = true;
       importStatus.textContent = 'Saving to this device…';
       try {
+        const firstGames = (await countGames()) === 0;
         await persist(games, {
           platform: result.platform,
           username: userInput.value.trim(),
@@ -1003,6 +1006,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         // The weekly auto-refresh (auto-refresh.ts) does not come through here
         // and is deliberately not counted: nobody asked for it.
         track('games_imported');
+        if (firstGames) track('first_games_imported');
         // onImported first, then the panel goes away — so onClose is reliably
         // the LAST thing an import fires, whichever way the panel ended.
         opts.onImported?.(games.length);

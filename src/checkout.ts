@@ -60,7 +60,7 @@ import { sellablePrice } from './pricing';
 import { celebratePawn, burstConfetti } from './confetti';
 import { pushBack } from './back-nav';
 import { showToast } from './toast';
-import { trackOnce } from './metrics';
+import { trackOncePerLaunch } from './metrics';
 
 // The Worker endpoint that creates the Stripe session. An absolute path, so it
 // resolves against the origin whatever base the app was built with.
@@ -125,7 +125,7 @@ export function openCheckout(): void {
 // (which supabase-js may need to refresh). Both failures get the same honest
 // message — nothing has been charged, and trying again in a moment usually works.
 async function goToCheckout(): Promise<void> {
-  trackOnce('checkout_started');
+  trackOncePerLaunch('checkout_started');
   let url: string;
   try {
     const price = await sellablePrice();
@@ -314,10 +314,10 @@ export function handlePurchaseReturn(): void {
 // so it looks like part of the same family) without importing from it — this
 // one has no variants to juggle, so its own copy is simpler than a shared one.
 function celebrate(): void {
-  // Once ever. Both routes here (the ?purchased=1 poll and the manual "Already
-  // paid?" check) can reach this on the same device, and the unlock is bought
-  // once — so a second celebration must not read as a second sale.
-  trackOnce('purchase_confirmed');
+  // Both routes here (the ?purchased=1 poll and the manual "Already paid?" check)
+  // can reach this in one launch, and a second celebration must not read as a second
+  // sale. The dashboard's sales come from the accounts, not from this count.
+  trackOncePerLaunch('purchase_confirmed');
 
   const overlay = document.createElement('div');
   overlay.className = 'dc-overlay';
