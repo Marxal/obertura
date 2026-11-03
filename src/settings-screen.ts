@@ -258,9 +258,9 @@ function buildCountMeRow(): HTMLElement {
     {
       sub: 'The app counts anonymous events like “a line was saved” — no cookies, '
         + 'no identifier, nothing that says it was you. Turn this on and this '
-        + 'device stops contributing to those counts. It covers anonymous usage '
-        + 'counting only — if you’re signed in, see the privacy policy for what '
-        + 'your account itself stores.',
+        + 'device stops contributing to those counts and removes its notes of them. '
+        + 'It covers anonymous usage counting only — if you’re signed in, see the '
+        + 'privacy policy for what your account itself stores.',
     },
   );
 }

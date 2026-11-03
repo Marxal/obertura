@@ -1796,7 +1796,7 @@ There are exactly two, and they differ in kind:
 |---|---|---|
 | Identifier | **none at all** — not even a random one | the user's account id |
 | Exists when | always, signed in or not | **only with an account** |
-| On the wire | one word off a fixed list of sixteen | ~300 bytes of counters, on the existing sync push |
+| On the wire | one word off a fixed list | ~300 bytes of counters, on the existing sync push |
 | Can two records be linked? | no — that is the whole design | yes, they are one row |
 | Covered by the opt-out switch | **yes** | **no** — see below |
 | Deleted by "delete my account" | nothing to delete | yes, with the row |
@@ -1814,7 +1814,7 @@ an account stores. If that wording changes, change it in both places.
 ### What is on the wire
 
 The whole request body is `{"name":"app_open"}` — one string off a fixed list of
-sixteen, and nothing else. `readName` in `worker/metrics.ts` rejects an object
+the list, and nothing else. `readName` in `worker/metrics.ts` rejects an object
 with any second key, so a future caller cannot quietly add a field: adding one
 means editing that file, on purpose, where it shows up in a diff.
 
@@ -1827,11 +1827,14 @@ The row written is `(name, day, hits)` — nothing else, ever. **Two visits cann
 be told apart at either end.** These numbers count *events*, never people; any
 sentence starting "how many users…" is unanswerable here by construction.
 
-### The sixteen names
+### The names
 
 | | |
 |---|---|
+| `landing_visit`, `landing_try` | the landing page; these store nothing |
+| `counts_asked` | the app showed its counting question |
 | `install`, `app_open` | reach |
+| `first_games_imported`, `first_scan_done`, `first_interaction` | first time on this device, for the funnel |
 | `return_after_d2` / `_d7` / `_d30` | retention |
 | `onboarding_complete`, `starter_pack_added` | did first run work |
 | `line_saved`, `drill_completed`, `puzzle_session`, `daily_completed`, `endgame_solved`, `games_imported` | is it being used for what it is for |
@@ -1904,8 +1907,17 @@ path walks, so it needs no entry.
 
 ### The switch
 
-**Settings → Feedback & about → "Leave me out of the counts."** Off by default,
-device-local. It exists because with no identifier there is nothing to filter on
+**Nothing until a yes (2026-11).** EU rules treat the notes kept on the device for
+statistics (`obertura.installedAt`, `obertura.metricsSeen`, `obertura.metricsSession`)
+like cookies, so a switch in Settings wasn't enough. `counts-consent.ts` asks once per
+device, with equal buttons. Before an answer, events wait in memory and nothing is
+stored or sent, except the bare word `counts_asked`. A yes counts what waited; a no
+drops it and removes the notes. The landing page's `landing_visit` and `landing_try`
+store nothing and honour a no, so they aren't asked about. App numbers now cover only
+devices that said yes; read them against `counts_asked`.
+
+**Settings → Feedback & about → "Leave me out of the counts."** The same answer as
+the question above, device-local. It exists because with no identifier there is nothing to filter on
 afterwards — the only way for the owner or a tester to stay out of the numbers
 is to say so up front, on the device. Built only when `metricsActive()`, so it
 never appears on a build that counts nothing.
@@ -2185,6 +2197,8 @@ Every non-selftest module in `src/`, exactly once.
 | `sync-core.ts` | the sync's pure logic: no Supabase, no auth, no browser |
 | `account-stats.ts` | the `profiles.stats` summary (§16.2) — **forgeable; never gate on it** |
 | `scripts/admin-stats.mjs` | `npm run admin` — the owner's local dashboard (§16.2) |
+| `scripts/backup.mjs`, `restore.mjs`, `backup-core.mjs` | `bitobackup` and `bitorestore` (`SUPABASE-SYNC.md` §10) |
+| `scripts/supabase-read.mjs` | The one read route to the live database, through the Supabase CLI's login |
 | `signing-in.ts` | the cover that makes signing in look like one step |
 | `entitlement.ts` | the free tier and its caps |
 | `entitlement-cache.ts` | the last-known "is this account entitled?" answer |
@@ -2193,6 +2207,7 @@ Every non-selftest module in `src/`, exactly once.
 | `pro-sheet.ts` | the Full Access popup |
 | `gate.ts` | captures the PWA install prompt (`beforeinstallprompt`) and offers it — the beta gate it used to hold was removed 2026-09 |
 | `metrics.ts` | the anonymous event counter's app half (§18) — a no-op off Cloudflare |
+| `counts-consent.ts` | the one question about counting, asked once per device (§18) |
 
 ### Onboarding, settings, feedback
 | Module | |

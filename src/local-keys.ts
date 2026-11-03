@@ -82,6 +82,9 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.', 'obertura.ytCache.'];
 // what this install has done, exactly as `obertura.sync.` describes what this
 // install has pushed.
 //
+// `obertura.metricsConsent` — a yes to counting. Asked per device, like the no
+// below, because the notes it allows are per device too.
+//
 // `obertura.metricsOptOut` — the "don't count me" switch in Settings. This one
 // is subtler and is the reason it is listed rather than left to inherit the
 // default. It exists so the owner's own phone stays out of the owner's own
@@ -138,6 +141,7 @@ const PRIVATE_KEYS = [
   'obertura.installedAt',
   'obertura.metricsSeen',
   'obertura.metricsOptOut',
+  'obertura.metricsConsent',
   'obertura.analysisNotice',
   'obertura.newMovesToday',
   'obertura.nextReplyLog',

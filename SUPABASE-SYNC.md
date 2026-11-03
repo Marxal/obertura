@@ -979,3 +979,36 @@ hand any time from **Actions → Supabase keepalive → Run workflow**.
 - [ ] §3 `VITE_AUTH_PROVIDERS` set in Cloudflare Pages to match what's enabled
 - [ ] §5 `SUPABASE_SERVICE_ROLE_KEY` set as a Worker secret
 - [ ] §8 Keepalive secrets set on GitHub
+
+## 10. Backups
+
+The free plan has none, so the owner keeps them on a Mac.
+
+- **`bitobackup`** (or `npm run backup`) saves `~/Bito Backups/bito-backup-<date>.json`.
+  It only reads. It holds every row of the public tables, `auth.users` and
+  `auth.identities`, plus the live definitions of tables, functions, triggers,
+  policies, grants and cron jobs. Sessions are left out: people sign in again.
+- It uses the CLI's stored login, like `npm run admin`, so it needs no Docker and no
+  password. `supabase db dump` needs Docker Desktop running, which is why it isn't used.
+- It keeps the newest 8 and stays out of Time Machine, because the privacy policy
+  says deleted accounts leave these copies as they're replaced. Run it weekly to keep
+  the policy's "about two months" true.
+- **`bitorestore`** (or `npm run restore`) reads the file, compares it with the live
+  database, and writes a `.sql` file. Nothing changes until the owner runs the command
+  it prints. By default it only adds what's missing and never changes an existing row.
+  `--account <id or email>` narrows it to one account, `--replace` overwrites that
+  account with the backup, and `--new-project` rebuilds everything in an empty project.
+- Adding a login fires `handle_new_user`, which creates an empty profile. So the restore
+  notes who was missing first and overwrites only those rows. It also turns off the
+  `profiles` guards for its transaction, because the free-games guard would strip games.
+
+**What was tested (2026-11-03):** a real backup rebuilt on a local PGlite with a stand-in
+`auth` schema. Every row of all 5 tables came back identical, the guards and policies
+worked afterwards, and a signed-in user still couldn't set `entitled`. A lost account came
+back whole, and existing rows were left alone. **Not tested:** a restore on a real Supabase
+project, where `auth` belongs to another role. The live login reports insert rights on
+`auth.users`. A spare free project would settle it.
+
+**Not in the file:** Auth settings and email templates, Worker and Stripe secrets, and the
+project's keys. A new project also means a new URL and anon key in `.env` and the Worker.
+

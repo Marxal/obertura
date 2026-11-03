@@ -19,6 +19,13 @@
 // synced copy would make a second phone inherit the first phone's history and
 // silently stop counting.
 //
+// ── NOTHING UNTIL A YES ─────────────────────────────────────────────────────
+// Those keys are kept for statistics, so EU rules want a yes before they're
+// written: they count as cookies, whatever they're called. counts-consent.ts asks
+// once per device. Until it's answered, events wait in memory, nothing is written
+// and nothing is sent, so a yes still counts the launch that asked. A no drops
+// them and removes the notes.
+//
 // ── FAILURE IS ALWAYS SILENT ────────────────────────────────────────────────
 // Every path here swallows everything: no throw reaches a caller, no error
 // surfaces to the user, nothing retries. A count is worth exactly one attempt
@@ -42,6 +49,8 @@ const SEEN_KEY = 'obertura.metricsSeen';
 const INSTALLED_KEY = 'obertura.installedAt';
 // The "don't count me" switch in Settings.
 const OPT_OUT_KEY = 'obertura.metricsOptOut';
+// A yes to counting. Neither key set means this device hasn't been asked yet.
+const CONSENT_KEY = 'obertura.metricsConsent';
 // One cold launch. sessionStorage, so it survives an in-app reload (the sync
 // path reloads after applying an account snapshot) but not a fresh launch.
 const SESSION_KEY = 'obertura.metricsSession';
@@ -54,6 +63,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // shared module bundled into both. A name that drifts out of step here is a
 // 400 and a dropped count, never an error the user sees.
 export type MetricName =
+  | 'counts_asked'
   | 'install'
   | 'app_open'
   | 'return_after_d2'
@@ -67,6 +77,9 @@ export type MetricName =
   | 'daily_completed'
   | 'endgame_solved'
   | 'games_imported'
+  | 'first_games_imported'
+  | 'first_scan_done'
+  | 'first_interaction'
   | 'training_cap_hit'
   | 'lines_cap_hit'
   | 'repertoire_cap_hit'
@@ -97,7 +110,21 @@ export function metricsActive(): boolean {
  * navigate away, which is what `keepalive` covers.
  */
 export function track(name: MetricName): void {
-  if (!metricsActive() || isMetricsOptedOut()) return;
+  if (!metricsActive()) return;
+  const choice = countChoice();
+  if (choice === 'no') return;
+  if (choice === null) {
+    hold({ name, once: false });
+    return;
+  }
+  sendStateless(name);
+  const first = FIRST_TIME[name];
+  if (first) trackOnce(first);
+}
+
+// Sends one word and touches no storage. Everything else in this file goes
+// through the answer check first; only the question itself comes here directly.
+export function sendStateless(name: MetricName): void {
   try {
     void fetch(ENDPOINT, {
       method: 'POST',
@@ -126,7 +153,13 @@ export function track(name: MetricName): void {
  * forever, which is how a quiet counter turns into a loop.
  */
 export function trackOnce(name: MetricName): void {
-  if (!metricsActive() || isMetricsOptedOut()) return;
+  if (!metricsActive()) return;
+  const choice = countChoice();
+  if (choice === 'no') return;
+  if (choice === null) {
+    hold({ name, once: true });
+    return;
+  }
   const seen = readSeen();
   if (seen.has(name)) return;
   seen.add(name);
@@ -155,7 +188,13 @@ export function trackOnce(name: MetricName): void {
  * exactly what this feature refuses to have.
  */
 export function trackAppOpen(): void {
-  if (!metricsActive() || isMetricsOptedOut()) return;
+  if (!metricsActive()) return;
+  const choice = countChoice();
+  if (choice === 'no') return;
+  if (choice === null) {
+    launchWaiting = true;
+    return;
+  }
 
   stampInstall();
 
@@ -166,28 +205,83 @@ export function trackAppOpen(): void {
   trackReturnMilestones();
 }
 
-// ── The "don't count me" switch ─────────────────────────────────────────────
+// ── First times ─────────────────────────────────────────────────────────────
+// The plain events count every time, so they can't say how many devices got that
+// far. These add a once-per-device count for the steps the funnel needs.
+const FIRST_TIME: Partial<Record<MetricName, MetricName>> = {
+  games_imported: 'first_games_imported',
+  line_saved: 'first_interaction',
+  drill_completed: 'first_interaction',
+  puzzle_session: 'first_interaction',
+  daily_completed: 'first_interaction',
+  endgame_solved: 'first_interaction',
+};
+
+// ── Waiting for an answer ───────────────────────────────────────────────────
+// In memory only, so an unanswered launch leaves nothing behind.
+const MAX_HELD = 100;
+let held: { name: MetricName; once: boolean }[] = [];
+let launchWaiting = false;
+
+function hold(event: { name: MetricName; once: boolean }): void {
+  if (held.length < MAX_HELD) held.push(event);
+}
+
+/** Only for the self-test: forgets what's waiting between cases. */
+export function resetMetricsForTest(): void {
+  held = [];
+  launchWaiting = false;
+}
+
+// ── The answer ──────────────────────────────────────────────────────────────
 //
-// Off by default, so a fresh install counts. Its one job is to keep the owner's
-// own phone out of their own numbers, which is otherwise impossible: with no
-// identifier of any kind there is nothing to filter on afterwards.
+// It also keeps the owner's own phone out of the numbers, which is otherwise
+// impossible: with no identifier there is nothing to filter on afterwards.
 //
-// Turning it on does not delete anything already counted — there is nothing to
-// delete it BY. It only stops this device contributing from now on.
+// A no doesn't delete anything already counted, because there is nothing to delete
+// it BY. It stops this device contributing and removes the notes kept on it.
+
+export function countChoice(): 'yes' | 'no' | null {
+  const store = localStore();
+  if (readRaw(store, OPT_OUT_KEY) === '1') return 'no';
+  return readRaw(store, CONSENT_KEY) === '1' ? 'yes' : null;
+}
+
+export function setCountChoice(allow: boolean): void {
+  const store = localStore();
+  const session = sessionStore();
+  try {
+    if (allow) {
+      store?.setItem(CONSENT_KEY, '1');
+      store?.removeItem(OPT_OUT_KEY);
+    } else {
+      store?.setItem(OPT_OUT_KEY, '1');
+      store?.removeItem(CONSENT_KEY);
+      store?.removeItem(INSTALLED_KEY);
+      store?.removeItem(SEEN_KEY);
+      session?.removeItem(SESSION_KEY);
+    }
+  } catch {
+    /* storage full or blocked */
+  }
+  const waiting = held;
+  const launch = launchWaiting;
+  held = [];
+  launchWaiting = false;
+  if (!allow) return;
+  if (launch) trackAppOpen();
+  for (const event of waiting) {
+    if (event.once) trackOnce(event.name);
+    else track(event.name);
+  }
+}
 
 export function isMetricsOptedOut(): boolean {
   return readRaw(localStore(), OPT_OUT_KEY) === '1';
 }
 
 export function setMetricsOptedOut(on: boolean): void {
-  const store = localStore();
-  if (!store) return;
-  try {
-    if (on) store.setItem(OPT_OUT_KEY, '1');
-    else store.removeItem(OPT_OUT_KEY);
-  } catch {
-    /* storage full or blocked */
-  }
+  setCountChoice(!on);
 }
 
 // ── Install date and retention ──────────────────────────────────────────────

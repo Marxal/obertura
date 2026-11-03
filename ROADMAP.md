@@ -2834,9 +2834,9 @@ every arrow and suggestion checked as legal and the board checked not to be stuc
 - ✅ **Less goes up with each push.** Exercise rest logs and the refresh date stay on the phone, and a
   retired YouTube cache (up to 48 KB) can no longer be uploaded.
 - ✅ **`TRANSLATION-PLAN.md`** records the plan for Catalan, Spanish and Swedish. Not started.
-- ⏳ **`scripts/sql/2026-11-database-fix.sql` waits to be run by the owner.** The live database never
-  received the active-only and 400-day stats rules. It also moves stats to weekly, stops free accounts
-  storing games at the database level, and removes one old login session from a row.
+- ✅ **`scripts/sql/2026-11-database-fix.sql` ran on the live database, 2026-11-03.** The live database
+  had never received the active-only and 400-day stats rules. It also moves stats to weekly, stops free
+  accounts storing games at the database level, and removed one old login session from a row.
 **Checked:** at 412 wide as a signed-out free user, with seeded games: all 160 mistakes shown with no
 limit notice, a new game scanned while 160 were already unfixed, one fetch when a refresh is due,
 none on returning inside six hours. The SQL ran twice on a throwaway Postgres.
@@ -2859,5 +2859,33 @@ fail the same way without this round's changes.
   the app.
 - ✅ **Time pressure fills a small pool with puzzles.** Under 20 positions, Lichess puzzles top it up,
   with your own mistakes first. Offline, the round plays what it has.
-- ⏳ `scripts/sql/2026-11-database-fix.sql` now also adds the `scans` column. Until the owner runs it,
-  Pro's sync pauses quietly and everything else works.
+- ✅ `scripts/sql/2026-11-database-fix.sql` also added the `scans` column, so Pro's sync is on.
+
+## Backups, and a dashboard for marketing
+
+The free database has no backups, and the owner dashboard knew nothing about the landing
+page.
+
+- **`bitobackup`** saves the whole database to a dated file in `~/Bito Backups`, keeping
+  the newest 8. **`bitorestore`** compares a backup with the live database and prepares a
+  restore that the owner runs. Details are in `SUPABASE-SYNC.md` §10.
+- ✅ Rehearsed on a throwaway local Postgres: all rows identical, and permissions and guards
+  intact. ⏳ Not yet rehearsed on a real Supabase project.
+- The privacy policy now states the backup copies, and that Umami's country, language and
+  device numbers are read.
+- `npm run admin` gained, at the top: the last 7 days, founders out of 100, database size,
+  last backup, a visit-to-purchase funnel with its biggest drop, week-by-week charts,
+  campaigns from `.admin/campaigns.txt` with before and after, and return rates that ignore
+  people who installed before counting began.
+- Umami's API needs a paid plan, so the page doesn't use it. Sources, countries and languages
+  stay on Umami's website. Visits now come from Bito's own counter: `landing_visit` and
+  `landing_try` on the landing page, which store nothing.
+- New once-per-device counts for the funnel: `first_games_imported`, `first_scan_done` and
+  `first_interaction`. Registered comes from the accounts, because 7 of 9 accounts have a
+  Google or Facebook login and the sign-up event only covers email.
+- **The app now asks before counting** (`counts-consent.ts`). Its "already counted" notes are
+  kept for statistics, so EU rules treat them like cookies and want a yes first. The privacy
+  page's "no banner needed" line was wrong and is gone. App numbers now cover only devices
+  that say yes, so expect them to fall against earlier weeks. Not reviewed by a lawyer.
+- `.admin/own-accounts.txt` leaves the owner's account out. It held 1,476 of 1,509 drills and
+  was the only bought account, so real founders are 0.

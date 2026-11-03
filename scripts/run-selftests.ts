@@ -65,6 +65,8 @@ import { runRepertoireMigrateSelfTest } from '../src/repertoire-migrate.selftest
 import { runRepertoireRunSelfTest } from '../src/repertoire-run.selftest';
 import { runRepertoireJoinSelfTest } from '../src/repertoire-join.selftest';
 import { runLineRemovalSelfTest } from '../src/line-removal.selftest';
+import { readFileSync } from 'node:fs';
+import { runMetricsSelfTest } from '../src/metrics.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -99,6 +101,7 @@ const SUITES: { suite: string; run: () => TestResult[] | Promise<TestResult[]> }
   { suite: 'repertoire-run', run: runRepertoireRunSelfTest },
   { suite: 'repertoire-join', run: runRepertoireJoinSelfTest },
   { suite: 'line-removal', run: runLineRemovalSelfTest },
+  { suite: 'metrics', run: () => runMetricsSelfTest((path) => readFileSync(path, 'utf-8')) },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },

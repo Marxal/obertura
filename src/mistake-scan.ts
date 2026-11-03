@@ -43,6 +43,7 @@ import { gradeMove } from './review';
 import { moveFacts } from './move-facts';
 import { isBookMove } from './book-check';
 import type { CloudTopMove } from './engine';
+import { trackOnce } from './metrics';
 
 // ── Tunable thresholds (one place to adjust the whole feel) ──────────────────
 // All cp values are USER-perspective (positive = good for you), mate-flattened
@@ -497,6 +498,7 @@ export async function scanGames(opts: {
         // background pass rather than only from games you opened by hand.
         applyBrilliantTag(fresh);
         await saveGames([fresh]);
+        trackOnce('first_scan_done');
       }
       scanned++;
       spotsFound += spots.length;
@@ -926,6 +928,7 @@ function bumpMistakeDrills(): void {
   } catch {
     /* storage unavailable/full — a counter is a nicety, never block a drill. */
   }
+  trackOnce('first_interaction');
 }
 
 /**

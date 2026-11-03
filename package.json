@@ -8,6 +8,8 @@
     "build": "node scripts/copy-engine.mjs && tsc && tsc -p tsconfig.worker.json && vite build",
     "selftest": "node --experimental-strip-types --import ./scripts/register-ts.mjs scripts/run-selftests.ts",
     "admin": "node scripts/admin-stats.mjs",
+    "backup": "node scripts/backup.mjs",
+    "restore": "node scripts/restore.mjs",
     "probe-sync-limit": "node scripts/probe-sync-limit.mjs",
     "preview": "vite preview",
     "generate-icons": "node scripts/generate-icons.mjs",

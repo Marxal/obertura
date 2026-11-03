@@ -27,76 +27,44 @@
 //   • public.metrics       — (name, day, hits) from the anonymous counter. No
 //                            identifier, so it can never be joined to the above.
 //                            That is the design, not a limitation of this page.
+//
+// Own accounts are left out of every account number, listed by the start of their
+// id in .admin/own-accounts.txt. They stay in the table, marked. The anonymous
+// counts can't leave anyone out: Settings has a "don't count me" switch for that.
+//
+// The funnel lines up counts for the same period. They can't follow one person from
+// the landing page to a purchase, by design, so a step compares two counts rather
+// than tracking a group. Where visitors come from stays on Umami's own website: its
+// API needs a paid plan.
+//
+// Campaigns are the owner's own notes, one per line in .admin/campaigns.txt:
+//   2026-11-05 Reddit r/chess post
 
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { ROOT, query } from './supabase-read.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, '.admin/stats.html');
 
-// ── The one privileged call ─────────────────────────────────────────────────
-
-function query(sql) {
-  let raw;
-  try {
-    // The CLI's output format defaults on whether stdout is a terminal: JSON
-    // when piped (as it was every time this was tested), a pretty ASCII table
-    // when run interactively. `--output-format json` pins it regardless of who
-    // is running the command from where.
-    raw = execFileSync('supabase', ['db', 'query', '--linked', '--output-format', 'json', sql], {
-      encoding: 'utf-8',
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } catch (err) {
-    const text = `${err.stdout ?? ''}${err.stderr ?? ''}${err.message ?? ''}`;
-    if (/not linked|project ref/i.test(text)) {
-      die('The Supabase CLI is not linked to a project.\n\n  supabase link --project-ref <your-ref>\n\nRun `supabase projects list` to find the ref.');
-    }
-    if (/login|access token|unauthor/i.test(text)) {
-      die('The Supabase CLI is not logged in.\n\n  supabase login');
-    }
-    if (/ENOENT/.test(text)) {
-      die('The Supabase CLI is not installed.\n\n  brew install supabase/tap/supabase');
-    }
-    die(`The query failed.\n\n${text.trim()}`);
-  }
-  // The CLI sometimes prefixes a status line ("Initialising login role...")
-  // before the JSON starts, and the JSON itself takes one of two shapes: a
-  // bare array of rows with `--output-format json`, or (seen when the format
-  // was left to auto-detect) an envelope object with a `rows` field and an
-  // untrusted-content `warning`. Handle both rather than assume one — never
-  // eval, never trust the text as anything but data.
-  const start = raw.search(/[[{]/);
-  if (start < 0) die(`Unexpected output from the CLI:\n\n${raw.slice(0, 400)}`);
-  let parsed;
-  try {
-    parsed = JSON.parse(raw.slice(start));
-  } catch {
-    die(`Could not parse the CLI's output:\n\n${raw.slice(0, 400)}`);
-  }
-  if (Array.isArray(parsed)) return parsed;
-  if (parsed?.error) die(`Postgres said: ${parsed.error.message ?? JSON.stringify(parsed.error)}`);
-  if (Array.isArray(parsed?.rows)) return parsed.rows;
-  die(`Unexpected shape from the CLI:\n\n${raw.slice(0, 400)}`);
-}
-
-function die(message) {
-  console.error(`\n  admin-stats: ${message}\n`);
-  process.exit(1);
-}
-
 // ── The reads ───────────────────────────────────────────────────────────────
+
+const ownFile = resolve(ROOT, '.admin/own-accounts.txt');
+const ownIds = existsSync(ownFile)
+  ? readFileSync(ownFile, 'utf-8').split('\n').map((l) => l.trim().toLowerCase()).filter((l) => /^[0-9a-f-]{4,36}$/.test(l))
+  : [];
+const isOwn = (id) => ownIds.some((own) => String(id).startsWith(own));
 
 // Every account, with its summary flattened out. `stats` is null for anyone
 // whose device has not pushed since the summary shipped — which is "hasn't
 // opened the app lately", NOT "has done nothing", and the page says so.
-const accounts = query(`
+const everyone = query(`
   select
     p.id::text                                  as id,
     p.entitled,
+    (p.stripe_payment_intent_id is not null)    as bought,
+    p.created_at::date::text                    as created,
     p.repertoire_updated_at                     as updated_at,
     (p.stats is not null)                       as reporting,
     coalesce((p.stats->>'lines')::int, 0)                    as lines,
@@ -116,6 +84,7 @@ const accounts = query(`
   from public.profiles p
   order by p.repertoire_updated_at desc nulls last
 `);
+const accounts = everyone.filter((a) => !isOwn(a.id));
 
 // The history the snapshot job accumulates. Totals per run across everyone who
 // reported that day.
@@ -127,6 +96,7 @@ const history = query(`
     sum(coalesce((stats->>'drillsCompleted')::int, 0))   as drills,
     sum(coalesce((stats->>'puzzlesSolved')::int, 0))     as puzzles
   from public.stats_daily
+  ${ownIds.length ? `where ${ownIds.map((own) => `id::text not like '${own}%'`).join(' and ')}` : ''}
   group by day
   order by day
 `);
@@ -137,6 +107,8 @@ const events = query(`
   from public.metrics
   order by day, name
 `);
+
+const dbBytes = Number(query('select pg_database_size(current_database()) as b')[0]?.b ?? 0);
 
 // ── Shaping ─────────────────────────────────────────────────────────────────
 
@@ -174,6 +146,123 @@ const eventTotals = [...events.reduce((m, e) => m.set(e.name, (m.get(e.name) ?? 
 
 const opensByDay = events.filter((e) => e.name === 'app_open').map((e) => ({ day: e.day, value: n(e.hits) }));
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const dayStr = (ms) => new Date(ms).toISOString().slice(0, 10);
+const today = dayStr(Date.now());
+const daysAgo = (d) => dayStr(Date.now() - d * DAY_MS);
+
+// Counts of one app event between two days, end not included.
+function hitsBetween(name, from, to = '9999') {
+  return events.filter((e) => e.name === name && e.day >= from && e.day < to).reduce((t, e) => t + n(e.hits), 0);
+}
+
+// The funnel's newest steps began on this day. Earlier days would set old installs
+// against steps that weren't being counted, so no period reaches back past it.
+const FUNNEL_FROM = '2026-11-03';
+const accountsFrom = (from) => accounts.filter((a) => a.created >= from).length;
+
+function funnel(days) {
+  const cutoff = daysAgo(days);
+  const from = cutoff > FUNNEL_FROM ? cutoff : FUNNEL_FROM;
+  const steps = [
+    ['Visited the landing page', hitsBetween('landing_visit', from)],
+    ['Pressed a try button', hitsBetween('landing_try', from)],
+    ['Opened the app', hitsBetween('install', from)],
+    ['Imported games', hitsBetween('first_games_imported', from)],
+    ['Scanned for mistakes', hitsBetween('first_scan_done', from)],
+    ['Used the app', hitsBetween('first_interaction', from)],
+    ['Registered', accountsFrom(from)],
+    ['Back after 2 days', hitsBetween('return_after_d2', from)],
+    ['Saw the Pro offer', hitsBetween('pro_sheet_shown', from)],
+    ['Started checkout', hitsBetween('checkout_started', from)],
+    ['Bought', hitsBetween('purchase_confirmed', from)],
+  ];
+  return steps.map(([label, value], i) => ({ label, value, prev: i ? steps[i - 1][1] : null }));
+}
+
+// Too few people before a step says nothing, so the note needs at least 10.
+function biggestDrop(steps) {
+  let worst = null;
+  for (const s of steps) {
+    if (s.prev == null || s.prev < 10) continue;
+    const rate = s.value / s.prev;
+    if (rate <= 1 && (!worst || rate < worst.rate)) worst = { ...s, rate };
+  }
+  return worst;
+}
+
+const funnelWeek = funnel(7);
+const funnelMonth = funnel(30);
+const drop = biggestDrop(funnelMonth);
+const dropFrom = drop ? funnelMonth[funnelMonth.findIndex((s) => s.label === drop.label) - 1].label : '';
+const asked = hitsBetween('counts_asked', FUNNEL_FROM);
+
+// Of those who could have come back by now: installs at least N days old. A return
+// in the counter's first N days can only be someone who installed before counting
+// began, with no install to set it against, so those days don't count. Small
+// numbers swing wildly here, so the page shows both counts next to the share.
+const firstCountedDay = events.reduce((d, e) => (e.day < d ? e.day : d), today);
+function retention(name, afterDays) {
+  const returned = hitsBetween(name, dayStr(Date.parse(`${firstCountedDay}T00:00:00Z`) + afterDays * DAY_MS));
+  const eligible = hitsBetween('install', '0000', daysAgo(afterDays));
+  return { returned, eligible };
+}
+
+// Monday-based weeks, oldest first, with empty weeks kept so gaps look like gaps.
+function weekly(rows, weeks = 12) {
+  const monday = (ms) => {
+    const d = new Date(ms);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  };
+  const first = monday(Date.now()) - (weeks - 1) * 7 * DAY_MS;
+  const out = Array.from({ length: weeks }, (_, i) => ({ day: dayStr(first + i * 7 * DAY_MS), value: 0 }));
+  for (const r of rows) {
+    const i = Math.round((monday(Date.parse(`${r.day}T00:00:00Z`)) - first) / (7 * DAY_MS));
+    if (i >= 0 && i < weeks) out[i].value += r.value;
+  }
+  return out;
+}
+const dailyEvent = (name) => events.filter((e) => e.name === name).map((e) => ({ day: e.day, value: n(e.hits) }));
+const newAccountDays = accounts.filter((a) => a.created).map((a) => ({ day: a.created, value: 1 }));
+const visitDays = dailyEvent('landing_visit');
+
+const campaignFile = resolve(ROOT, '.admin/campaigns.txt');
+const campaigns = existsSync(campaignFile)
+  ? readFileSync(campaignFile, 'utf-8').split('\n').map((l) => l.trim().match(/^(\d{4}-\d{2}-\d{2})\s+(.+)$/)).filter(Boolean)
+      .map((m) => ({ day: m[1], note: m[2] })).sort((a, b) => b.day.localeCompare(a.day))
+  : [];
+const shiftDay = (day, by) => dayStr(Date.parse(`${day}T00:00:00Z`) + by * DAY_MS);
+const sumDays = (rows, from, to) => rows.filter((r) => r.day >= from && r.day < to).reduce((t, r) => t + r.value, 0);
+
+// The week before against the week from that day on.
+const campaignRows = campaigns.map((c) => {
+  const before = shiftDay(c.day, -7);
+  const after = shiftDay(c.day, 7);
+  return {
+    ...c,
+    visitsBefore: sumDays(visitDays, before, c.day),
+    visitsAfter: sumDays(visitDays, c.day, after),
+    installsBefore: hitsBetween('install', before, c.day),
+    installsAfter: hitsBetween('install', c.day, after),
+    partial: after > today,
+  };
+});
+
+const bought = accounts.filter((a) => a.bought).length;
+const FOUNDER_SEATS = 100;
+const NET_PER_SALE = 9.18; // €12 less 25% VAT and Stripe's fee.
+const DB_LIMIT_MB = 500;
+
+const BACKUP_DIR = process.env.BITO_BACKUP_DIR || join(homedir(), 'Bito Backups');
+let lastBackupDays = null;
+try {
+  const newest = readdirSync(BACKUP_DIR).filter((f) => /^bito-backup-.*\.json$/.test(f)).sort().pop();
+  if (newest) lastBackupDays = Math.floor((Date.now() - statSync(join(BACKUP_DIR, newest)).mtimeMs) / DAY_MS);
+} catch {
+  /* No backups yet: the tile says so. */
+}
+const backupLabel = lastBackupDays == null ? 'none' : lastBackupDays === 0 ? 'today' : `${lastBackupDays}d ago`;
+
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -196,10 +285,10 @@ function barChart(rows, { max, format }) {
   return `<div class="bars">${rows
     .map((r) => {
       const w = top > 0 ? (r.value / top) * 100 : 0;
-      return `<div class="bar-row" tabindex="0" title="${esc(r.label)}: ${esc(format(r.value))}">
+      return `<div class="bar-row" tabindex="0" data-tip="${esc(r.label)}: ${esc(format(r.value, r))}">
         <div class="bar-lab">${esc(r.label)}</div>
         <div class="bar-track"><div class="bar-fill" style="width:${w.toFixed(1)}%"></div></div>
-        <div class="bar-val">${esc(format(r.value))}</div>
+        <div class="bar-val">${esc(format(r.value, r))}</div>
       </div>`;
     })
     .join('')}</div>`;
@@ -229,41 +318,114 @@ function scatter(rows) {
     <text class="axlab" transform="translate(14 ${(P.t + H - P.b) / 2}) rotate(-90)" text-anchor="middle">drills completed</text>
     ${rows
       .map(
-        (r) => `<circle class="dot" cx="${x(r.lines)}" cy="${y(r.drills)}" r="6"><title>${esc(short(r.id))} — ${n(
+        (r) => `<circle class="dot" tabindex="0" cx="${x(r.lines)}" cy="${y(r.drills)}" r="6" data-tip="${esc(short(r.id))}: ${n(
           r.lines,
-        )} lines, ${n(r.drills)} drills</title></circle>`,
+        )} lines, ${n(r.drills)} drills"></circle>`,
       )
       .join('')}
   </svg>`;
 }
 
 // A single series over time. Two measures of different scale get two charts,
-// never two y-axes on one.
-function lineChart(points, label) {
+// never two y-axes on one. The hit target is a whole column, with a hairline, so
+// nobody has to aim at a 2px line. `marks` draws dashed lines on campaign days.
+function lineChart(points, label, marks = [], W = 560) {
   if (points.length < 2) {
-    return `<p class="empty">${esc(label)} — one day recorded so far. A trend needs at least two; the snapshot job adds a day at 03:17 UTC.</p>`;
+    return `<p class="empty">${esc(label)}: not enough days yet for a trend.</p>`;
   }
-  const W = 560, H = 200, P = { t: 16, r: 16, b: 32, l: 52 };
+  const H = 200, P = { t: 16, r: 16, b: 32, l: 52 };
   const max = Math.max(...points.map((p) => p.value), 1);
   const x = (i) => P.l + (i / Math.max(points.length - 1, 1)) * (W - P.l - P.r);
   const y = (v) => H - P.b - (v / max) * (H - P.t - P.b);
   const d = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.value).toFixed(1)}`).join(' ');
+  const step = (W - P.l - P.r) / Math.max(points.length - 1, 1);
+  const showDots = points.length <= 30;
+  const marked = marks
+    .map((m) => ({ ...m, i: points.findIndex((p) => p.day >= m.day) }))
+    .filter((m) => m.i >= 0)
+    .map((m) => `<line class="mark" x1="${x(m.i)}" y1="${P.t}" x2="${x(m.i)}" y2="${H - P.b}" data-tip="${esc(m.day)}: ${esc(m.note)}"></line>`)
+    .join('');
   return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(label)} over time">
     ${[0, max / 2, max].map((v) => `<line class="grid" x1="${P.l}" y1="${y(v)}" x2="${W - P.r}" y2="${y(v)}"/>
       <text class="tick" x="${P.l - 8}" y="${y(v) + 4}" text-anchor="end">${Math.round(v)}</text>`).join('')}
     <path class="line" d="${d}"/>
-    ${points.map((p, i) => `<circle class="dot" cx="${x(i)}" cy="${y(p.value)}" r="5"><title>${esc(p.day)}: ${p.value}</title></circle>`).join('')}
+    ${showDots ? points.map((p, i) => `<circle class="dot" cx="${x(i)}" cy="${y(p.value)}" r="4"/>`).join('') : ''}
+    ${points.map((p, i) => `<g class="hit" tabindex="0" data-tip="${esc(p.day)}: ${p.value}">
+      <rect x="${(x(i) - step / 2).toFixed(1)}" y="${P.t}" width="${Math.max(step, 2).toFixed(1)}" height="${H - P.t - P.b}" fill="transparent"/>
+      <line class="hair" x1="${x(i)}" y1="${P.t}" x2="${x(i)}" y2="${H - P.b}"/></g>`).join('')}
+    ${marked}
     ${points.map((p, i) => (i === 0 || i === points.length - 1
       ? `<text class="tick" x="${x(i)}" y="${H - P.b + 18}" text-anchor="${i ? 'end' : 'start'}">${esc(p.day)}</text>`
       : '')).join('')}
   </svg>`;
 }
 
-const accountRows = accounts
+// Columns per week. A one-hue magnitude chart: the newest and the highest weeks
+// carry a number, and the rest are on hover.
+function columns(points, label) {
+  const W = 560, H = 170, P = { t: 22, r: 8, b: 26, l: 8 };
+  const max = Math.max(...points.map((p) => p.value), 1);
+  const band = (W - P.l - P.r) / points.length;
+  const peak = points.findIndex((p) => p.value === max);
+  const y = (v) => H - P.b - (v / max) * (H - P.t - P.b);
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(label)} per week">
+    <line class="axis" x1="${P.l}" y1="${H - P.b}" x2="${W - P.r}" y2="${H - P.b}"/>
+    ${points.map((p, i) => {
+      const bx = P.l + i * band + 2;
+      const bw = Math.max(band - 4, 2);
+      const h = Math.max(H - P.b - y(p.value), p.value ? 2 : 0);
+      const labelled = p.value && (i === peak || i === points.length - 1);
+      return `<g class="col" tabindex="0" data-tip="Week of ${esc(p.day)}: ${p.value}">
+        <rect x="${bx}" y="${P.t}" width="${bw}" height="${H - P.t - P.b}" fill="transparent"/>
+        ${h ? `<path class="bar-mark" d="M${bx} ${H - P.b}v${-(h - Math.min(4, h))}q0 ${-Math.min(4, h)} ${Math.min(4, bw / 2)} ${-Math.min(4, h)}h${bw - 2 * Math.min(4, bw / 2)}q${Math.min(4, bw / 2)} 0 ${Math.min(4, bw / 2)} ${Math.min(4, h)}v${h - Math.min(4, h)}z"/>` : ''}
+        ${labelled ? `<text class="col-val" x="${bx + bw / 2}" y="${H - P.b - h - 6}" text-anchor="middle">${p.value}</text>` : ''}
+      </g>`;
+    }).join('')}
+    <text class="tick" x="${P.l}" y="${H - 8}">${esc(points[0].day)}</text>
+    <text class="tick" x="${W - P.r}" y="${H - 8}" text-anchor="end">${esc(points[points.length - 1].day)}</text>
+  </svg>`;
+}
+
+const funnelFormat = (value, row) =>
+  row.prev != null && row.prev > 0 && value <= row.prev ? `${value} · ${pct(value / row.prev)}` : String(value);
+const funnelChart = (steps) => `<div class="funnel">${barChart(steps, { format: funnelFormat })}</div>`;
+
+const change = (now, before) => {
+  if (!before && !now) return 'none in the 7 days before either';
+  const d = now - before;
+  return `${d > 0 ? '+' : ''}${d} on the 7 days before`;
+};
+const lastWeek = (name) => hitsBetween(name, daysAgo(7));
+const prevWeek = (name) => hitsBetween(name, daysAgo(14), daysAgo(7));
+const accountsBetween = (from, to = '9999') => accounts.filter((a) => a.created >= from && a.created < to).length;
+const activeWithin = (d) => reporting.filter((a) => a.last_active && a.last_active >= daysAgo(d)).length;
+
+const retentionTile = (label, name, days) => {
+  const r = retention(name, days);
+  return tile(r.eligible ? pct(Math.min(r.returned / r.eligible, 1)) : '–', label, `${r.returned} of ${r.eligible} installs old enough`);
+};
+
+const campaignSection = `<section>
+    <h2>Campaigns</h2>
+    ${campaignRows.length
+      ? `<div class="scroll"><table>
+          <thead><tr><th>day</th><th>what</th>
+            <th class="num">visits, 7 days before</th><th class="num">7 days from then</th>
+            <th class="num">installs, 7 days before</th><th class="num">7 days from then</th></tr></thead>
+          <tbody>${campaignRows.map((c) => `<tr>
+            <td class="mono">${esc(c.day)}</td><td>${esc(c.note)}${c.partial ? ' <span class="pill">still counting</span>' : ''}</td>
+            <td class="num">${c.visitsBefore}</td><td class="num">${c.visitsAfter}</td>
+            <td class="num">${c.installsBefore}</td><td class="num">${c.installsAfter}</td></tr>`).join('')}</tbody>
+        </table></div>`
+      : '<p class="note" style="margin-bottom:0">Add one line per thing you do to <span class="mono">.admin/campaigns.txt</span>, like <span class="mono">2026-11-05 Reddit r/chess post</span>. Each gets a before and after here, and a dashed line on the chart.</p>'}
+  </section>`;
+
+const accountRows = everyone
   .map(
     (a) => `<tr class="${a.reporting ? '' : 'quiet'}">
       <td class="mono">${esc(short(a.id))}</td>
-      <td>${a.entitled ? '<span class="pill pill-paid">paid</span>' : ''}</td>
+      <td>${isOwn(a.id) ? '<span class="pill">you</span>' : a.bought ? '<span class="pill pill-paid">bought</span>' : a.entitled ? '<span class="pill">free access</span>' : ''}</td>
+      <td class="mono">${esc(a.created ?? '—')}</td>
       <td class="num">${a.reporting ? n(a.lines) : '—'}</td>
       <td class="num">${a.reporting ? n(a.lines_in_training) : '—'}</td>
       <td class="num">${a.reporting ? n(a.drills) : '—'}</td>
@@ -341,6 +503,17 @@ const html = `<title>Bito Chess — owner dashboard</title>
   tr.quiet td { color: var(--muted); }
   .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; }
   .pill-paid { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .bar-mark { fill: var(--series); }
+  .col:hover .bar-mark, .col:focus .bar-mark, .bar-row:hover .bar-fill { filter: brightness(1.15); }
+  .col-val { fill: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .hair { stroke: var(--axis); stroke-width: 1; opacity: 0; }
+  .hit:hover .hair, .hit:focus .hair { opacity: 1; }
+  .hit, .col { outline: none; }
+  .mark { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .funnel .bar-row { grid-template-columns: 170px 1fr 74px; }
+  .bar-lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--plane); padding: 4px 8px;
+    border-radius: 6px; font-size: 12px; font-variant-numeric: tabular-nums; max-width: 320px; z-index: 9; }
   .warn { border-left: 3px solid var(--series); padding-left: 12px; color: var(--ink-2); font-size: 13px; }
 </style>
 
@@ -351,10 +524,65 @@ const html = `<title>Bito Chess — owner dashboard</title>
   </header>
 
   <section>
+    <h2>Last 7 days</h2>
+    <p class="note">Compared with the 7 days before.</p>
     <div class="tiles">
-      ${tile(accounts.length, 'Accounts')}
+      ${tile(lastWeek('landing_visit'), 'Landing visits', change(lastWeek('landing_visit'), prevWeek('landing_visit')))}
+      ${tile(lastWeek('install'), 'Opened the app', change(lastWeek('install'), prevWeek('install')))}
+      ${tile(lastWeek('onboarding_complete'), 'Finished first run', change(lastWeek('onboarding_complete'), prevWeek('onboarding_complete')))}
+      ${tile(accountsBetween(daysAgo(7)), 'New accounts', change(accountsBetween(daysAgo(7)), accountsBetween(daysAgo(14), daysAgo(7))))}
+      ${tile(activeWithin(7), 'Active accounts', `${activeWithin(30)} in the last 30 days`)}
+    </div>
+    <div class="tiles" style="margin-top:12px">
+      ${tile(`${bought} / ${FOUNDER_SEATS}`, 'Founders', `about €${(bought * NET_PER_SALE).toFixed(0)} net so far`)}
+      ${tile(`${(dbBytes / 1024 / 1024).toFixed(1)} MB`, 'Database', `of ${DB_LIMIT_MB} MB on the free plan`)}
+      ${tile(backupLabel, 'Last backup', lastBackupDays == null || lastBackupDays > 7 ? 'run bitobackup' : '')}
+    </div>
+  </section>
+
+  <section>
+    <h2>From visit to purchase</h2>
+    <p class="note">Counts since ${FUNNEL_FROM}; each percentage compares with the step above. From “Opened the app” on, only devices that allowed counting appear, except Registered, which comes from the accounts. The question was shown ${asked} time${asked === 1 ? '' : 's'}. ${
+      drop ? `Biggest drop in 30 days: ${esc(dropFrom)} → ${esc(drop.label)}, ${pct(drop.rate)} continue.` : ''
+    }</p>
+    <div class="cols">
+      <div><h3>Last 7 days</h3>${funnelChart(funnelWeek)}</div>
+      <div><h3>Last 30 days</h3>${funnelChart(funnelMonth)}</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Week by week</h2>
+    <p class="note">The last 12 weeks.</p>
+    <div class="cols">
+      <div><h3>Landing visits</h3>${columns(weekly(visitDays), 'Landing visits')}</div>
+      <div><h3>Opened the app</h3>${columns(weekly(dailyEvent('install')), 'Opened the app')}</div>
+      <div><h3>Finished first run</h3>${columns(weekly(dailyEvent('onboarding_complete')), 'Finished first run')}</div>
+      <div><h3>New accounts</h3>${columns(weekly(newAccountDays), 'New accounts')}</div>
+    </div>
+    <h3 style="margin-top:20px">Landing visits per day</h3>
+    ${lineChart(visitDays.slice(-90), 'Landing visits', campaignRows, 1060)}
+    <p class="note" style="margin:12px 0 0">Where visitors come from, their countries and languages: <a href="https://cloud.umami.is">Umami</a>.</p>
+  </section>
+
+  ${campaignSection}
+
+  <section>
+    <h2>Do they come back?</h2>
+    <p class="note">Anonymous counts, so these are shares of installs rather than a followed group, and small numbers swing a lot.</p>
+    <div class="tiles">
+      ${retentionTile('After 2 days', 'return_after_d2', 2)}
+      ${retentionTile('After 7 days', 'return_after_d7', 7)}
+      ${retentionTile('After 30 days', 'return_after_d30', 30)}
+    </div>
+  </section>
+
+  <section>
+    <h2>All time</h2>
+    <div class="tiles">
+      ${tile(accounts.length, 'Accounts', ownIds.length ? 'not counting yours' : '')}
       ${tile(reporting.length, 'Reporting', `${accounts.length - reporting.length} not seen since the summary shipped`)}
-      ${tile(accounts.filter((a) => a.entitled).length, 'Paid')}
+      ${tile(accounts.filter((a) => a.entitled).length, 'Full access', `${bought} bought`)}
       ${tile(sum(reporting, 'lines'), 'Lines built', 'across all accounts')}
       ${tile(sum(reporting, 'drills'), 'Drills run')}
       ${tile(sum(reporting, 'puzzles'), 'Puzzles solved')}
@@ -423,7 +651,7 @@ const html = `<title>Bito Chess — owner dashboard</title>
     <div class="scroll">
       <table>
         <thead><tr>
-          <th>account</th><th></th><th class="num">lines</th><th class="num">training</th>
+          <th>account</th><th></th><th>joined</th><th class="num">lines</th><th class="num">training</th>
           <th class="num">drills</th><th class="num">puzzles</th><th class="num">games</th>
           <th class="num">daily</th><th class="num">endgames</th><th class="num">mistakes</th>
           <th class="num">streak</th><th class="num">days</th><th>version</th><th>last active</th>
@@ -433,11 +661,32 @@ const html = `<title>Bito Chess — owner dashboard</title>
     </div>
   </section>
 </div>
+<div id="tip" hidden></div>
+<script>
+  // One tooltip for every mark. The text comes from data, so it goes in as text.
+  const tip = document.getElementById('tip');
+  const place = (x, y) => {
+    tip.style.left = Math.min(x + 12, innerWidth - tip.offsetWidth - 8) + 'px';
+    tip.style.top = Math.max(y - tip.offsetHeight - 10, 8) + 'px';
+  };
+  const show = (el, x, y) => { tip.textContent = el.dataset.tip; tip.hidden = false; place(x, y); };
+  document.addEventListener('pointermove', (e) => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (el) show(el, e.clientX, e.clientY); else tip.hidden = true;
+  });
+  document.addEventListener('focusin', (e) => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    show(el, r.left + r.width / 2, r.top);
+  });
+  document.addEventListener('focusout', () => { tip.hidden = true; });
+</script>
 `;
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, html, 'utf-8');
-console.log(`\n  ${accounts.length} accounts · ${reporting.length} reporting · ${history.length} day(s) of history`);
+console.log(`\n  ${accounts.length} accounts${ownIds.length ? ' (without yours)' : ''} · ${reporting.length} reporting · ${history.length} day(s) of history`);
 console.log(`  → ${OUT}\n`);
 
 if (!process.argv.includes('--no-open')) {

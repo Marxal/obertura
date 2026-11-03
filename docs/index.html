@@ -5530,6 +5530,52 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 })();
 </script>
 
+<script>
+  /* Anonymous counts on the landing page: a visit from elsewhere, and a press of a
+     try button. One word goes to this site's own server (worker/metrics.ts). No
+     cookie, nothing stored, nothing that could tell two visitors apart, so these
+     don't need the question the app asks. Reloads, returning with the back button
+     and moving around this site aren't new visits. Only the real domain counts. */
+  (function () {
+    if (location.hostname !== 'bitochess.com' || navigator.webdriver) return;
+    try {
+      if (localStorage.getItem('obertura.metricsOptOut') === '1') return;
+    } catch (e) { /* storage blocked: nothing to honour */ }
+    function send(name) {
+      try {
+        fetch('/api/event', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: name }),
+          keepalive: true,
+          credentials: 'omit',
+          referrerPolicy: 'no-referrer',
+          cache: 'no-store'
+        }).catch(function () {});
+      } catch (e) { /* a count is never worth an error */ }
+    }
+    var entry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    var kind = entry ? entry.type : 'navigate';
+    var fromHere = false;
+    try {
+      fromHere = !!document.referrer && new URL(document.referrer).hostname === location.hostname;
+    } catch (e) { /* unreadable referrer: treat as from elsewhere */ }
+    if (kind === 'navigate' && !fromHere) send('landing_visit');
+
+    var tried = false;
+    function tryPressed() {
+      if (tried) return;
+      tried = true;
+      send('landing_try');
+    }
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest && e.target.closest('a.js-app');
+      if (link && link.id !== 'signin') tryPressed();
+    });
+    var form = document.getElementById('an-form');
+    if (form) form.addEventListener('submit', tryPressed);
+  })();
+</script>
 </body>
 </html>
 

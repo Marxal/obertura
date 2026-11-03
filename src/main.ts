@@ -90,6 +90,7 @@ import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome
 import { showRecapForDay } from './daily-review';
 import { showDailyCelebration, showPerfectDayCelebration, showWhenClear } from './daily-celebration';
 import { track, trackOnce, trackAppOpen } from './metrics';
+import { maybeAskAboutCounts } from './counts-consent';
 import { currentStreak, getTrainingDays } from './streak';
 import { masteredLines } from './stats';
 import { collectSpots, pickSpots, countRetry, type SpotRef } from './mistake-scan';
@@ -7006,6 +7007,7 @@ requestAnimationFrame(() => {
   // just crossed. A complete no-op on the GitHub Pages build — see
   // src/metrics.ts.
   trackAppOpen();
+  maybeAskAboutCounts();
 
   cg = Chessground(boardEl, {
     movable: {
