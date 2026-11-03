@@ -11,6 +11,8 @@ import { runImportSelfTest } from '../src/import.selftest';
 import { runClockSelfTest } from '../src/clock.selftest';
 import { runSpotFactsSelfTest } from '../src/spot-facts.selftest';
 import { runTimePressureSelfTest } from '../src/time-pressure.selftest';
+import { runTimePressureFillSelfTest } from '../src/time-pressure-fill.selftest';
+import { runScanSyncSelfTest } from '../src/scan-sync-core.selftest';
 import { runTrainProgressSelfTest } from '../src/train-progress.selftest';
 import { runSchedulerSelfTest } from '../src/scheduler.selftest';
 import { runAnalysisSelfTest } from '../src/analysis.selftest';
@@ -66,13 +68,15 @@ import { runLineRemovalSelfTest } from '../src/line-removal.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
-const SUITES: { suite: string; run: () => TestResult[] }[] = [
+const SUITES: { suite: string; run: () => TestResult[] | Promise<TestResult[]> }[] = [
   { suite: 'openings', run: runOpeningsSelfTest },
   { suite: 'import', run: runImportSelfTest },
   { suite: 'import-tier', run: runImportTierSelfTest },
   { suite: 'clock', run: runClockSelfTest },
   { suite: 'spot-facts', run: runSpotFactsSelfTest },
   { suite: 'time-pressure', run: runTimePressureSelfTest },
+  { suite: 'time-pressure-fill', run: runTimePressureFillSelfTest },
+  { suite: 'scan-sync', run: runScanSyncSelfTest },
   { suite: 'scheduler', run: runSchedulerSelfTest },
   { suite: 'analysis', run: runAnalysisSelfTest },
   { suite: 'scout', run: runScoutSelfTest },
@@ -131,7 +135,7 @@ let failed = 0;
 
 for (const { suite, run } of SUITES) {
   console.log(`\n# ${suite}`);
-  const results = run();
+  const results = await run();
   for (const r of results) {
     total++;
     if (!r.pass) failed++;

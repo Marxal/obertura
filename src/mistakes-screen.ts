@@ -55,6 +55,7 @@ import { startWhichMoveSession, openWhichMoveInfo } from './which-move-run';
 import { detectiveLog, whichMoveLog } from './middle-log';
 import { startTimePressureSession } from './time-pressure-run';
 import { dealRound, getTimePressureBest, recentRoundIds } from './time-pressure';
+import { fillPool } from './time-pressure-fill';
 import { combinedDueAt, restKey } from './spot-rest';
 import { openFixedSheet } from './fixed-sheet';
 import {
@@ -542,7 +543,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       statLabel: tpBest > 0 ? 'best' : undefined,
       disabled: refs.length === 0,
       disabledReason: noneReason,
-      onClick: () => startTimePressure(),
+      onClick: () => { void startTimePressure(); },
     }));
 
     for (const cat of CATEGORIES) {
@@ -641,13 +642,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // positions, and a pool filtered down to what is "due" would run dry in a
   // week. For the same reason it files no rest and marks nothing fixed — see
   // the note at the top of time-pressure.ts.
-  function startTimePressure(): void {
-    const round = dealRound(refs, undefined, { recent: recentRoundIds() });
+  async function startTimePressure(): Promise<void> {
+    const round = dealRound(await fillPool(refs), undefined, { recent: recentRoundIds() });
     if (round.length === 0) return;
     startTimePressureSession({
       refs: round,
       onExit: rerender,
-      onPlayAgain: () => startTimePressure(),
+      onPlayAgain: () => { void startTimePressure(); },
       onOpenGame: deps.onOpenGame,
     });
   }

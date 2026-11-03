@@ -100,6 +100,7 @@ import { fairPairs, pickWhichMove } from './which-move';
 import { startWhichMoveSession } from './which-move-run';
 import { startTimePressureSession } from './time-pressure-run';
 import { dealRound, recentRoundIds } from './time-pressure';
+import { fillPool } from './time-pressure-fill';
 import { detectiveLog, whichMoveLog } from './middle-log';
 import { combinedDueAt } from './spot-rest';
 import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
@@ -5151,16 +5152,18 @@ function renderHome(host: HTMLElement): void {
         // items (daily-challenge.ts's dailyCountUnit) — the round ends on the
         // clock, so how many positions it deals was never the user's to pick.
         const done = finish(markTimePressureDone);
-        startTimePressureSession({
-          refs: dealRound(spotRefs, undefined, { recent: recentRoundIds() }),
-          minutes: config.tasks.timePressure.count,
-          contextLabel: 'Daily challenge',
-          // "Ran out" is not a wrong answer and not a right one, so it counts
-          // as neither here: the day's tally is about what you saw.
-          onComplete: (s) => done({ right: s.found, wrong: s.missed }),
-          onExit: () => repaintMistakes?.(),
-          onOpenGame: openGameFromSession,
-          nextAction: nextFor('timePressure'),
+        void fillPool(spotRefs).then((pool) => {
+          startTimePressureSession({
+            refs: dealRound(pool, undefined, { recent: recentRoundIds() }),
+            minutes: config.tasks.timePressure.count,
+            contextLabel: 'Daily challenge',
+            // "Ran out" is not a wrong answer and not a right one, so it counts
+            // as neither here: the day's tally is about what you saw.
+            onComplete: (s) => done({ right: s.found, wrong: s.missed }),
+            onExit: () => repaintMistakes?.(),
+            onOpenGame: openGameFromSession,
+            nextAction: nextFor('timePressure'),
+          });
         });
       },
     };

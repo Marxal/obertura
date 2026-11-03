@@ -174,8 +174,9 @@ Build a daily challenge around opening lines, tactics, endgames and exercises fr
 
 - Build up to 500 lines
 - Train 30 at a time
-- Sync across your devices
+- Sync your lines across devices
 - Import up to 1,000 games, kept on your device
+- Exercises from all your mistakes
 - Library and starter packs
 - Puzzles and endgames
 - Engine and analyser
@@ -189,13 +190,15 @@ Build a daily challenge around opening lines, tactics, endgames and exercises fr
 
 **{price}** one payment — always the live Stripe number, never typed in.
 
-- Your whole games library, synced and kept
+- Your games, mistakes and progress on every device
 - Train unlimited lines at once
 - Unlimited repertoires
 - Opponent scouting
-- One-time payment, no subscription ever
+- Support an independent app
+- Founding member: pay once, keep it for life
 
-(In the app's popup each line also shows what the free plan has — "free: 30",
+The founding line changes once the 100 places are gone: `POINTS` in
+`src/pro-sheet.ts` and this list together. (In the app's popup each line also shows what the free plan has — "free: 30",
 "free: 3", "free: 1", "free: this phone only" — because there the reader is
 deciding against what they already have. 2026-10, UX-AUDIT C6.)
 

@@ -154,6 +154,13 @@ export function getGamesSource(): GamesSource | null {
   }
 }
 
+// A game deleted here: keep the count honest, so an empty library on this device
+// isn't later described as games waiting on another one.
+export async function noteGamesCount(): Promise<void> {
+  const source = getGamesSource();
+  if (source) setGamesSource({ ...source, count: await countGames() });
+}
+
 function setGamesSource(s: GamesSource): void {
   try { localStorage.setItem(SOURCE_KEY, JSON.stringify(s)); } catch { /* storage off */ }
 }

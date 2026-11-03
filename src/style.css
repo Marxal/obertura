@@ -719,6 +719,17 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .entitlement-cap-link svg { flex: none; }
+.support-note { flex-wrap: wrap; }
+.support-note-later {
+  min-height: 34px;
+  padding: 0 0.5rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
 .entitlement-cap-link:active { background: var(--accent-soft); }
 
 /* SETTINGS ACCORDION — each preference group is a collapsed <details> that

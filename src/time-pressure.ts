@@ -123,6 +123,14 @@ export function orderByPressure(refs: SpotRef[]): SpotRef[] {
 }
 
 // ── Dealing ──────────────────────────────────────────────────────────────────
+
+// A puzzle topping up a small pool (time-pressure-fill.ts). Defined here because
+// dealRound needs it, and the fill module already imports this one's neighbours.
+export const PUZZLE_ID_PREFIX = 'puzzle:';
+
+export function isPuzzleRef(ref: SpotRef): boolean {
+  return ref.spot.id.startsWith(PUZZLE_ID_PREFIX);
+}
 //
 // WHY THE ROUND SHUFFLES NOW. The first version dealt the pressure order as it
 // stood and cycled it — on the argument that a reshuffled round makes the
@@ -188,7 +196,8 @@ export function dealRound(refs: SpotRef[], max = 60, opts: DealOptions = {}): Sp
   // group shuffled, groups in order.
   const groups = new Map<number, SpotRef[]>();
   for (const ref of refs) {
-    const key = (recent.has(ref.spot.id) ? 0 : 100) + pressureBand(ref);
+    // Your own mistakes always come first: a puzzle only fills what's left.
+    const key = isPuzzleRef(ref) ? -1 : (recent.has(ref.spot.id) ? 0 : 100) + pressureBand(ref);
     const group = groups.get(key);
     if (group) group.push(ref);
     else groups.set(key, [ref]);

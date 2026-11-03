@@ -37,6 +37,7 @@ import type { Line } from './types';
 import type { ImportedGame } from './import-core';
 import { Icons } from './icons';
 import { buildGamesBlock } from './home-games-card';
+import { buildSupportNote } from './support-note';
 import { renderForgottenSection } from './forgotten-section';
 import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-autoscan';
 import { isAnalysisPending } from './game-analysis';
@@ -103,6 +104,9 @@ export function renderHomeBody(host: HTMLElement, data: HomeData, deps: HomeDeps
   const extendHost = document.createElement('div');
   extendHost.className = 'home-extend-host';
   host.appendChild(extendHost);
+
+  const support = buildSupportNote();
+  if (support) host.appendChild(support);
 }
 
 // ── "Reading your games" ─────────────────────────────────────────────────────

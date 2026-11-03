@@ -114,10 +114,11 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.', 'obertura.ytCache.'];
 // `obertura.spotRest`, `obertura.detectiveLog`, `obertura.whichMoveLog`,
 // `obertura.brilliantLog` — when each exercise from your games may come back. They
 // name game ids, and a free account's games stay on the phone, so another device
-// has nothing to apply them to. Syncing them meant an account push for every
-// answer, and with the free scan limits gone these can each reach a few hundred
-// entries. The cost of leaving them here is that an exercise can come back sooner
-// on a second phone, or after restoring a backup file.
+// has nothing to apply them to. Syncing them in the snapshot meant an account push
+// for every answer, and with the free scan limits gone these can each reach a few
+// hundred entries. A paying account's logs travel in the scans column instead
+// (scan-sync.ts). The cost for everyone else is that an exercise can come back
+// sooner on a second phone, or after restoring a backup file.
 //
 // `obertura.lastGamesRefresh` — when this device last checked for new games. A
 // check every few hours would otherwise push the row each time to say nothing

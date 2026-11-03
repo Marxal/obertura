@@ -112,8 +112,9 @@ export function combineRemote(core: unknown, games: unknown): string | null {
 //    export of THIS device and follows different rules (storage.ts).
 //    The one real cost: a mistake spot carries a little training state
 //    (`fixed`/`attempts`/`lastTrained`) that a re-scan on another device starts
-//    fresh. Accepted knowingly — it's a per-spot counter, not a repertoire, and
-//    it isn't worth 8.5% of every upload. The endgame scan is NOT dropped: at
+//    fresh in this column. For a paying account, scan-sync.ts carries the scans
+//    and that training state in a column of their own, on a slower clock, so a
+//    long scan doesn't rewrite the games. The endgame scan is NOT dropped: at
 //    ~150 bytes a game it's 1.2% of the payload, and dropping it would cost a
 //    tablebase/engine sweep to regain for no measurable saving.
 // 2. OLD GAMES. Only the most recent SYNC_GAME_LIMIT by date go up. A new phone

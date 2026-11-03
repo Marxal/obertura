@@ -54,6 +54,7 @@ import {
   type TimePressureOutcome,
 } from './time-pressure';
 import type { SpotRef } from './mistake-scan';
+import { isPuzzleRef } from './time-pressure-fill';
 import type { ImportedGame } from './import-core';
 import type { OpenGameCtx } from './mistake-run';
 
@@ -279,7 +280,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     const { game, spot } = current;
 
     chess.load(spot.preFen);
-    opponentEl.textContent = `vs ${game.opponent}`;
+    opponentEl.textContent = isPuzzleRef(current) ? game.opponent : `vs ${game.opponent}`;
     metaEl.textContent = `${cgTurn() === 'white' ? 'White' : 'Black'} to play`;
     barLabelEl.textContent = `Position ${index + 1}`;
 
@@ -500,7 +501,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     main.className = 'pz-result-main';
     const name = document.createElement('div');
     name.className = 'pz-result-name';
-    name.textContent = `vs ${e.ref.game.opponent}`;
+    name.textContent = isPuzzleRef(e.ref) ? e.ref.game.opponent : `vs ${e.ref.game.opponent}`;
     main.appendChild(name);
     const meta = document.createElement('div');
     meta.className = 'pz-result-meta';
@@ -525,6 +526,16 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     if (!e) return null;
     const { game, spot } = e.ref;
     const best = spot.best[0];
+    // A puzzle has no game behind it to show or analyse.
+    if (isPuzzleRef(e.ref)) {
+      return {
+        fen: spot.preFen,
+        orientation: game.colour,
+        arrows: best ? [{ uci: best.uci, kind: 'accent' as const }] : [],
+        meta: `${formatMove(best?.san ?? '?')} · ${game.opponent}`,
+        onNav: (dir) => peekOptionsFor(idx + dir),
+      };
+    }
     return {
       fen: spot.preFen,
       orientation: game.colour,

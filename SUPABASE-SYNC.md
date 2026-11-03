@@ -26,6 +26,8 @@ One row per user, holding the copy of their data.
 | `repertoire_updated_at`    | `timestamptz` | when that half was last pushed — **the sync reads this**  |
 | `games`                    | `jsonb`       | your imported games                                       |
 | `games_updated_at`         | `timestamptz` | when the games were last pushed — **the sync reads this**  |
+| `scans`                    | `jsonb`       | a paying account's scan results and exercise progress    |
+| `scans_updated_at`         | `timestamptz` | when those were last pushed                               |
 | `stats`                    | `jsonb`       | a ~300-byte summary of how much has been built and trained |
 | *(and `public.stats_daily`)* | —           | a weekly copy of each **active** account's `stats`, kept 400 days |
 | `entitled`                 | `boolean`     | has this account paid? Gates the training cap             |
@@ -51,6 +53,14 @@ while the lines-and-settings half stays under 4 MB. When it was all one column,
 changing a single move re-uploaded every game you own — on mobile data, and
 rewriting the whole value in Postgres each time. Split in two, an edit sends the
 small half, and games go up only when games actually change.
+
+**Why scan results have their own column, for paying accounts only.** A scan takes
+15–40 seconds a game, so without this a paying user's new phone spends hours
+re-reading games and loses which mistakes they fixed. The results change for hours
+during a scan, so they are pushed at most every ten minutes, and rewriting the games
+each time would be wasted. `src/scan-sync.ts` uses separate requests and fails
+quietly, so a problem here can't stop lines syncing. It costs about 0.3 MB stored
+per account (an estimate at 500 scanned games: see §7).
 
 **What the games column deliberately leaves out.** Saved analyses and
 mistake-scan results are stripped before upload, and only the most recent 500
@@ -138,6 +148,9 @@ alter table public.profiles
   add column if not exists stripe_payment_intent_id text,
   add column if not exists games jsonb,
   add column if not exists games_updated_at timestamptz,
+  -- Pro's scan results and exercise progress (src/scan-sync.ts).
+  add column if not exists scans jsonb,
+  add column if not exists scans_updated_at timestamptz,
   -- The per-account summary (src/account-stats.ts). A flat object of counters
   -- written alongside `repertoire`, so "do people train or only build?" can be
   -- answered without ever reading a user's repertoire blob.
@@ -222,9 +235,9 @@ create policy "own profile: update"
 -- upsert on `entitled` and the purchase flow is untouched.
 revoke update on public.profiles from anon, authenticated;
 revoke insert on public.profiles from anon, authenticated;
-grant update (repertoire, repertoire_updated_at, games, games_updated_at, stats)
+grant update (repertoire, repertoire_updated_at, games, games_updated_at, stats, scans, scans_updated_at)
   on public.profiles to authenticated;
-grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at, stats)
+grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at, stats, scans, scans_updated_at)
   on public.profiles to authenticated;
 
 -- ── THE HISTORY TABLE ───────────────────────────────────────────────────────
@@ -354,10 +367,10 @@ select cron.schedule(
   'select public.prune_profile_stats()'
 );
 
--- ── GAMES ARE PRO, ENFORCED HERE TOO ────────────────────────────────────────
+-- ── GAMES AND SCANS ARE PRO, ENFORCED HERE TOO ──────────────────────────────
 -- gateGamesToEntitlement (src/sync-core.ts) stops the app sending games for a free
--- account, but the browser holds an UPDATE grant on the column, so anyone with
--- devtools could store 4 MB in it. This holds whatever the browser sends.
+-- account, but the browser holds an UPDATE grant on the columns, so anyone with
+-- devtools could store 4 MB in each. This holds whatever the browser sends.
 --
 -- It ignores rather than refuses. A refused write fails the whole push, lines
 -- included, and a device acting on an out-of-date paid flag shouldn't lose that.
@@ -373,9 +386,13 @@ begin
   if tg_op = 'INSERT' then
     new.games := null;
     new.games_updated_at := null;
+    new.scans := null;
+    new.scans_updated_at := null;
   else
     new.games := old.games;
     new.games_updated_at := old.games_updated_at;
+    new.scans := old.scans;
+    new.scans_updated_at := old.scans_updated_at;
   end if;
   return new;
 end;
@@ -408,6 +425,10 @@ begin
   if new.games is not null
      and pg_column_size(new.games::text) > 4 * 1024 * 1024 then
     raise exception 'games column is over the 4 MB limit';
+  end if;
+  if new.scans is not null
+     and pg_column_size(new.scans::text) > 4 * 1024 * 1024 then
+    raise exception 'scans column is over the 4 MB limit';
   end if;
   -- The app writes ~300 bytes here. 8 KB is a wall, not a budget: without it,
   -- the one column the browser can fill freely is also the only one with no
@@ -875,11 +896,13 @@ exists to enforce it against a client that has been tampered with.
 - A **free** account never syncs games (`gateGamesToEntitlement`, and the trigger
   in §1). At the live average it stores about **50 KB**, login tables included, and
   repeated pushes hold a busy row at up to twice its size even with vacuum.
-- A **paid** account adds its games: up to 376 KB stored on the largest live one.
+- A **paid** account adds its games, up to 376 KB stored on the largest live one, and
+  its scan results, estimated at about 0.3 MB for 500 scanned games. Measure it:
+  `select max(pg_column_size(scans)) from public.profiles;`
 - With 1 account in 5 active in a month, about **7,000 accounts** fit in the usable
   ~420 MB. Free accounts saving 100-150 lines would bring that to about 2,000-2,500.
 - Scans, game reviews and the exercise rest logs cost nothing here for a free
-  account: all of them stay on the phone (`src/local-keys.ts`, `src/sync-core.ts`).
+  account: all of them stay on the phone (`src/local-keys.ts`, `src/scan-sync.ts`).
 - Egress is the one to watch, and the pull loop is built around it: the routine
   question costs two timestamps (a few hundred bytes), so a phone left open all
   day costs well under 100 KB. Blobs only come down when the other device has

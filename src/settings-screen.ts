@@ -69,6 +69,7 @@ import { clearBrilliantLog } from './brilliant-log';
 import { clearTaBest } from './puzzles-screen';
 import { resetMistakeScans } from './mistake-scan';
 import { clearMiddleLogs } from './middle-log';
+import { noteScansReset } from './scan-sync';
 import { clearEndgameProgress } from './endgame-progress';
 import { clearMistakeDrills } from './mistake-scan';
 import { renderBackupSection, exportBackupNow } from './backup';
@@ -1565,6 +1566,7 @@ function buildRescanSubsection(): HTMLElement {
           // …and the rotation on the two whole-game exercises, so every case
           // and every question is back on the table too.
           clearMiddleLogs();
+          noteScansReset();
           // Don't promise a background pass to someone who has turned it off
           // two rows above this one.
           status.textContent = getAutoScanEnabled()

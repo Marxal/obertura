@@ -76,11 +76,12 @@ export interface ProSheetOptions {
 
 // The promises, in the landing page's order and wording.
 export const POINTS = [
-  'Your whole games library, synced and kept',
+  'Your games, mistakes and progress on every device',
   'Train unlimited lines at once',
   'Unlimited repertoires',
   'Opponent scouting',
-  'One-time payment, no subscription ever',
+  'Support an independent app',
+  'Founding member: pay once, keep it for life',
 ] as const;
 
 function tick(): SVGSVGElement {

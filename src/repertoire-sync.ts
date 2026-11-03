@@ -70,7 +70,7 @@
 // exclusion is spelled out): the most recent 500 games, with each game's saved
 // analysis tree and mistake-scan spots stripped off. Those two are engine
 // output, derived from moves that ARE synced, and they were ~80% of every games
-// upload. The manual backup file keeps all of it, deliberately: a backup is a
+// upload. (A paying account's scan results travel separately: scan-sync.ts.) The manual backup file keeps all of it, deliberately: a backup is a
 // user-controlled export of ONE device, and the account row is a shared,
 // quota-bearing resource this app writes to on the user's behalf.
 //
@@ -112,6 +112,7 @@ import { backupLocalKey } from './local-keys';
 import { buildAccountStats } from './account-stats';
 import { showToast } from './toast';
 import { showSigningIn } from './signing-in';
+import { initScanSync, forgetScanSync } from './scan-sync';
 // The pure half lives next door so it can be self-tested under plain Node —
 // importing this module would drag the Supabase client, and `import.meta.env`
 // with it, into the test.
@@ -330,6 +331,7 @@ function forgetAccount(): void {
     ACCOUNT_KEY, PENDING_KEY, FAILED_KEY, ERROR_KEY, LAST_KEY,
     CORE_FP_KEY, GAMES_FP_KEY, SEEN_CORE_KEY, SEEN_GAMES_KEY, RESTORED_KEY,
   ]) writeLocal(key, null);
+  forgetScanSync();
   coreDirty = false;
   gamesDirty = false;
   notifyChange();
@@ -1172,6 +1174,7 @@ export async function replaceFromAccount(): Promise<number> {
   writeBaseline(remote.local ?? {});
   claimAccount(user.id);
   markSynced();
+  forgetScanSync(); // the games were just rewritten without their scan results
   return backupLineCount(remote);
 }
 
@@ -1197,6 +1200,11 @@ function deferred(fn: () => void): void {
 // build has Supabase configured.
 export function initAccountSync(): void {
   if (!isSupabaseConfigured) return;
+
+  initScanSync({
+    isClaimed: isAccountClaimed,
+    onPulled: () => window.dispatchEvent(new Event(SYNC_PULLED_EVENT)),
+  });
 
   onLinesChanged(() => {
     coreDirty = true;

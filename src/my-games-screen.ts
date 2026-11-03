@@ -21,7 +21,8 @@ import { showDialog } from './dialog';
 import { showToast } from './toast';
 import { Icons } from './icons';
 import { renderLoadError } from './load-error';
-import { getGamesSource } from './import-panel';
+import { getGamesSource, noteGamesCount } from './import-panel';
+import { isEntitled, buildCapNotice, showGoProDialog } from './entitlement';
 import { buildInlineImport } from './import-inline';
 import { refreshGamesNow } from './auto-refresh';
 import { reviewStripData } from './line-analysis';
@@ -219,6 +220,15 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   }
 
   if (!games.length) {
+    // Games on another device: the source travels with the account and says how
+    // many. A free account's games don't, which is the clearest moment to say so.
+    const elsewhere = isEntitled() ? 0 : (getGamesSource()?.count ?? 0);
+    if (elsewhere > 0) {
+      root.appendChild(buildCapNotice(
+        `Your ${elsewhere.toLocaleString()} game${elsewhere === 1 ? ' is' : 's are'} on your other device`,
+        { onOpen: showGoProDialog },
+      ));
+    }
     // This screen IS the games list, so an empty one has exactly one thing to
     // offer: the import form, in place, rather than a sentence about it.
     root.appendChild(buildInlineImport({
@@ -434,7 +444,7 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
       body: `Remove your game vs ${g.opponent} from My games? This can’t be undone.`,
       buttons: [
         { label: 'Delete', variant: 'danger', onClick: () => {
-          void deleteGame(g.id).then(() => { showToast('Game deleted'); refresh(); });
+          void deleteGame(g.id).then(noteGamesCount).then(() => { showToast('Game deleted'); refresh(); });
         } },
         { label: 'Cancel', variant: 'secondary' },
       ],

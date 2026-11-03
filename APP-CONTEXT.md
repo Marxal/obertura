@@ -2168,6 +2168,9 @@ Every non-selftest module in `src/`, exactly once.
 | `import-progress.ts` | the pixel-pawn progress bar + facts ticker |
 | `import-tier.ts` | the pure "how many games may this person import?" |
 | `auto-refresh.ts` | the games auto-refresh, at most every six hours |
+| `scan-sync.ts` / `scan-sync-core.ts` | Pro only: scan results and exercise progress between devices, in their own column |
+| `time-pressure-fill.ts` | tops up a small Time pressure pool with Lichess puzzles |
+| `support-note.ts` | the once-only "made by one person" note on Home, after 14 training days |
 | `my-games-screen.ts` | the My games tab |
 | `lichess-auth.ts` | "Connect to Lichess" — OAuth 2.0 + PKCE, browser-only |
 

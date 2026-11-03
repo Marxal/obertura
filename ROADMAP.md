@@ -2837,10 +2837,6 @@ every arrow and suggestion checked as legal and the board checked not to be stuc
 - ⏳ **`scripts/sql/2026-11-database-fix.sql` waits to be run by the owner.** The live database never
   received the active-only and 400-day stats rules. It also moves stats to weekly, stops free accounts
   storing games at the database level, and removes one old login session from a row.
-- 💡 **Not built:** Pro doesn't sync scan results yet, so a Pro user on a new device still re-scans
-  and loses their fixed marks. Rest logs left the sync in this round too, and that work should bring
-  them back for Pro.
-
 **Checked:** at 412 wide as a signed-out free user, with seeded games: all 160 mistakes shown with no
 limit notice, a new game scanned while 160 were already unfixed, one fetch when a refresh is due,
 none on returning inside six hours. The SQL ran twice on a throwaway Postgres.
@@ -2848,3 +2844,20 @@ none on returning inside six hours. The SQL ran twice on a throwaway Postgres.
 **Not checked:** the SQL against the live database, a real phone, a real Chess.com fetch, or how long
 a very large first scan feels on a phone. Two selftests in `daily-challenge.selftest.ts` fail, and
 fail the same way without this round's changes.
+
+## 2026-11-03 — Pro follows you, and when it's offered
+
+- ✅ **A paying account's scan results and exercise progress move between devices.** A new device
+  takes them instead of re-reading games for hours, and a mistake fixed on one is fixed on the other.
+  They have their own column on a slow clock, in separate requests that can't stop lines syncing, and
+  never run for a free account. A reset on one device holds on the others.
+- ✅ **The new Full Access list:** your games, mistakes and progress on every device; unlimited lines;
+  unlimited repertoires; opponent scouting; support an independent app; founding member, pay once and
+  keep it for life.
+- ✅ **Two new moments for the offer:** an empty My games on a device whose account has games
+  elsewhere says how many, and after 14 training days Home shows one dismissible note about who makes
+  the app.
+- ✅ **Time pressure fills a small pool with puzzles.** Under 20 positions, Lichess puzzles top it up,
+  with your own mistakes first. Offline, the round plays what it has.
+- ⏳ `scripts/sql/2026-11-database-fix.sql` now also adds the `scans` column. Until the owner runs it,
+  Pro's sync pauses quietly and everything else works.

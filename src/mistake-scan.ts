@@ -468,6 +468,14 @@ export async function scanGames(opts: {
   try {
     for (const game of pending) {
       if (opts.signal.aborted) break;
+      // Results for this game may have arrived from another device since this pass
+      // began (scan-sync.ts). One read here can save 15-40 seconds of engine.
+      const latest = await getGame(game.id);
+      if (latest && !needsRetryScan(latest)) {
+        scanned++;
+        opts.onProgress?.({ gamesDone: scanned, gamesTotal: pending.length, spotsFound, opponent: game.opponent });
+        continue;
+      }
       const read = await scanOneGame(game, cache, opts.signal);
       // An aborted game is half-judged — drop it rather than persisting junk.
       if (opts.signal.aborted) break;
