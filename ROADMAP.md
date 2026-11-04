@@ -2990,3 +2990,11 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - ✅ **Icons in that block's buttons** no longer shrink on a narrow phone.
 - ✅ **The Engine panel** has the eval bar, following the position on the board.
 
+
+### Landing page order
+
+- ✅ **"Where do you play?" comes straight after the hero.** The hero board hangs over that band, so the
+  band starts lower on a desktop and the form stays clear of it.
+- ✅ **Game analysis and puzzles are one section,** after Openings: "Your games show you what to practise",
+  six tiles. The three drawn step cards are gone, and "Bring in your games" folded into the turning points
+  tile, since the form above already asks for the games.

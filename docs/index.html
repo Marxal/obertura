@@ -704,9 +704,8 @@ button:focus-visible {
    Then it is pinned. The script writes --pin from the scroll position, at about
    a third of scroll speed and CLAMPED (see PIN_MAX), so the board hangs back as
    the page moves and then lets go. The clamp is the important half: the next
-   band's top padding is 128px, the drop plus the maximum pin is less than that,
-   so the board can lag into empty space but can never reach the heading it is
-   floating over. On a phone none of this applies — the board is simply the next
+   band (#analyse) sets its top padding to clear the furthest the board can reach,
+   so the board can lag into empty space but can never touch the form below it. On a phone none of this applies — the board is simply the next
    thing down the page, and covering content there would be unforgivable. */
 .hero__board { position: relative; z-index: 3; }
 
@@ -1439,7 +1438,7 @@ html.js .reveal.in { opacity: 1; transform: none; }
   /* The board keeps its drop (it is layout, and the page is designed around the
      overlap) but never lags: --pin stays at its 0 default because the script
      skips the handler entirely. */
-  .hero__board, .board-card, .plan, .jcard, .pz, .dc { transition: none !important; }
+  .hero__board, .board-card, .plan, .pz, .dc { transition: none !important; }
   .btn { transition: none !important; }
   .btn:active { transform: none !important; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
@@ -1466,9 +1465,8 @@ html.js .reveal.in { opacity: 1; transform: none; }
 /* ══════════════════════════════════════════════════════════════════════════
    FEATURE SECTIONS — shared pieces
    Every feature section opens with the same three things (kicker, heading,
-   lede) and then takes a shape of its own: a three-step journey, a stack of
-   playable cards, a sticky walk-through, a row of puzzle modes and a working
-   daily card. Shared furniture first.
+   lede) and then takes a shape of its own: a stack of playable cards, a sticky
+   walk-through, a grid of tiles and a working daily card. Shared furniture first.
    ══════════════════════════════════════════════════════════════════════════ */
 .story-head { max-width: 720px; margin-bottom: clamp(30px, 4vw, 48px); }
 .story-head .lede { margin-top: 18px; }
@@ -1529,134 +1527,6 @@ html.js .reveal.in { opacity: 1; transform: none; }
    the script (section 2b) so the signed-in relabelling keeps working. */
 .btn .arr { display: inline-block; transition: transform 200ms cubic-bezier(0.2, 0.7, 0.3, 1); }
 @media (hover: hover) and (pointer: fine) { .btn:hover .arr { transform: translateX(4px); } }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   1. YOUR GAMES — three steps, each with a drawn scene
-   ══════════════════════════════════════════════════════════════════════════ */
-.journey {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(18px, 2.4vw, 30px);
-  counter-reset: step;
-}
-.jcard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease, border-color 260ms ease;
-}
-/* The arrow between steps, on the seam between two cards. */
-.jcard + .jcard::before {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  top: 74px;
-  left: calc(clamp(18px, 2.4vw, 30px) / -2 - 15px);
-  width: 30px; height: 30px;
-  border-radius: 999px;
-  background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c07a2a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center / 16px no-repeat;
-  border: 1px solid var(--border-card);
-  box-shadow: var(--shadow-card);
-}
-.jscene {
-  position: relative;
-  height: 150px;
-  margin: 10px 10px 0;
-  border-radius: calc(var(--radius) - 8px);
-  background: var(--bg-parchment);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-.jcard__body { padding: 22px 24px 26px; }
-.jcard__tag { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.jcard__n {
-  font: 700 12px/1 'Chakra Petch', ui-monospace, monospace;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-.jcard h3 { margin-bottom: 8px; }
-.jcard p { color: var(--text-muted); font-size: 16px; }
-
-/* Scene 1 — the import list: three result rows that slide in. */
-.jscene--import { align-content: center; gap: 9px; padding: 0 22px; place-items: stretch; }
-.jrow {
-  display: grid;
-  grid-template-columns: 38px 1fr 0.55fr;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card), inset 0 0 0 1px var(--hairline);
-}
-.jrow i { height: 7px; border-radius: 4px; background: var(--border-card); }
-.jrow i + i { background: var(--fill-faint); box-shadow: inset 0 0 0 1px var(--border-card); }
-.jres {
-  font: 700 11px/1 ui-monospace, 'SF Mono', Menlo, monospace;
-  text-align: center;
-  padding: 5px 0;
-  border-radius: 6px;
-  color: #fff;
-}
-.jres--w { background: #5a9e3f; }
-.jres--l { background: #c93636; }
-.jres--d { background: #a9b28f; }
-
-/* Scene 2 — an evaluation graph that draws itself, with the turning point. */
-.jscene--eval svg { position: absolute; inset: 18px 0; width: 100%; height: calc(100% - 36px); overflow: visible; }
-.jeval__mid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 5; fill: none; vector-effect: non-scaling-stroke; }
-.jeval__area { fill: var(--accent-soft); }
-.jeval__line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-@media (prefers-color-scheme: dark) { .jeval__line { stroke: #9cc7ac; } }
-.jeval__dot { position: absolute; left: calc(54.5% - 15px); top: 50%; transform: translateY(-50%); line-height: 0; filter: drop-shadow(0 3px 6px rgba(201, 54, 54, 0.35)); }
-.jeval__dot svg { display: block; }
-
-/* Scene 3 — a corner of a board, a knight, the move you should have played. */
-.jboard {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(4, 34px);
-  grid-template-rows: repeat(3, 34px);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: var(--shadow-lift);
-}
-.jboard > i { background: var(--board-light); }
-.jboard > i:nth-child(8n+2), .jboard > i:nth-child(8n+4), .jboard > i:nth-child(8n+5), .jboard > i:nth-child(8n+7) { background: var(--board-dark); }
-.jboard__pc.pc { width: 34px; height: 34px; left: 0; top: 68px; transform: none; }
-.jboard__arrow { position: absolute; inset: 0; width: 100%; height: 100%; }
-.jboard__arrow line { stroke: #5a9e3f; stroke-width: 0.17; stroke-linecap: round; }
-.jboard__arrow polygon { fill: #5a9e3f; }
-.jboard__badge { position: absolute; left: 50px; top: -1px; line-height: 0; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25)); }
-
-/* Entrances: each scene plays once, as its card is revealed. */
-@media (prefers-reduced-motion: no-preference) {
-  html.js .jcard .jrow { opacity: 0; transform: translateX(-16px); transition: opacity 420ms ease, transform 520ms cubic-bezier(0.2, 0.7, 0.3, 1); }
-  html.js .jcard .jrow:nth-child(2) { transition-delay: 120ms; }
-  html.js .jcard .jrow:nth-child(3) { transition-delay: 240ms; }
-  html.js .jcard.in .jrow { opacity: 1; transform: none; }
-  html.js .jcard .jeval__line { stroke-dasharray: 400; stroke-dashoffset: 400; transition: stroke-dashoffset 1300ms cubic-bezier(0.4, 0, 0.2, 1) 300ms; }
-  html.js .jcard .jeval__area { opacity: 0; transition: opacity 700ms ease 900ms; }
-  html.js .jcard.in .jeval__line { stroke-dashoffset: 0; }
-  html.js .jcard.in .jeval__area { opacity: 1; }
-  html.js .jcard .jeval__dot, html.js .jcard .jboard__badge { opacity: 0; transform: translateY(-50%) scale(0.3); transition: opacity 260ms ease 1200ms, transform 420ms cubic-bezier(0.3, 1.6, 0.5, 1) 1200ms; }
-  html.js .jcard .jboard__badge { transform: scale(0.3); transition-delay: 1000ms; }
-  html.js .jcard.in .jeval__dot { opacity: 1; transform: translateY(-50%) scale(1); }
-  html.js .jcard.in .jboard__badge { opacity: 1; transform: scale(1); }
-  html.js .jcard .jboard__arrow { opacity: 0; clip-path: inset(0 100% 0 0); transition: opacity 200ms ease 600ms, clip-path 500ms ease 600ms; }
-  html.js .jcard.in .jboard__arrow { opacity: 1; clip-path: inset(0 0 0 0); }
-}
-@media (hover: hover) and (pointer: fine) {
-  .jcard:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); border-color: var(--border); }
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    2. PERSONAL EXERCISES — stacking cards, each with a playable position
@@ -2231,6 +2101,9 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
   padding: clamp(64px, 9vw, 104px) 0;
 }
 @media (prefers-color-scheme: dark) { .band--felt { background-color: #2f4f3d; } }
+/* The hero board hangs over the top of this band, by up to 154px once it lags on
+   scroll (see .hero__board). The form sits in the same column, so it starts below that. */
+@media (min-width: 900px) { #analyse { padding-top: 184px; } }
 .an { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: clamp(28px, 5vw, 72px); align-items: center; }
 .an h2 { color: #fff; }
 .an .lede { margin-top: 16px; color: rgba(255, 255, 255, 0.86); max-width: 34ch; }
@@ -2423,9 +2296,9 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 @media (max-width: 700px) { .facts { grid-template-columns: 1fr; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   4. PUZZLES — four modes in a row
+   4. GAME ANALYSIS AND PUZZLES — six tiles
    ══════════════════════════════════════════════════════════════════════════ */
-.pz-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(14px, 2vw, 22px); }
+.pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2vw, 22px); }
 .pz {
   position: relative;
   padding: 26px 22px 24px;
@@ -2458,6 +2331,8 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
   box-shadow: 0 8px 18px color-mix(in srgb, var(--pz, var(--primary)) 32%, transparent);
 }
 .pz__ico .ico { width: 26px; height: 26px; transition: transform 420ms cubic-bezier(0.3, 1.4, 0.5, 1); }
+.pz--turn { --pz: #c93636; }
+.pz--practice { --pz: #5a9e3f; }
 .pz--daily { --pz: #3e6650; }
 .pz--focus { --pz: #c07a2a; }
 .pz--clock { --pz: #5c8bb0; }
@@ -2467,6 +2342,8 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 .pz__hand { transform-origin: 12px 13px; transform-box: view-box; }
 @media (hover: hover) and (pointer: fine) {
   .pz:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); border-color: var(--border); }
+  .pz--turn:hover .ico { transform: translateY(-2px) scale(1.08); }
+  .pz--practice:hover .ico { transform: rotate(8deg) scale(1.08); }
   .pz--daily:hover .ico { transform: rotate(-12deg) scale(1.08); }
   .pz--focus:hover .ico { transform: scale(1.14); }
   .pz--clock:hover .pz__hand { animation: hand-spin 900ms cubic-bezier(0.4, 0, 0.2, 1); }
@@ -2610,18 +2487,6 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
   .dc__go { margin-top: 10px; min-height: 48px; }
 }
 
-@media (max-width: 860px) {
-  .journey { grid-template-columns: 1fr; gap: 16px; }
-  .jcard { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); align-items: stretch; }
-  .jscene { height: auto; min-height: 150px; margin: 10px 0 10px 10px; }
-  .jcard + .jcard::before { top: -23px; left: 50%; margin-left: -15px; transform: rotate(90deg); }
-}
-@media (max-width: 560px) {
-  .jcard { grid-template-columns: 1fr; }
-  .jscene { margin: 10px 10px 0; min-height: 0; height: 130px; }
-  .jcard__body { padding: 18px 20px 22px; }
-}
-
 /* Tactile wooden illustrations. Transparent assets share the page's own surface. */
 :root {
   --wood-halo: rgba(192,122,42,.13);
@@ -2712,7 +2577,6 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     <!-- Line icons, copied from the app's own set (src/icons.ts, Lucide paths)
          so a feature carries the same picture here as on its screen there.
          Stroke and fill come from the .ico rule, never from the symbol. -->
-    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
     <symbol id="i-review" viewBox="0 0 24 24"><circle cx="10" cy="11.5" r="6"/><path d="m14.3 15.8 3.7 3.7"/><path d="M18 2l.95 2.25 2.25.95-2.25.95L18 8.4l-.95-2.25-2.25-.95 2.25-.95z" fill="currentColor" stroke="none"/><path d="M21.4 9.3l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z" fill="currentColor" stroke="none"/></symbol>
     <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
     <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></symbol>
@@ -2904,65 +2768,6 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
           </div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- ───────────────────────── YOUR GAMES ─────────────────────────
-       Three steps, each a card with a small drawn scene on top — the import
-       list, the evaluation graph with its turning point, the position you get
-       to try again. The scenes are illustrations, not screenshots: no names,
-       no numbers, nothing that pretends to be somebody's real game. -->
-  <section class="band band--parchment" id="your-games" aria-labelledby="your-games-title">
-    <div class="inner">
-      <div class="story-head reveal">
-        <p class="kicker">Game analysis</p>
-        <h2 id="your-games-title">Your games show you what to practise</h2>
-        <p class="lede">Every game leaves something to learn. Bito helps you find it and work on it.</p>
-      </div>
-      <ol class="journey">
-        <li class="jcard reveal">
-          <div class="jscene jscene--import" aria-hidden="true">
-            <span class="jrow"><b class="jres jres--w">1–0</b><i></i><i></i></span>
-            <span class="jrow"><b class="jres jres--l">0–1</b><i></i><i></i></span>
-            <span class="jrow"><b class="jres jres--d">½</b><i></i><i></i></span>
-          </div>
-          <div class="jcard__body">
-            <span class="jcard__tag"><span class="tile"><svg class="ico"><use href="#i-download"/></svg></span><span class="jcard__n">Step 1</span></span>
-            <h3>Bring in your games</h3>
-            <p>Import games from Chess.com or Lichess to build your personal game library.</p>
-          </div>
-        </li>
-        <li class="jcard reveal">
-          <div class="jscene jscene--eval" aria-hidden="true">
-            <svg viewBox="0 0 240 110" preserveAspectRatio="none" focusable="false">
-              <path class="jeval__mid" d="M0 55H240"/>
-              <path class="jeval__area" d="M0 55 L0 50 C18 46 30 40 46 42 S76 30 92 34 S112 26 124 30 L134 84 C150 90 168 80 184 86 S216 92 240 88 L240 55Z"/>
-              <path class="jeval__line" d="M0 50 C18 46 30 40 46 42 S76 30 92 34 S112 26 124 30 L134 84 C150 90 168 80 184 86 S216 92 240 88"/>
-            </svg>
-            <span class="jeval__dot"><svg viewBox="0 0 24 24" width="30" height="30" focusable="false"><circle cx="12" cy="12" r="12" fill="#c93636"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>??</text></svg></span>
-          </div>
-          <div class="jcard__body">
-            <span class="jcard__tag"><span class="tile"><svg class="ico"><use href="#i-review"/></svg></span><span class="jcard__n">Step 2</span></span>
-            <h3>Discover the turning points</h3>
-            <p>Find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.</p>
-          </div>
-        </li>
-        <li class="jcard reveal">
-          <div class="jscene jscene--practice" aria-hidden="true">
-            <span class="jboard">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-              <span class="jboard__pc pc pc-wn"></span>
-              <svg class="jboard__arrow" viewBox="0 0 4 3" focusable="false"><line x1="0.5" y1="2.5" x2="1.25" y2="1.05"/><polygon points="1.5,0.55 1.03,0.93 1.47,1.16"/></svg>
-              <span class="jboard__badge"><svg viewBox="0 0 24 24" width="26" height="26" focusable="false"><circle cx="12" cy="12" r="12" fill="#5a9e3f"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff" font-family='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif'>★</text></svg></span>
-            </span>
-          </div>
-          <div class="jcard__body">
-            <span class="jcard__tag"><span class="tile"><svg class="ico"><use href="#i-target"/></svg></span><span class="jcard__n">Step 3</span></span>
-            <h3>Turn analysis into practice</h3>
-            <p>Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.</p>
-          </div>
-        </li>
-      </ol>
     </div>
   </section>
 
@@ -3289,18 +3094,28 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     </div>
   </section>
 
-  <!-- ───────────────────────── PUZZLES ─────────────────────────
-       Its own short section now, four modes in a row. The icons are the app's
-       own (src/icons.ts) set in the same tile as everywhere else on the page,
-       each with a small motion of its own on hover. -->
-  <section class="band" id="tactics" aria-labelledby="tactics-title">
+  <!-- ───────────────────── GAME ANALYSIS AND PUZZLES ─────────────────────
+       One section, six tiles: what your games show first, then the puzzle
+       modes. The icons are the app's own (src/icons.ts) set in the same tile as
+       everywhere else on the page, each with a small motion of its own on hover. -->
+  <section class="band" id="your-games" aria-labelledby="your-games-title">
     <div class="inner">
       <div class="story-head story-head--center reveal">
-        <p class="kicker">Puzzles</p>
-        <h2 id="tactics-title">Sharpen your tactics</h2>
-        <p class="lede">Practise spotting threats, finding combinations and making the most of your chances.</p>
+        <p class="kicker">Game analysis and puzzles</p>
+        <h2 id="your-games-title">Your games show you what to practise</h2>
+        <p class="lede">Every game leaves something to learn. Find it in the analysis, then sharpen your tactics with puzzles.</p>
       </div>
       <div class="pz-grid">
+        <article class="pz pz--turn reveal">
+          <span class="pz__ico" aria-hidden="true"><svg class="ico"><use href="#i-review"/></svg></span>
+          <h3>Discover the turning points</h3>
+          <p>Import games from Chess.com or Lichess to find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.</p>
+        </article>
+        <article class="pz pz--practice reveal">
+          <span class="pz__ico" aria-hidden="true"><svg class="ico"><use href="#i-brain"/></svg></span>
+          <h3>Turn analysis into practice</h3>
+          <p>Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.</p>
+        </article>
         <article class="pz pz--daily reveal">
           <span class="pz__ico" aria-hidden="true"><svg class="ico"><use href="#i-puzzle"/></svg></span>
           <h3>A daily rated mix</h3>

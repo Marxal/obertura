@@ -78,13 +78,15 @@ Confetti fires when a line completes. Black’s worse moves carry ?? / ? marks.
 
 ---
 
-## Your games show you what to practise
+## Where do you play?
 
-Every game leaves something to learn. Bito helps you find it and work on it.
+**Kicker:** Try it with your games
 
-- **Bring in your games** — Import games from Chess.com or Lichess to build your personal game library.
-- **Discover the turning points** — Find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.
-- **Turn analysis into practice** — Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.
+We’ll read your games and show you the openings you actually play.
+
+Chess.com · Lichess · “Your Chess.com username” / “Your Lichess username” · **Import my games →**
+
+Free, no signup. Your games stay on your device.
 
 ---
 
@@ -112,10 +114,14 @@ Choose what you want to play, explore your options and remember your moves when 
 
 ---
 
-## Sharpen your tactics
+## Your games show you what to practise
 
-Practise spotting threats, finding combinations and making the most of your chances.
+**Kicker:** Game analysis and puzzles
 
+Every game leaves something to learn. Find it in the analysis, then sharpen your tactics with puzzles.
+
+- **Discover the turning points** — Import games from Chess.com or Lichess to find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.
+- **Turn analysis into practice** — Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.
 - **A daily rated mix** — Solve a mix of puzzles informed by your repertoire and games, and track your Bito puzzle rating as you practise.
 - **Focus your practice** — Choose puzzles by opening or tactical theme to work on specific ideas.
 - **Race the clock** — Challenge yourself in Time Attack and try to beat your personal best.
@@ -373,13 +379,8 @@ Supersedes the layout notes in every dated section above (2026-10-24 and
 2026-10-25). Feature copy is unchanged; what is new is the short labels and the
 microcopy inside the interactive demos, listed here so they have a home.
 
-**Section labels (kickers, above each H2):** Game analysis · Personal
-exercises · Opening repertoire · Puzzles · Daily challenge.
-
-**Your games:** three cards labelled Step 1 / Step 2 / Step 3, each with a
-small drawn scene (import list with result chips, an evaluation graph with a ??
-turning point, a board corner with the better move). Illustrations only — no
-names, ratings or numbers.
+**Section labels (kickers, above each H2):** Try it with your games · Personal
+exercises · Opening repertoire · Game analysis and puzzles · Daily challenge.
 
 **Exercises:** five stacking cards (each sticks a little lower than the last
 and the one underneath sinks back). Each carries a playable example position —
@@ -420,9 +421,12 @@ ends), which changes per note. Legend lines:
 
 The Italian Game box is gone.
 
-**Puzzles:** the old “Sharpen your tactics” section, now a short puzzles-only
-section: centred heading, four mode tiles with the app's own icons (puzzle
-piece, target, stopwatch, reset arrow), each with its own hover motion.
+**Game analysis and puzzles (2026-11-04):** the old three-step “Your games”
+section and “Sharpen your tactics” merged, placed after Openings. Centred
+heading, six tiles with the app's own icons, each with its own hover motion.
+“Where do you play?” now comes straight after the hero. The drawn scenes and the
+Step 1 / 2 / 3 labels are gone, and “Bring in your games” folded into the turning
+points tile, since the form above already asks for the games.
 
 **Daily challenge:** the felt panel, with a working copy of the app's daily
 card beside the copy: “Daily challenge” · “N parts today” · a Monday-first week
@@ -439,7 +443,7 @@ row. Nothing is saved. Button: Try Bito Chess →.
 
 Supersedes the exercise and openings notes in the pass above where they differ.
 
-**[ANALYSE NOW] — new felt band straight after "Your games"**, the app's own
+**[ANALYSE NOW] — new felt band (straight after the hero since 2026-11-04)**, the app's own
 first question (`src/onboarding-where.ts`), answered on this page:
 
 > **Kicker:** Try it with your games
