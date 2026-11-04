@@ -3053,3 +3053,16 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - The automatic check only reaches Home's Get started and Daily challenge. The missing reply, forgotten moves and
   last games cards need real training data, so they need checking on a real account.
 
+### Translation: opening training (Phase 2, fifth round)
+
+- ✅ **The Train screen's Openings side, the drill, Fix it, every end-of-session summary and the Daily challenge
+  celebrations** use keys. The Middlegame, Tactics and Endgames boxes wait for Phase 6.
+- ✅ **Dates and large numbers** follow the app's language, and English keeps following the device. Ordinals
+  (21st, 2n) follow each language's rules.
+- ✅ **The layout check also covers** the practice modes sheet, a drill and leaving one. It found the Train switch
+  reading English words to shorten its figure, which a key now replaces, and long drill titles being cut off.
+- ✅ **A live bug fixed:** "Middlegame" was cut off to "Middlega…" in the Train switch on a small phone. Those four
+  tabs now size to their names, so they're no longer exactly equal.
+- English otherwise compares as identical, apart from faint rendering differences. The end-of-session summaries and
+  celebrations need finishing a session, so the automatic check doesn't reach them.
+

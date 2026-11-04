@@ -20,6 +20,7 @@ import { buildRunHeader } from './run-header';
 import { playFeedback } from './sound';
 import { burstConfetti } from './confetti';
 import { formatMove } from './notation';
+import { t } from './i18n';
 
 const REPS = 3;
 
@@ -47,7 +48,7 @@ function colourToMove(fen: string): 'white' | 'black' {
 }
 
 // Little rotating encouragements, so three reps don't read identically.
-const CHEERS = ['Nice!', 'Got it!', 'Yes!', 'Locked in!'];
+const CHEERS = [t('fix.cheer.nice'), t('fix.cheer.gotIt'), t('fix.cheer.yes'), t('fix.cheer.locked')];
 
 export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   const chess = new Chess();
@@ -71,8 +72,8 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
 
   const header = buildRunHeader({
     icon: Icons.zap(18),
-    title: 'Fix it',
-    endLabel: 'Close',
+    title: t('home.forgotten.fix'),
+    endLabel: t('common.close'),
     onEnd: () => doExit(),
   });
   const headerEl = header.el;
@@ -82,7 +83,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   // "Fix it" is in the header now (run-header.ts); the block keeps the opening.
   const titleEl = document.createElement('div');
   titleEl.className = 'pt-line-name';
-  titleEl.textContent = move.openingName || 'Forgotten move';
+  titleEl.textContent = move.openingName || t('fix.forgotten');
   topEl.appendChild(titleEl);
 
   // Three rep pips, filled as each clean rep banks.
@@ -112,7 +113,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   revealMove.className = 'fixit-reveal-move';
   const revealSub = document.createElement('div');
   revealSub.className = 'fixit-reveal-sub';
-  revealSub.textContent = 'Remember this move';
+  revealSub.textContent = t('fix.remember');
   revealEl.appendChild(revealMove);
   revealEl.appendChild(revealSub);
   boardWrap.appendChild(revealEl);
@@ -189,7 +190,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
     revealEl.setAttribute('hidden', '');
     boardEl.classList.remove('fixit-board--faded');
 
-    setStatus(`Round ${rep + 1} of ${REPS}`, 'pt-status--prompt');
+    setStatus(t('train.roundOf', { n: rep + 1, total: REPS }), 'pt-status--prompt');
 
     if (move.prelude) {
       chess.load(move.prelude.fromFen);
@@ -225,7 +226,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   // The board is at preFen and it's the user's turn.
   function handOver(): void {
     cg.set({ turnColor: cgTurn(), movable: { color: move.colour, dests: legalDests() } });
-    setStatus('Your move', 'pt-status--prompt');
+    setStatus(t('drill.yourMove'), 'pt-status--prompt');
   }
 
   function onUserMove(from: Key, to: Key): void {
@@ -248,7 +249,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
       // Gentle: flash, snap back, draw the right arrow as a nudge, try again.
       flashError();
       snapBack();
-      setStatus('Not that one — try again', 'pt-status--error');
+      setStatus(t('fix.notThat'), 'pt-status--error');
       requestAnimationFrame(() => {
         if (isCleaned) return;
         cg.setAutoShapes([{ orig: tFrom, dest: tTo, brush: 'accent' }]);
@@ -277,7 +278,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
     cg.set({ movable: { color: undefined, dests: new Map() } });
     burstConfetti(boardWrap);
     setStatus(
-      opts.playFullLine ? 'Now play the full line' : 'Fixed! 🎉',
+      opts.playFullLine ? t('fix.fullLine') : t('train.fixed'),
       'pt-status--success',
     );
     autoTimer = setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
@@ -297,6 +298,6 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   }
 
   // A short framing line, then into the first rep.
-  setStatus(`You've missed this ${move.count}× — let's lock it in`, 'pt-status--prompt');
+  setStatus(t('fix.missedTimes', { n: move.count }), 'pt-status--prompt');
   autoTimer = setTimeout(() => { if (!isCleaned) startRep(); }, 900);
 }

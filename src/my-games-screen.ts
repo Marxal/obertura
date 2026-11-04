@@ -29,6 +29,7 @@ import { reviewStripData } from './line-analysis';
 import { classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
 import type { MoveClass } from './winprob';
 import type { MoveNode } from './tree';
+import { appLocale, formatNumber, t } from './i18n';
 
 // ── The result bar ───────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ function buildResultBar(games: ImportedGame[], deps: MyGamesDeps): HTMLElement {
 // Shared with the analyser's "vs <opponent>" line. Empty when the date is unknown.
 export function formatGameDate(endTimeSec: number | undefined): string {
   if (!endTimeSec) return '';
-  return new Date(endTimeSec * 1000).toLocaleDateString(undefined, {
+  return new Date(endTimeSec * 1000).toLocaleDateString(appLocale(), {
     day: 'numeric', month: 'short', year: 'numeric',
   });
 }
@@ -229,7 +230,7 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     const elsewhere = isEntitled() ? 0 : (getGamesSource()?.count ?? 0);
     if (elsewhere > 0) {
       root.appendChild(buildCapNotice(
-        `Your ${elsewhere.toLocaleString()} game${elsewhere === 1 ? ' is' : 's are'} on your other device`,
+        t('games.elsewhere', { n: elsewhere, count: formatNumber(elsewhere) }),
         { onOpen: showGoProDialog },
       ));
     }

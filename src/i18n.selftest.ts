@@ -1,7 +1,7 @@
 // Pure checks of the translation layer: t(), its English fallback, the fake
 // language and the choice of language. No DOM, no storage.
 
-import { englishDictionary, t, tParts, useDictionary, type Dictionary } from './i18n';
+import { appLocale, englishDictionary, t, tOrdinal, tParts, useDictionary, type Dictionary } from './i18n';
 import { pickLanguage, RELEASED_LANGUAGES, type Language } from './language-choice';
 import { pseudoDictionary, pseudoText } from './locales/pseudo';
 
@@ -46,6 +46,13 @@ export function runI18nSelfTest(): TestResult[] {
   const pieces = tParts('where.missing', { name: 7 }, { site: 'Lichess' });
   check('a sentence can hold something that isn\'t text',
     pieces.length === 3 && pieces[1] === 7 && pieces[2] === '” on Lichess. Check the spelling.', JSON.stringify(pieces));
+
+  const ords = [1, 2, 3, 4, 11, 21, 22, 103].map((n) => tOrdinal('ordinal.number', n)).join(' ');
+  check('ordinals follow the language\'s rules', ords === '1st 2nd 3rd 4th 11th 21st 22nd 103rd', ords);
+  check('English dates follow the device', appLocale() === undefined);
+  useDictionary(fake, 'ca');
+  check('other languages write dates their own way', appLocale() === 'ca');
+  useDictionary(englishDictionary as Dictionary, 'en');
 
   // ── The dictionary itself ──────────────────────────────────────────────────
   const empty = Object.entries(englishDictionary).filter(([, message]) => (

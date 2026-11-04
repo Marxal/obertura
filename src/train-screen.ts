@@ -71,6 +71,7 @@ import { burstConfetti, starfall, celebratePawn } from './confetti';
 import { pushBack } from './back-nav';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { showToast } from './toast';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -229,7 +230,7 @@ async function doRender(
   // Leaving any finish screen lands back here ("Close training" / "Save &
   // close"), so this is where the FAB the completion panel hid comes back.
   setFabVisible?.(true);
-  container.innerHTML = '<p class="lines-loading">Loading…</p>';
+  container.innerHTML = `<p class="lines-loading">${t('common.loading')}</p>`;
   let allLines: Line[];
   let books: Repertoire[];
   try {
@@ -395,20 +396,21 @@ function buildOpeningsDoor(
   return buildDoor({
     domain: 'openings',
     icon: Icons.pawn(26),
-    name: 'Openings',
-    sub: 'Run your book',
+    name: t('nav.openings'),
+    sub: t('train.door.sub'),
     // The due figure when there is one. A book with nothing due still runs — it
     // just has no number worth printing, and gets the play arrow instead.
     stat: reviewMoves > 0 ? reviewMoves : newMoves > 0 ? newMoves : undefined,
-    statLabel: reviewMoves > 0 ? (reviewMoves === 1 ? 'move due' : 'moves due')
-      : newMoves > 0 ? (newMoves === 1 ? 'new move' : 'new moves')
+    statLabel: reviewMoves > 0 ? t('train.stat.due', { n: reviewMoves })
+      : newMoves > 0 ? t('train.stat.new', { n: newMoves })
       : undefined,
+    statShort: reviewMoves > 0 ? t('train.figure.due') : newMoves > 0 ? t('train.figure.new') : undefined,
     disabled: !runnable,
     disabledReason: locked
       ? trainingLockReason(allLines.length)
       : plan && plan.newHeldBack > 0
         ? newMoveLimitReason()
-        : 'Save a line first',
+        : t('train.saveFirst'),
     progress: !locked && training.length > 0
       ? {
         value: mastered,
@@ -416,8 +418,8 @@ function buildOpeningsDoor(
         // Nothing new on offer because today's are used up, not because the book
         // has run out: say so, or a door with no new moves reads as a finished book.
         label: plan && plan.newHeldBack > 0 && newMoves === 0
-          ? `${mastered} of ${training.length} mastered · new moves tomorrow`
-          : `${mastered} of ${training.length} mastered`,
+          ? t('train.door.masteredTomorrow', { mastered, total: training.length })
+          : t('train.door.mastered', { mastered, total: training.length }),
       }
       : undefined,
     onClick: () => runRepertoireRun(container, books),
@@ -442,8 +444,8 @@ function renderPractiseBox(
   const runPlan = locked ? null : planRepertoireRun(books, { newAllowance: newMovesLeftToday() });
   // The (i) rides on the box's title, because a card's subtitle has room for one
   // short line and not for how "Whole lines" differs from the door above it.
-  const box = buildBox('openings', 'Practise your openings', buildInfoButton(
-    'About the practice modes', () => openPracticeInfo(runPlan)));
+  const box = buildBox('openings', t('train.box.title'), buildInfoButton(
+    t('train.box.about'), () => openPracticeInfo(runPlan)));
   const section = boxBody(box);
 
   // Under the unlock every card below is greyed for the same reason, and saying
@@ -454,19 +456,17 @@ function renderPractiseBox(
     const note = document.createElement('p');
     note.className = 'section-desc mode-cards-locked';
     note.textContent = allLines.length === 0
-      ? `Save ${TRAINING_UNLOCK_LINES} lines to switch practice on, so a session has `
-        + 'more than one line to mix.'
-      : `Save at least ${TRAINING_UNLOCK_LINES} lines to switch practice on — `
-        + `you have ${allLines.length}, so ${left} to go.`;
+      ? t('train.locked.none', { limit: TRAINING_UNLOCK_LINES })
+      : t('train.locked.some', { limit: TRAINING_UNLOCK_LINES, have: allLines.length, left });
     section.appendChild(note);
   }
 
   // Three headed groups (v0.14): whole-line runs, the single-move drill, and
   // the timed one. Created up front so they keep this order whatever order the
   // cards below are built in.
-  const linesList = boxSection(box, 'Play your lines');
-  const singleList = boxSection(box, 'Single moves');
-  const clockList = boxSection(box, 'Against the clock');
+  const linesList = boxSection(box, t('train.section.lines'));
+  const singleList = boxSection(box, t('train.section.single'));
+  const clockList = boxSection(box, t('train.section.clock'));
 
   // Why a mode is greyed out. Under the unlock, every card says the same thing
   // and says it first — the answer is "go and save more lines", whatever else is
@@ -477,8 +477,8 @@ function renderPractiseBox(
   const noLinesReason = locked
     ? trainingLockReason(allLines.length)
     : nothingSaved
-      ? 'Save a line first — then there’s something to drill'
-      : 'Switch a line on in Openings → My lines to drill it';
+      ? t('train.reason.saveFirst')
+      : t('train.reason.switchOn');
 
   // Whole lines — the due pile walked as LINES rather than as moves. It is the
   // other of the two routes the old due hero offered as a pair of buttons; the
@@ -488,13 +488,13 @@ function renderPractiseBox(
   linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.run,
     icon: Icons.book(20),
-    name: 'Whole lines',
-    sub: 'due lines, start to finish',
+    name: t('train.mode.whole'),
+    sub: t('train.mode.whole.sub'),
     stat: due.length > 0 ? due.length : undefined,
-    statLabel: due.length === 1 ? 'line' : 'lines',
+    statLabel: t('stat.line', { n: due.length }),
     disabled: locked || due.length === 0,
     disabledReason: locked || nothingSaved ? noLinesReason
-      : heldBack ? newMoveLimitReason() : 'Nothing due right now',
+      : heldBack ? newMoveLimitReason() : t('train.nothingDue'),
     onClick: () => startRounds(due, container, { explicit: true }),
   }));
 
@@ -511,12 +511,12 @@ function renderPractiseBox(
   clockList.appendChild(buildModeCard({
     accent: MODE_ACCENT.timed,
     icon: Icons.clock(20),
-    name: 'Time attack',
-    sub: `beat the clock, ${TIMED_DEFAULT} min`,
+    name: t('train.mode.timed'),
+    sub: t('train.mode.timed.sub', { minutes: TIMED_DEFAULT }),
     stat: timedBest > 0 ? timedBest : undefined,
-    statLabel: timedBest > 0 ? 'best' : undefined,
+    statLabel: timedBest > 0 ? t('train.stat.best') : undefined,
     disabled: !timedReady,
-    disabledReason: locked ? noLinesReason : 'Save a line first to play Time attack',
+    disabledReason: locked ? noLinesReason : t('train.reason.timed'),
     onClick: () => runTimed(container, allLines, TIMED_DEFAULT),
   }));
 
@@ -532,15 +532,15 @@ function renderPractiseBox(
   singleList.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
-    name: 'Missed moves',
-    sub: missedCount > 0 || !hasPositions ? 'moves you got wrong' : 'no misses yet, review single moves',
+    name: t('train.mode.missed'),
+    sub: t(missedCount > 0 || !hasPositions ? 'train.mode.missed.sub' : 'train.mode.missed.none'),
     stat: missedCount > 0 ? missedCount : undefined,
-    statLabel: missedCount === 1 ? 'move' : 'moves',
+    statLabel: t('stat.move', { n: missedCount }),
     disabled: !hasPositions,
     // "Train a little more" is only true once there IS something to train.
     disabledReason: locked || nothingSaved
       ? noLinesReason
-      : 'Train a little more to unlock single-move drills',
+      : t('train.reason.missed'),
     onClick: () => runIndividual(container, allTraining),
   }));
 
@@ -552,14 +552,14 @@ function renderPractiseBox(
   linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
-    name: 'Weak spots',
-    sub: 'your weakest lines',
+    name: t('train.mode.weak'),
+    sub: t('train.mode.weak.sub'),
     stat: !locked && weakLines.length > 0 ? weakLines.length : undefined,
-    statLabel: weakLines.length === 1 ? 'line' : 'lines',
+    statLabel: t('stat.line', { n: weakLines.length }),
     disabled: locked || weakLines.length === 0,
     disabledReason: locked || nothingSaved || allTraining.length === 0
       ? noLinesReason
-      : 'Nothing yet. Lines where you miss a move land here',
+      : t('train.reason.weak'),
     onClick: () => startRounds(weakLines, container, { explicit: true }),
   }));
 
@@ -572,10 +572,10 @@ function renderPractiseBox(
   linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
-    name: 'New lines',
-    sub: 'your newest lines',
+    name: t('train.mode.new'),
+    sub: t('train.mode.new.sub'),
     stat: !locked && untrainedLines.length > 0 ? untrainedLines.length : undefined,
-    statLabel: untrainedLines.length === 1 ? 'line' : 'lines',
+    statLabel: t('stat.line', { n: untrainedLines.length }),
     disabled: locked || freshLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(freshLines, container, { explicit: true }),
@@ -588,10 +588,10 @@ function renderPractiseBox(
     linesList.appendChild(buildModeCard({
       accent: MODE_ACCENT.prep,
       icon: Icons.target(20),
-      name: 'Prep',
-      sub: 'opponent-tagged lines',
+      name: t('train.mode.prep'),
+      sub: t('train.mode.prep.sub'),
       stat: prepLines.length,
-      statLabel: prepLines.length === 1 ? 'line' : 'lines',
+      statLabel: t('stat.line', { n: prepLines.length }),
       onClick: () => startRounds(
         prepLines.slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
     }));
@@ -609,53 +609,41 @@ function openPracticeInfo(runPlan: RunPlan | null): void {
   // and knocked that card's stat badge out of alignment with its neighbours.
   const saving = runPlan ? runSavingNote(runPlan) : null;
   openInfoSheet({
-    title: 'The practice modes',
-    intro: 'Six ways through the same repertoire. They differ in WHAT they ask you and '
-      + 'how much of a line you play.',
+    title: t('train.info.title'),
+    intro: t('train.info.intro'),
     entries: [
       {
         icon: Icons.clock(18), accent: MODE_ACCENT.timed,
-        label: 'Time attack',
-        detail: 'Single positions against the clock for three minutes, against one personal '
-          + 'best. It draws on everything you have saved, including paused and shallow '
-          + 'lines, so it stays playable early on.',
+        label: t('train.mode.timed'),
+        detail: t('train.info.timed'),
       },
       {
         icon: Icons.zap(18), accent: MODE_ACCENT.fix,
-        label: 'Missed moves',
-        detail: 'One move at a time, from the positions you have actually got wrong. No '
-          + 'run-up: you are dropped straight into the position that beat you.',
+        label: t('train.mode.missed'),
+        detail: t('train.info.missed'),
       },
       {
         icon: Icons.book(18), accent: MODE_ACCENT.run,
-        label: 'Openings (the big button)',
-        detail: 'One pass through your whole book, asking every move exactly once. Lines '
-          + 'that share an opening replay it once here instead of once per line, which is '
-          + 'why it is much shorter than drilling the same lines one by one.'
-          + (saving ? ` In your book that is ${saving}.` : ''),
+        label: t('train.info.door'),
+        detail: t('train.info.doorDetail') + (saving ? ` ${t('train.info.doorSaving', { saving })}` : ''),
       },
       {
         icon: Icons.plus(18), accent: MODE_ACCENT.fresh,
-        label: 'New lines',
-        detail: 'Full runs of your newest lines, start to finish. The one to use straight '
-          + 'after building something, while it is still fresh enough to fix.',
+        label: t('train.mode.new'),
+        detail: t('train.info.new'),
       },
       {
         icon: Icons.trending(18), accent: MODE_ACCENT.weak,
-        label: 'Weak spots',
-        detail: 'Full runs of the lines you score worst on. Same shape as the one above, '
-          + 'picked from the other end of the list.',
+        label: t('train.mode.weak'),
+        detail: t('train.info.weak'),
       },
       {
         icon: Icons.target(18), accent: MODE_ACCENT.prep,
-        label: 'Prep',
-        detail: 'Full runs of the lines you tagged against a scouted opponent. It only '
-          + 'appears once you have some.',
+        label: t('train.mode.prep'),
+        detail: t('train.info.prep'),
       },
     ],
-    footnote: 'Time attack and Review missed moves ask single positions; the rest walk whole '
-      + 'lines. Nothing here changes your review schedule differently — a move answered is a '
-      + 'move reviewed, whichever door you came in by.',
+    footnote: t('train.info.footnote'),
   });
 }
 
@@ -796,12 +784,12 @@ export function startMoveFix(
         if (!located) { clear(); onDone(); return; }
         startDrill(located.line, {
           wrongMoveMode: 'full',
-          modeLabel: 'Fix it',
+          modeLabel: t('home.forgotten.fix'),
           modeIcon: () => Icons.zap(18),
           modeAccent: MODE_ACCENT.fix,
-          completeMessage: 'Fixed! 🎉',
+          completeMessage: t('train.fixed'),
           celebrateOnComplete: true,
-          backLabel: 'Done',
+          backLabel: t('common.done'),
           onComplete: () => { clear(); onDone(); },
           onCancel: onDone,
         });
@@ -974,13 +962,13 @@ export function startPositionsSession(
       confirmAbandon: true,
       teachNewMoves: true,
       showMoveControl: true,
-      modeLabel: 'Positions to refresh',
+      modeLabel: t('daily.pref.positions'),
       modeIcon: () => Icons.target(18),
       modeAccent: MODE_ACCENT.fix,
       contextLabel,
       playPrelude: true,
       celebrateOnComplete: true,
-      completeMessage: 'Positions cleared ✓',
+      completeMessage: t('train.positionsCleared'),
       recordMiss: (node) => { missed.add(node.id); },
       onStepComplete: (expected) => {
         const line = lineByNode.get(expected);
@@ -1194,7 +1182,7 @@ function runItem(
   const drillOpts: DrillOptions = {
     wrongMoveMode: 'full',
     confirmAbandon: true,
-    modeLabel: 'Training',
+    modeLabel: t('train.training'),
     modeIcon: () => Icons.pawn(18),
     contextLabel: stats.contextLabel,
     startAtPly,
@@ -1206,7 +1194,7 @@ function runItem(
       total: session.initialCount,
     },
     celebrateOnComplete: true,
-    completeMessage: 'Line complete',
+    completeMessage: t('train.lineComplete'),
     // Training stays strict about the ENGINE's opinion: no onExplore, and a
     // merely sound move is still a miss. What it does recognise is the user's
     // OWN work — the position index knows when the move just played is another
@@ -1306,7 +1294,7 @@ function runItem(
       } else {
         stats.lineStats.set(line.id, {
           line: lineCopy,
-          lineName: line.name || 'Untitled',
+          lineName: line.name || t('common.untitled'),
           openingName: line.openingName,
           misses: missed.size,
           totalMoves: gradedNodes.length,
@@ -1387,12 +1375,12 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
       confirmAbandon: true,
       teachNewMoves: true,
       showMoveControl: true,
-      modeLabel: 'Repertoire run',
+      modeLabel: t('train.repertoireRun'),
       modeIcon: () => Icons.book(18),
       modeAccent: MODE_ACCENT.run,
       playPrelude: true,
       celebrateOnComplete: true,
-      completeMessage: 'Book walked ✓',
+      completeMessage: t('train.bookWalked'),
       recordMiss: (node) => { missed.add(node.id); },
       onStepComplete: (expected) => {
         const pos = posByNode.get(expected);
@@ -1504,13 +1492,13 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
         confirmAbandon: true,
         teachNewMoves: true,
       showMoveControl: true,
-      modeLabel: 'Individual moves',
+      modeLabel: t('train.individual'),
         modeIcon: () => Icons.zap(18),
         modeAccent: MODE_ACCENT.fix,
         // Replay the opponent's move into each position so you see how it arose.
         playPrelude: true,
         celebrateOnComplete: true,
-        completeMessage: 'Positions cleared ✓',
+        completeMessage: t('train.positionsCleared'),
         // Strict training: no checkAlternative/onExplore — only the stored move
         // is accepted; anything else is a miss.
         recordMiss: (node) => { missed.add(node.id); },
@@ -1568,9 +1556,9 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
               totalRounds,
               correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
               missed: stats.missed - before.missed,
-              remainingLabel: `${remaining} position${remaining === 1 ? '' : 's'} left`,
+              remainingLabel: t('train.positionsLeft', { n: remaining }),
               rows: reviewedOpeningRows(newTally(stats.openings, before.keys)),
-              rowsLabel: 'Moves in this round',
+              rowsLabel: t('train.movesInRound'),
               onNext: runPositionRound,
             });
           }
@@ -1595,16 +1583,16 @@ function renderIndividualComplete(
 
   const correct = stats.reviewed - stats.missed;
   const head = completionHead(
-    'Positions cleared ✓',
-    `${stats.reviewed} position${stats.reviewed === 1 ? '' : 's'} drilled`,
+    t('train.positionsCleared'),
+    t('train.positionsDrilled', { n: stats.reviewed }),
   );
-  appendStatsRow(head, correct, stats.missed, 'missed', 'first try');
+  appendStatsRow(head, correct, stats.missed, t('train.missed'), t('train.firstTry'));
 
   const reschedNote = document.createElement('div');
   reschedNote.className = 'train-all-done';
   reschedNote.textContent = stats.missed > 0
-    ? 'Missed positions are scheduled to come back sooner.'
-    : 'Clean run — every position remembered!';
+    ? t('train.missedPositionsBack')
+    : t('train.cleanPositions');
   head.appendChild(reschedNote);
 
   // Per-opening recap (same style as the puzzle results).
@@ -1612,7 +1600,7 @@ function renderIndividualComplete(
   if (openingRows.length > 0) {
     const sectionHead = document.createElement('div');
     sectionHead.className = 'summary-needs-work-head';
-    sectionHead.textContent = 'Openings reviewed';
+    sectionHead.textContent = t('train.openingsReviewed');
     head.appendChild(sectionHead);
     panel.appendChild(head);
     panel.appendChild(completionList(openingRows));
@@ -1730,7 +1718,7 @@ function appendStatsRow(
   correct: number,
   missed: number,
   missLabel: string,
-  correctLabel = 'correct',
+  correctLabel = t('stat.correct'),
 ): void {
   const statsRow = document.createElement('div');
   statsRow.className = 'summary-stats-row';
@@ -1795,7 +1783,7 @@ function bumpOpening(
   incorrect: number,
   extras?: Pick<OpeningTally, 'onOpen' | 'statsLine' | 'grow'>,
 ): void {
-  const cur = tally.get(key) ?? { name: name || 'Untitled', correct: 0, incorrect: 0, ...extras };
+  const cur = tally.get(key) ?? { name: name || t('common.untitled'), correct: 0, incorrect: 0, ...extras };
   cur.correct += correct;
   cur.incorrect += incorrect;
   tally.set(key, cur);
@@ -1806,8 +1794,8 @@ function bumpOpening(
 function reviewStatsLine(review: MoveNode['review'] | undefined): string {
   const parts: string[] = [];
   if (review) {
-    parts.push(`Failed ${review.lapses}×`);
-    parts.push(`${review.reps} in a row`);
+    parts.push(t('train.failedTimes', { n: review.lapses }));
+    parts.push(t('train.repsInARow', { n: review.reps }));
   }
   parts.push(describeDue(review?.due ?? null));
   return parts.join(' · ');
@@ -1906,7 +1894,7 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
     main.appendChild(name);
     const meta = document.createElement('div');
     meta.className = 'pz-result-meta';
-    meta.textContent = clean ? 'all remembered' : `${o.incorrect} missed`;
+    meta.textContent = clean ? t('train.allRemembered') : t('train.nMissed', { n: o.incorrect });
     main.appendChild(meta);
     if (o.statsLine) {
       const stats = document.createElement('div');
@@ -1917,7 +1905,7 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
     if (o.grow) {
       const grow = document.createElement('div');
       grow.className = 'pz-result-grow';
-      grow.textContent = '★ Mastered — keep adding moves';
+      grow.textContent = t('train.masteredGrow');
       main.appendChild(grow);
     }
     row.appendChild(main);
@@ -1938,8 +1926,8 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
 function openQuickNoteSheet(line: Line, node: MoveNode): void {
   void openMoveNoteSheet({
     node,
-    title: `Note for ${formatMove(node.san)}`,
-    placeholder: 'Reminder or plan for this move…',
+    title: t('home.note.for', { move: formatMove(node.san) }),
+    placeholder: t('home.note.placeholder'),
     onSave: () => { void saveLine(line); },
   });
 }
@@ -1961,17 +1949,17 @@ function openTrainingPeek(opts: {
 
   if (opts.onNote) {
     const onNote = opts.onNote;
-    actions.push({ icon: Icons.note(18), label: 'Add note', onClick: () => onNote() });
+    actions.push({ icon: Icons.note(18), label: t('common.addNote'), onClick: () => onNote() });
   }
   if (opts.onTurnOff) {
     const onTurnOff = opts.onTurnOff;
     actions.push({
       icon: Icons.toggleOff(18),
-      label: 'Turn off',
+      label: t('drill.turnOff'),
       onClick: ({ disable }) => {
         onTurnOff();
         disable();
-        showToast('Line turned off, continue training');
+        showToast(t('drill.turnedOff'));
       },
     });
   }
@@ -1979,7 +1967,7 @@ function openTrainingPeek(opts: {
   // screen down with it — the popup alone isn't the whole layer in the way.
   actions.push({
     icon: Icons.pencil(18),
-    label: 'Edit',
+    label: t('common.edit'),
     onClick: ({ close }) => { close(); dismissCompletion?.(); opts.onEdit(); },
   });
 
@@ -2021,10 +2009,10 @@ function renderRoundScreen(
   const { panel, close, dismiss } = mountCompletionOverlay(container);
 
   const head = completionHead(
-    `Round ${opts.roundNo} done ✓`,
-    `Round ${opts.roundNo} of ${opts.totalRounds}`,
+    t('train.roundDone', { n: opts.roundNo }),
+    t('train.roundOf', { n: opts.roundNo, total: opts.totalRounds }),
   );
-  appendStatsRow(head, opts.correct, opts.missed, 'missed');
+  appendStatsRow(head, opts.correct, opts.missed, t('train.missed'));
 
   const note = document.createElement('div');
   note.className = 'train-all-done';
@@ -2034,7 +2022,7 @@ function renderRoundScreen(
   if (opts.rows?.length) {
     const sectionHead = document.createElement('div');
     sectionHead.className = 'summary-needs-work-head';
-    sectionHead.textContent = opts.rowsLabel ?? 'This round';
+    sectionHead.textContent = opts.rowsLabel ?? t('train.thisRound');
     head.appendChild(sectionHead);
     panel.appendChild(head);
     panel.appendChild(completionList(opts.rows));
@@ -2049,7 +2037,7 @@ function renderRoundScreen(
   const next = document.createElement('button');
   next.type = 'button';
   next.className = 'btn-primary train-next-btn';
-  next.textContent = 'Next round →';
+  next.textContent = t('train.nextRound');
   // Dismiss this overlay, then start the next round (which mounts its own
   // full-screen drill overlay) — the pane is never exposed in between.
   next.addEventListener('click', () => { dismiss(); opts.onNext(); });
@@ -2058,7 +2046,7 @@ function renderRoundScreen(
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'btn-secondary train-done-btn';
-  closeBtn.textContent = 'Save & close';
+  closeBtn.textContent = t('train.saveClose');
   closeBtn.addEventListener('click', close);
   actions.appendChild(closeBtn);
 
@@ -2092,9 +2080,9 @@ function renderRoundComplete(
     totalRounds: runner.totalRounds,
     correct: roundMoves - roundMissed,
     missed: roundMissed,
-    remainingLabel: `${remaining} line${remaining === 1 ? '' : 's'} left`,
+    remainingLabel: t('train.linesLeft', { n: remaining }),
     rows: reviewedOpeningRows(tallyFromLineStats(thisRound)),
-    rowsLabel: 'Lines in this round',
+    rowsLabel: t('train.linesInRound'),
     onNext: () => runRound(runner, container),
   });
 }
@@ -2113,16 +2101,16 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats, next
 
   const correctMoves = stats.totalMoves - stats.movesMissed;
   const head = completionHead(
-    'Session complete ✓',
-    `${stats.linesReviewed} line${stats.linesReviewed === 1 ? '' : 's'} reviewed`,
+    t('train.sessionComplete'),
+    t('train.linesReviewed', { n: stats.linesReviewed }),
   );
-  appendStatsRow(head, correctMoves, stats.movesMissed, 'missed');
+  appendStatsRow(head, correctMoves, stats.movesMissed, t('train.missed'));
 
   // A clean run still gets its one-line cheer above the list.
   if (stats.movesMissed === 0 && stats.linesReviewed > 0) {
     const cleanEl = document.createElement('div');
     cleanEl.className = 'summary-clean-run';
-    cleanEl.textContent = 'Clean run — all moves remembered!';
+    cleanEl.textContent = t('train.cleanMoves');
     head.appendChild(cleanEl);
   }
 
@@ -2137,8 +2125,8 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats, next
     // The rows below name the lines (and carry their own ★ chip), so the
     // headline doesn't repeat a name that would wrap to three lines.
     grown.textContent = mastered.length === 1
-      ? "You've mastered this line — keep adding moves to it."
-      : `You've mastered ${mastered.length} of these lines — keep adding moves.`;
+      ? t('train.masteredOne')
+      : t('train.masteredSome', { n: mastered.length });
     head.appendChild(grown);
   }
 
@@ -2149,7 +2137,7 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats, next
   if (openingRows.length > 0) {
     const sectionHead = document.createElement('div');
     sectionHead.className = 'summary-needs-work-head';
-    sectionHead.textContent = 'Openings reviewed';
+    sectionHead.textContent = t('train.openingsReviewed');
     head.appendChild(sectionHead);
     panel.appendChild(head);
     panel.appendChild(completionList(openingRows));
@@ -2157,7 +2145,7 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats, next
     if (stats.movesMissed > 0) {
       const reschedNote = document.createElement('div');
       reschedNote.className = 'train-all-done train-all-done--pinned';
-      reschedNote.textContent = 'Missed moves are scheduled to come back sooner.';
+      reschedNote.textContent = t('train.missedMovesBack');
       panel.appendChild(reschedNote);
     }
   } else {
@@ -2204,7 +2192,7 @@ function appendReviewActions(
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-    retry.textContent = `Try your mistakes again (${mistakes.length})`;
+    retry.textContent = t('train.tryAgain', { n: mistakes.length });
     retry.addEventListener('click', () => { dismiss(); runMistakesReview(container, mistakes); });
     actions.appendChild(retry);
   }
@@ -2212,7 +2200,7 @@ function appendReviewActions(
   const close_ = document.createElement('button');
   close_.type = 'button';
   close_.className = 'btn-secondary train-done-btn';
-  close_.textContent = 'Close training';
+  close_.textContent = t('train.close');
   close_.addEventListener('click', close);
   actions.appendChild(close_);
 }
@@ -2230,14 +2218,14 @@ function runMistakesReview(container: HTMLElement, mistakes: Mistake[]): void {
       wrongMoveMode: 'full',
       teachNewMoves: true,
       showMoveControl: true,
-      modeLabel: 'Your mistakes',
+      modeLabel: t('analysis.modeLabel'),
       modeIcon: () => Icons.reset(18),
       modeAccent: MODE_ACCENT.fix,
       // Replay the opponent's last move into each position so it reads in
       // context (matches the individual-moves drill) instead of appearing cold.
       playPrelude: true,
       celebrateOnComplete: true,
-      completeMessage: 'Mistakes reviewed ✓',
+      completeMessage: t('train.mistakesReviewed'),
       // Strict training: no checkAlternative/onExplore — only the stored move
       // is accepted; anything else is a miss.
       recordMiss: (node) => { stillMissed.add(node); },
@@ -2260,16 +2248,16 @@ function renderReviewComplete(
   const { panel, close, dismiss } = mountCompletionOverlay(container);
 
   const head = completionHead(
-    'Mistakes reviewed ✓',
-    `${reviewed} position${reviewed === 1 ? '' : 's'} revisited`,
+    t('train.mistakesReviewed'),
+    t('train.positionsRevisited', { n: reviewed }),
   );
   head.classList.add('pz-results-head--fill');
 
   const note = document.createElement('div');
   note.className = 'train-all-done';
   note.textContent = again.length > 0
-    ? `Still shaky on ${again.length} — give them another go.`
-    : 'All cleared — nicely done!';
+    ? t('train.stillShaky', { n: again.length })
+    : t('train.allCleared');
   head.appendChild(note);
   panel.appendChild(head);
 
@@ -2313,7 +2301,7 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
     {
       timedMs: minutes * 60 * 1000,
       confirmAbandon: true,
-      modeLabel: 'Time attack',
+      modeLabel: t('train.mode.timed'),
       modeIcon: () => Icons.clock(18),
       modeAccent: MODE_ACCENT.timed,
       // Mark the opponent's last move so the position reads at a glance (no replay —
@@ -2332,7 +2320,7 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
         const line = lineByNode.get(pos.expected);
         bumpOpening(
           openings, line ? `${line.id}:${pos.expected.id}` : pos.expected.id,
-          line ? (line.openingName || line.name) : 'Untitled',
+          line ? (line.openingName || line.name) : t('common.untitled'),
           ok ? 1 : 0, ok ? 0 : 1,
           line ? {
             onOpen: () => openTrainingPeek({
@@ -2370,21 +2358,21 @@ function renderTimedComplete(
   const { panel, close, dismiss } = mountCompletionOverlay(container);
 
   const head = completionHead(
-    "Time's up ⏱",
-    `${correct} correct in ${minutes} minute${minutes === 1 ? '' : 's'}`,
+    t('train.timesUp'),
+    t('train.correctIn', { correct, n: minutes }),
   );
-  appendStatsRow(head, correct, wrong, 'mistakes');
+  appendStatsRow(head, correct, wrong, t('train.mistakes'));
 
   // Personal best line.
   const pb = document.createElement('div');
   if (isNewBest && correct > 0) {
     pb.className = 'timed-best timed-best--new';
-    pb.textContent = `New personal best! 🎉 (was ${prevBest})`;
+    pb.textContent = t('train.best.new', { best: prevBest });
   } else {
     pb.className = 'timed-best';
     pb.textContent = prevBest > 0
-      ? `Personal best: ${prevBest} — beat it next time`
-      : 'Answer one to set your first personal best!';
+      ? t('train.best.beat', { best: prevBest })
+      : t('train.best.first');
   }
   head.appendChild(pb);
 
@@ -2393,7 +2381,7 @@ function renderTimedComplete(
   if (openingRows.length > 0) {
     const sectionHead = document.createElement('div');
     sectionHead.className = 'summary-needs-work-head';
-    sectionHead.textContent = 'Openings reviewed';
+    sectionHead.textContent = t('train.openingsReviewed');
     head.appendChild(sectionHead);
     panel.appendChild(head);
     panel.appendChild(completionList(openingRows));
@@ -2408,7 +2396,7 @@ function renderTimedComplete(
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = 'btn-primary train-next-btn';
-    retry.textContent = `Retry mistakes (${mistakes.length})`;
+    retry.textContent = t('train.retry', { n: mistakes.length });
     retry.addEventListener('click', () => { dismiss(); runMistakesReview(container, mistakes); });
     actions.appendChild(retry);
   }
@@ -2416,14 +2404,14 @@ function renderTimedComplete(
   const again = document.createElement('button');
   again.type = 'button';
   again.className = mistakes.length > 0 ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-  again.textContent = 'Play again';
+  again.textContent = t('train.playAgain');
   again.addEventListener('click', () => { dismiss(); runTimed(container, allLines, minutes); });
   actions.appendChild(again);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'btn-secondary train-done-btn';
-  closeBtn.textContent = 'Close training';
+  closeBtn.textContent = t('train.close');
   closeBtn.addEventListener('click', close);
   actions.appendChild(closeBtn);
 

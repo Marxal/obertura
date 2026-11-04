@@ -104,7 +104,7 @@ seeded lines are enrolled without setting anything.
 ## Languages
 
 `?lang=xx` runs the fake language for that tab, and `?lang=` ends it. `npm run i18n:layout` walks
-first run (with a stand-in for Chess.com, through the recap to the finish card), starter packs, the builder tour, the import sheet, the five tabs and Settings against English, on what `npm run build` last produced. It needs
+first run (with a stand-in for Chess.com, through the recap to the finish card), starter packs, the builder tour, the import sheet, the Pro popup, a drill, the five tabs and Settings against English, on what `npm run build` last produced. It needs
 `npm i --no-save playwright`.
 
 ## Keeping this file honest

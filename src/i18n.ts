@@ -22,13 +22,31 @@ export type Params = Record<string, string | number>;
 const english: Dictionary = en;
 let active: Dictionary = english;
 let plurals = new Intl.PluralRules('en');
-let numbers = new Intl.NumberFormat('en');
+let numbers = new Intl.NumberFormat();
+let ordinals = new Intl.PluralRules('en', { type: 'ordinal' });
+let locale: string | undefined;
 
 /** Switch what t() reads from. `rulesFor` is the language whose plural rules apply. */
 export function useDictionary(dictionary: Dictionary, rulesFor: string): void {
   active = dictionary;
   plurals = new Intl.PluralRules(rulesFor);
-  numbers = new Intl.NumberFormat(rulesFor);
+  ordinals = new Intl.PluralRules(rulesFor, { type: 'ordinal' });
+  // In English, dates and numbers keep following the device: 4 November in Britain,
+  // November 4 in the US. Any other language brings its own way of writing them.
+  locale = rulesFor === 'en' ? undefined : rulesFor;
+  numbers = new Intl.NumberFormat(locale);
+}
+
+/** What to hand toLocaleDateString and friends. */
+export function appLocale(): string | undefined {
+  return locale;
+}
+
+/** 21st, 2n, 3:e: `n` written as an ordinal, by the language's own ordinal rules. */
+export function tOrdinal(key: MessageKey, n: number): string {
+  const message = active[key] ?? english[key];
+  const text = typeof message === 'string' ? message : message[ordinals.select(n)] ?? message.other;
+  return fill(text, { n });
 }
 
 /**

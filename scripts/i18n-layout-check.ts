@@ -9,6 +9,7 @@
 //   npm run i18n:layout                  checks the fake language, xx
 //   npm run i18n:layout -- ca es         checks those languages
 //   npm run i18n:layout -- xx --shots=DIR   also saves a screenshot of each screen
+//   npm run i18n:layout -- xx --baseline    also lists the problems English already has
 //
 // It tests what `npm run build` last produced, so build first. Playwright isn't a
 // repo dependency (the deploy has no use for it): `npm i --no-save playwright`.
@@ -281,6 +282,20 @@ async function walk(browser: Browser, lang: string, width: number): Promise<Resu
   await record(offer.page, 'pro-declined', width, lang, out);
   await offer.context.close();
 
+  // Training: the modes explained, a drill, and leaving one.
+  const drill = await newContext(browser, width, true, lang);
+  await drill.page.click('#bottom-nav [data-view="train"]');
+  await drill.page.click('.info-btn:visible');
+  await record(drill.page, 'train-info', width, lang, out);
+  await drill.page.click('.dialog-btn-row .btn-primary');
+  await drill.page.click('.train-door:visible');
+  await drill.page.waitForSelector('.pt-overlay');
+  await drill.page.waitForTimeout(1200);
+  await record(drill.page, 'drill', width, lang, out);
+  await drill.page.click('.pt-header-end');
+  await record(drill.page, 'drill-leave', width, lang, out);
+  await drill.context.close();
+
   // The import sheet, from a profile that already has lines but no games.
   const later = await newContext(browser, width, true, lang);
   await later.page.click('#bottom-nav [data-view="games"]');
@@ -313,10 +328,18 @@ const browser = await chromium.launch();
 try {
   const signature = (r: { screen: string; width: number }, p: Problem): string => `${r.screen}|${r.width}|${p.kind}|${p.where}`;
   const baseline = new Set<string>();
+  const inEnglish: string[] = [];
   for (const width of WIDTHS) {
-    for (const r of await walk(browser, 'en', width)) r.problems.forEach((p) => baseline.add(signature(r, p)));
+    for (const r of await walk(browser, 'en', width)) {
+      r.problems.forEach((p) => {
+        baseline.add(signature(r, p));
+        inEnglish.push(`  ${r.screen} @${width}  ${p.kind}: "${p.text}"\n      ${p.where}`);
+      });
+    }
   }
-  console.log(`English baseline: ${baseline.size} existing problems, ignored below.\n`);
+  console.log(`English baseline: ${baseline.size} existing problems, ignored below.`);
+  if (args.includes('--baseline')) console.log(inEnglish.join('\n'));
+  console.log('');
 
   for (const lang of languages) {
     const results: Result[] = [];

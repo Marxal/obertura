@@ -26,6 +26,7 @@ import {
 } from './stats';
 import { countGamesPerLine } from './analysis';
 import { Icons } from './icons';
+import { appLocale } from './i18n';
 
 // How many "most failed" moves the block lists before it stops. Three is enough
 // to see a pattern and short enough that the block stays a footnote to the line
@@ -158,7 +159,7 @@ export function addedLabel(createdAt: number | undefined): string {
   if (days <= 0) return 'Added today';
   if (days === 1) return 'Added yesterday';
   if (days < 7) return `Added ${days} days ago`;
-  return `Added ${then.toLocaleDateString(undefined, {
+  return `Added ${then.toLocaleDateString(appLocale(), {
     day: 'numeric', month: 'short', year: 'numeric',
   })}`;
 }
@@ -166,7 +167,7 @@ export function addedLabel(createdAt: number | undefined): string {
 /** The full date, for the title attribute behind the relative label. */
 export function addedExact(createdAt: number | undefined): string {
   if (!createdAt) return '';
-  return `Last added to on ${new Date(createdAt).toLocaleDateString(undefined, {
+  return `Last added to on ${new Date(createdAt).toLocaleDateString(appLocale(), {
     day: 'numeric', month: 'long', year: 'numeric',
   })}`;
 }

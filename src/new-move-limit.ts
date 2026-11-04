@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // How many never-trained moves a day's training may bring in.
 //
 // WHY THERE IS ONE. Adding a pack or five lines from your games puts a lot of new
@@ -77,6 +78,6 @@ export function noteMoveGraded(
 export function newMoveLimitReason(): string {
   const limit = getNewMovesPerDay();
   return limit === 0
-    ? 'Nothing due right now'
-    : `Today’s ${limit} new moves are done. More tomorrow.`;
+    ? t('train.nothingDue')
+    : t('train.newDone', { limit });
 }

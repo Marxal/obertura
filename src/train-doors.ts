@@ -59,6 +59,7 @@
 
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { t } from './i18n';
 
 // ── The four domain colours ──────────────────────────────────────────────────
 //
@@ -274,7 +275,7 @@ function openRowSheet(key: string, title: string, sub: string | undefined, row: 
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'dialog-btn btn-secondary';
-  done.textContent = 'Close';
+  done.textContent = t('common.close');
   btnRow.appendChild(done);
   sheet.appendChild(btnRow);
 
@@ -330,6 +331,8 @@ export interface DoorOptions {
    */
   stat?: number | string;
   statLabel?: string;
+  /** The shortest unit for the figure in the Train switch: "10 new". */
+  statShort?: string;
   /** Omitted only on a door that is disabled — there is nothing to start. */
   onClick?: () => void;
   disabled?: boolean;
@@ -364,7 +367,7 @@ export function buildDoor(o: DoorOptions): HTMLElement {
   // off the door, so the four screens never learn the switch exists): the
   // figure with a short unit, or a padlock.
   if (o.disabled) card.dataset.locked = '1';
-  else if (o.stat !== undefined) card.dataset.figure = switchFigure(o.stat, o.statLabel);
+  else if (o.stat !== undefined) card.dataset.figure = switchFigure(o.stat, o.statLabel, o.statShort);
   // A greyed door is NOT a disabled button: tapping it opens its domain's box,
   // which is where the thing it is waiting for lives (the import form, the
   // first line to save). The room owns that — see the Train room in main.ts.
@@ -431,7 +434,7 @@ export function buildDoor(o: DoorOptions): HTMLElement {
   heroTitle.textContent = o.heroTitle ?? o.sub;
   hero.appendChild(heroTitle);
   const said = o.stat !== undefined && o.statLabel
-    ? (o.statLabel === 'rating' ? `Rating ${o.stat}` : `${o.stat} ${o.statLabel}`)
+    ? (o.statLabel === 'rating' ? t('train.door.rating', { rating: o.stat }) : `${o.stat} ${o.statLabel}`)
     : '';
   const detail = o.disabled
     ? o.disabledReason ?? ''
@@ -447,7 +450,7 @@ export function buildDoor(o: DoorOptions): HTMLElement {
     const go = document.createElement('span');
     go.className = 'train-door-go';
     go.setAttribute('aria-hidden', 'true');
-    go.textContent = 'Start';
+    go.textContent = t('train.door.start');
     card.appendChild(go);
   }
 
@@ -457,7 +460,8 @@ export function buildDoor(o: DoorOptions): HTMLElement {
 
 // The figure under a domain's name in the Train switch: a rating bare, a count
 // with the shortest unit that still says what it counts.
-function switchFigure(stat: number | string, label?: string): string {
+function switchFigure(stat: number | string, label?: string, short?: string): string {
+  if (short) return `${stat} ${short}`;
   if (!label) return String(stat);
   if (label === 'rating') return `${stat} rating`;
   if (label.includes('due')) return `${stat} due`;

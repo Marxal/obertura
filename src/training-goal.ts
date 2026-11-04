@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // The three-line goal, on its own, because four different screens need to agree
 // on it and one of them has to stay importable from Node.
 //
@@ -25,6 +26,6 @@ export const TRAINING_UNLOCK_LINES = 3;
 export function trainingLockReason(lineCount: number): string {
   const left = Math.max(0, TRAINING_UNLOCK_LINES - lineCount);
   return lineCount === 0
-    ? `Save ${TRAINING_UNLOCK_LINES} lines to unlock training`
-    : `${left} more line${left === 1 ? '' : 's'} to unlock training`;
+    ? t('train.unlock.none', { limit: TRAINING_UNLOCK_LINES })
+    : t('train.unlock.some', { n: left });
 }

@@ -20,6 +20,7 @@
 // opponent, the rating.
 
 import { Icons } from './icons';
+import { t } from './i18n';
 
 export interface RunHeader {
   /** The `.pt-header` element itself — append it to the overlay as before. */
@@ -99,7 +100,7 @@ export function buildRunHeader(o: RunHeaderOptions): RunHeader {
     // Keeps .pt-back-btn so every existing rule about the exit still applies;
     // the modifier is what moves it to the right and swaps the chevron for an ✕.
     end.className = 'pt-back-btn pt-header-end';
-    end.appendChild(document.createTextNode(o.endLabel ?? 'End session'));
+    end.appendChild(document.createTextNode(o.endLabel ?? t('drill.endSession')));
     end.appendChild(Icons.close(15));
     end.addEventListener('click', o.onEnd);
     el.appendChild(end);

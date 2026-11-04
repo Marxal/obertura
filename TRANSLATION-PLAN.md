@@ -3,8 +3,9 @@
 Status: **Phases 0 and 1 done, Phase 2 under way (2026-11-04).** The system is in place
 and English users see no change. The bottom menu, the Language row, "Where do you play?",
 the recap of your games, the import sheet, starter packs, the builder tour and the sign-up
-sheet use it so far. The Pro popup, checkout messages and Home do too. Pack names and notes wait
-for Phase 7. Still to do in Phase 2: training and Settings. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
+sheet use it so far. The Pro popup, checkout messages, Home and opening training do too. Pack names
+and notes wait for Phase 7. The Middlegame, Tactics and Endgames boxes wait for Phase 6.
+Still to do in Phase 2: Settings. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
 
 Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
 and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
@@ -103,8 +104,8 @@ Cf3 / Sf3 problem. The optional letter notation stays in English letters.
 - **Whole sentences only:** never join translated fragments. Word order differs.
 - **Things that compare text must stop:** `freeValues` in `src/pro-sheet.ts` is keyed
   by the English sentence, so it needs real keys. Search for others like it.
-- **Dates and numbers:** go through `Intl` with the active language. The app has 19
-  `toLocale`/`Intl` uses to check.
+- **Dates and numbers:** `formatNumber()` and `appLocale()` in `i18n.ts`. English keeps following
+  the device, and any other language writes them its own way. Currency stays with `pricing.ts`.
 - **Text in `index.html`:** marked `data-i18n="key"`, or `data-i18n-label="key"` for an icon
   button's label, filled in by `language.ts`.
 - **A chip or button inside a sentence:** `tParts()` keeps the sentence whole, with `{move}` where
@@ -216,7 +217,7 @@ Each phase can stop safely, because of the English fallback.
 | Phase | Work | Done when |
 |---|---|---|
 | 0 ✅ | Declare a version, and re-run the string count | `v0.18` |
-| 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers all of first run, starter packs, the builder tour, the import sheet, the Pro popup, the five tabs and Settings; Phase 2 adds training |
+| 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers all of first run, starter packs, the builder tour, the import sheet, the Pro popup, a drill, the five tabs and Settings |
 | 2 | Move the core screens to keys: first-run, Home, training, Pro popup, Settings | Selftests pass, screens look identical in English |
 | 3 | Marçal approves voice and glossary | Glossary approved |
 | 4 | Translate the core screens into all three, build the review page | Layout check passes in all languages |

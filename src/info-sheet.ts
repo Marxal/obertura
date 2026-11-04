@@ -15,6 +15,7 @@
 
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
+import { t } from './i18n';
 
 export interface InfoEntry {
   /** The mode's own icon, so the sheet and the card it explains match. */
@@ -106,7 +107,7 @@ export function openInfoSheet(opts: InfoSheetOptions): void {
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'dialog-btn btn-primary';
-  done.textContent = 'Got it';
+  done.textContent = t('tour.gotIt');
   done.addEventListener('click', close);
   row.appendChild(done);
   sheet.appendChild(row);

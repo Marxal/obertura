@@ -15,7 +15,7 @@
 // No DOM here — the maths is pure and covered by daily-recap.selftest.ts.
 
 import type { DailyTaskId } from './daily-challenge';
-import { t } from './i18n';
+import { appLocale, t } from './i18n';
 
 const LOG_KEY = 'obertura.dailyChallenge.log';
 const MAX_DAYS = 180;
@@ -260,7 +260,7 @@ export function formatDayLabel(day: string, now: Date = new Date()): string {
   const diff = Math.round((today.getTime() - date.getTime()) / 86_400_000);
   if (diff === 0) return t('date.today');
   if (diff === 1) return t('date.yesterday');
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+  return date.toLocaleDateString(appLocale(), { day: 'numeric', month: 'long' });
 }
 
 // A day counts as perfect when it was cleared and nothing at all was missed.

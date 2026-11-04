@@ -20,6 +20,7 @@ import { celebratePawn, burstConfetti, starfall } from './confetti';
 import { pixelQueenSvg } from './pixel-pawn';
 import { pushBack } from './back-nav';
 import { formatDayLabel, recapMessage, type Recap } from './daily-recap';
+import { t, tOrdinal } from './i18n';
 
 // How long the promoting pawn hops before it queens.
 const PROMOTE_AT_MS = 1100;
@@ -109,10 +110,10 @@ function dismissButton(label: string, close: () => void): HTMLButtonElement {
 
 export function showDailyCelebration(recap: Recap): void {
   const { pop, close } = mountPopup('daily');
-  pop.setAttribute('aria-label', 'Daily challenge complete');
+  pop.setAttribute('aria-label', t('celebrate.completeLabel'));
 
   pop.appendChild(celebratePawn());
-  pop.appendChild(el('div', 'dc-pop-title', 'Daily challenge done'));
+  pop.appendChild(el('div', 'dc-pop-title', t('celebrate.title')));
   // A day reopened from the calendar says WHICH day, so nothing on the popup
   // can be misread as being about today.
   if (recap.replay) pop.appendChild(el('div', 'dc-pop-day', formatDayLabel(recap.day)));
@@ -121,7 +122,7 @@ export function showDailyCelebration(recap: Recap): void {
   if (recap.total > 0) pop.appendChild(buildCompare(recap));
   pop.appendChild(el('p', 'dc-pop-msg', recapMessage(recap)));
   pop.appendChild(buildStrip(recap));
-  pop.appendChild(dismissButton(recap.replay ? 'Close' : 'Nice', close));
+  pop.appendChild(dismissButton(t(recap.replay ? 'common.close' : 'celebrate.nice'), close));
 
   // A replay is a look back, not an event — no confetti for a day you already
   // celebrated once.
@@ -132,11 +133,16 @@ export function showDailyCelebration(recap: Recap): void {
 // both the wrong word (it is one challenge, in parts) and the least interesting
 // fact available — the user had just cleared it, so they knew. The score is what
 // they actually want: how many of the moves they played came back right.
+function scoreParts(recap: Recap): { right: string; played: string } {
+  return {
+    right: t('celebrate.correctMoves', { n: recap.right }),
+    played: t('celebrate.playedMoves', { n: recap.total }),
+  };
+}
+
 function subtitleFor(recap: Recap): string {
-  if (recap.total === 0) return 'Nothing to score today — the challenge is cleared';
-  const right = `${recap.right} correct move${recap.right === 1 ? '' : 's'}`;
-  const played = `${recap.total} played move${recap.total === 1 ? '' : 's'}`;
-  return `${right} of ${played}`;
+  if (recap.total === 0) return t('celebrate.nothing');
+  return t('celebrate.scoreOf', scoreParts(recap));
 }
 
 // The day's accuracy, big, with the previous day's underneath it as two thin
@@ -144,18 +150,18 @@ function subtitleFor(recap: Recap): string {
 // names itself rather than borrowing the word "today".
 function buildCompare(recap: Recap): HTMLElement {
   const wrap = el('div', 'dc-compare');
-  const dayWord = recap.replay ? formatDayLabel(recap.day) : 'Today';
+  const dayWord = recap.replay ? formatDayLabel(recap.day) : t('date.today');
 
   const scoreRow = el('div', 'dc-score-row');
   scoreRow.appendChild(el('span', 'dc-score', `${recap.accuracy}%`));
   scoreRow.appendChild(el('span', 'dc-score-label',
-    recap.replay ? `right that day` : 'right today'));
+    t(recap.replay ? 'celebrate.rightThatDay' : 'celebrate.rightToday')));
   if (recap.delta !== null && recap.delta !== 0) {
     const up = recap.delta > 0;
     const chip = el('span', `dc-delta ${up ? 'dc-delta--up' : 'dc-delta--down'}`,
       `${up ? '▲' : '▼'} ${Math.abs(recap.delta)}`);
     chip.setAttribute('aria-label',
-      `${Math.abs(recap.delta)} points ${up ? 'up on' : 'down on'} last time`);
+      t(up ? 'celebrate.pointsUp' : 'celebrate.pointsDown', { n: Math.abs(recap.delta) }));
     scoreRow.appendChild(chip);
   }
   wrap.appendChild(scoreRow);
@@ -164,8 +170,8 @@ function buildCompare(recap: Recap): HTMLElement {
     // "Yesterday" only means yesterday from today; on a replay the compare day
     // is the one before THAT day, so it reads as "the day before".
     const before = recap.compare.isYesterday
-      ? (recap.replay ? 'The day before' : 'Yesterday')
-      : 'Last time';
+      ? t(recap.replay ? 'celebrate.dayBefore' : 'date.yesterday')
+      : t('celebrate.lastTime');
     wrap.appendChild(bar(before, recap.compare.accuracy, false));
   }
   wrap.appendChild(bar(dayWord, recap.accuracy, true));
@@ -192,11 +198,11 @@ function bar(label: string, pct: number, now: boolean): HTMLElement {
 // many challenges are behind you, and how much of the repertoire is solid.
 function buildStrip(recap: Recap): HTMLElement {
   const strip = el('div', 'dc-strip');
-  strip.appendChild(tile(String(recap.streak), 'day streak', recap.streakIsBest ? 'best yet' : null));
-  strip.appendChild(tile(String(recap.challengesDone), 'challenges', null));
+  strip.appendChild(tile(String(recap.streak), t('celebrate.streak'), recap.streakIsBest ? t('celebrate.bestYet') : null));
+  strip.appendChild(tile(String(recap.challengesDone), t('celebrate.challenges'), null));
   strip.appendChild(tile(
     `${recap.linesMastered}/${recap.linesInTraining}`,
-    'lines solid',
+    t('celebrate.linesSolid'),
     null,
   ));
   return strip;
@@ -212,36 +218,32 @@ function tile(value: string, label: string, flag: string | null): HTMLElement {
 
 // ── The perfect day ──────────────────────────────────────────────────────────
 
-const ORDINALS = ['', 'first', 'second', 'third', 'fourth', 'fifth'];
+const ORDINALS = ['', t('ordinal.1'), t('ordinal.2'), t('ordinal.3'), t('ordinal.4'), t('ordinal.5')];
 
 function ordinal(n: number): string {
-  if (n < ORDINALS.length) return ORDINALS[n];
-  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th'
-    : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th';
-  return `${n}${suffix}`;
+  return n < ORDINALS.length ? ORDINALS[n] : tOrdinal('ordinal.number', n);
 }
 
 export function showPerfectDayCelebration(recap: Recap): void {
   const { pop, close } = mountPopup('perfect');
-  pop.setAttribute('aria-label', 'Perfect day — every move right');
+  pop.setAttribute('aria-label', t('celebrate.perfectLabel'));
 
   pop.appendChild(buildPromotion(recap.replay));
-  pop.appendChild(el('div', 'dc-eyebrow', 'PERFECT DAY'));
-  pop.appendChild(el('div', 'dc-pop-title', 'Your pawn just queened'));
+  pop.appendChild(el('div', 'dc-eyebrow', t('celebrate.perfectEyebrow')));
+  pop.appendChild(el('div', 'dc-pop-title', t('celebrate.queened')));
   if (recap.replay) pop.appendChild(el('div', 'dc-pop-day', formatDayLabel(recap.day)));
   pop.appendChild(el('div', 'dc-pop-sub',
-    `${recap.right} correct move${recap.right === 1 ? '' : 's'} of ${
-      recap.total} played move${recap.total === 1 ? '' : 's'}. Not one missed.`));
+    t('celebrate.perfectScore', scoreParts(recap))));
 
   pop.appendChild(el('p', 'dc-pop-msg', perfectMessage(recap)));
 
   const strip = el('div', 'dc-strip dc-strip--perfect');
-  strip.appendChild(tile('100%', 'clean sweep', null));
-  strip.appendChild(tile(String(recap.perfectDays), recap.perfectDays === 1 ? 'perfect day' : 'perfect days', null));
-  strip.appendChild(tile(String(recap.streak), 'day streak', recap.streakIsBest ? 'best yet' : null));
+  strip.appendChild(tile('100%', t('celebrate.cleanSweep'), null));
+  strip.appendChild(tile(String(recap.perfectDays), t('celebrate.perfectDays', { n: recap.perfectDays }), null));
+  strip.appendChild(tile(String(recap.streak), t('celebrate.streak'), recap.streakIsBest ? t('celebrate.bestYet') : null));
   pop.appendChild(strip);
 
-  pop.appendChild(dismissButton(recap.replay ? 'Close' : 'Take a bow', close));
+  pop.appendChild(dismissButton(t(recap.replay ? 'common.close' : 'celebrate.bow'), close));
 
   // The full works: a burst on arrival, stars raining through, and a second
   // burst as the pawn promotes. A replay gets the queen and none of the theatre.
@@ -252,8 +254,8 @@ export function showPerfectDayCelebration(recap: Recap): void {
 }
 
 function perfectMessage(recap: Recap): string {
-  if (recap.perfectDays <= 1) return 'A whole daily challenge without a single wrong move. That is rare — enjoy it.';
-  return `Your ${ordinal(recap.perfectDays)} flawless day. You are making this look easy.`;
+  if (recap.perfectDays <= 1) return t('celebrate.perfectFirst');
+  return t('celebrate.perfectNth', { ordinal: ordinal(recap.perfectDays) });
 }
 
 // The pawn hops, then promotes: it bursts and comes back as a queen. Reduced

@@ -14,6 +14,7 @@ import { showToast } from './toast';
 import { burstConfetti } from './confetti';
 import { formatMove, formatSanLine } from './notation';
 import { createStruggleNudge, type StruggleNudge } from './struggle-nudge';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -307,7 +308,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     {
       intro,
       tasks,
-      titleText: line.openingName || line.name || 'Untitled line',
+      titleText: line.openingName || line.name || t('drill.untitledLine'),
       watchPlies: moves.map(ply),
     },
     opts,
@@ -446,10 +447,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // where it competed with the line name for the one line that block can spare.
   const header = buildRunHeader({
     icon: (opts.modeIcon ?? (() => Icons.pawn(18)))(),
-    title: opts.modeLabel ?? 'Training',
+    title: opts.modeLabel ?? t('train.training'),
     kicker: opts.contextLabel,
     accent: opts.modeAccent,
-    endLabel: opts.backLabel ?? 'End session',
+    endLabel: opts.backLabel ?? t('drill.endSession'),
     onEnd: opts.hideExit ? undefined : () => exitViaButton(),
   });
   const headerEl = header.el;
@@ -526,7 +527,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     if (!sp) return;
     paintSessionBar(
       completed / sp.total,
-      `Line ${Math.min(completed + 1, sp.total)} of ${sp.total}`,
+      t('drill.lineOf', { at: Math.min(completed + 1, sp.total), total: sp.total }),
     );
   }
 
@@ -534,7 +535,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // reads "Position N of M".
   function renderPositionBar(done: number): void {
     const total = tasks.length;
-    paintSessionBar(done / total, `Position ${Math.min(done + 1, total)} of ${total}`);
+    paintSessionBar(done / total, t('drill.positionOf', { at: Math.min(done + 1, total), total }));
   }
 
   if (showLineBar && sp) renderSessionBar(sp.completed);
@@ -644,26 +645,26 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
     // Note — view this move's note, or add one when it has none. The label flips
     // between "View note" and "Add note" as the current move changes.
-    noteControl = buildControl('note', Icons.note(19), 'Add note', () => toggleNote());
+    noteControl = buildControl('note', Icons.note(19), t('common.addNote'), () => toggleNote());
     noteControlLabel = noteControl.querySelector('.pt-control-label');
     controls.appendChild(noteControl);
 
     // Hint — draw the correct-move arrow for the current position. Never counts
     // as a miss; it just reuses the reveal arrow without requiring a replay.
-    controls.appendChild(buildControl('hint', Icons.bulb(19), 'Hint', () => showHint()));
+    controls.appendChild(buildControl('hint', Icons.bulb(19), t('common.hint'), () => showHint()));
 
     if (opts.onPauseLine) {
-      controls.appendChild(buildControl('pause', Icons.toggleOff(19), 'Turn off', () => confirmPause()));
+      controls.appendChild(buildControl('pause', Icons.toggleOff(19), t('drill.turnOff'), () => confirmPause()));
     }
     if (opts.onEditLine) {
-      controls.appendChild(buildControl('edit', Icons.pencil(19), 'Edit', () => leaveForEdit()));
+      controls.appendChild(buildControl('edit', Icons.pencil(19), t('common.edit'), () => leaveForEdit()));
     }
 
     bottomEl.appendChild(controls);
   } else if (!isLineDrill && !timed && opts.showMoveControl) {
     const controls = document.createElement('div');
     controls.className = 'pt-controls';
-    controls.appendChild(buildControl('hint', Icons.bulb(19), 'Show move', () => showMoveAsMiss()));
+    controls.appendChild(buildControl('hint', Icons.bulb(19), t('drill.showMove'), () => showMoveAsMiss()));
     bottomEl.appendChild(controls);
   }
 
@@ -681,7 +682,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   function updateNoteButton(expected: MoveNode): void {
     if (!noteControlLabel || !noteControl) return;
     const has = !!expected.note;
-    noteControlLabel.textContent = has ? 'View note' : 'Add note';
+    noteControlLabel.textContent = t(has ? 'drill.viewNote' : 'common.addNote');
     noteControl.classList.toggle('pt-control--has-note', has);
   }
 
@@ -700,11 +701,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
-      title: 'End this session?',
-      body: 'Every answer you have given so far is saved.',
+      title: t('drill.end.title'),
+      body: t('drill.end.body'),
       buttons: [
-        { label: 'Keep going', variant: 'primary', onClick: onStay },
-        { label: 'End session', variant: 'secondary', onClick: doExit },
+        { label: t('signup.keepGoing'), variant: 'primary', onClick: onStay },
+        { label: t('drill.endSession'), variant: 'secondary', onClick: doExit },
       ],
       onDismiss: onStay,
     });
@@ -777,15 +778,15 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // the session and carries on.
   function confirmPause(): void {
     showDialog({
-      title: 'Turn off this line?',
-      body: 'It will stop appearing in your active training sessions. You can flip it back on in Openings → My lines.',
+      title: t('drill.off.title'),
+      body: t('drill.off.body'),
       buttons: [
-        { label: 'Turn off', variant: 'danger', onClick: () => {
+        { label: t('drill.turnOff'), variant: 'danger', onClick: () => {
           cleanup();
           opts.onPauseLine!();
-          showToast('Line turned off, continue training');
+          showToast(t('drill.turnedOff'));
         } },
-        { label: 'Keep training', variant: 'secondary', onClick: () => {} },
+        { label: t('drill.keepTraining'), variant: 'secondary', onClick: () => {} },
       ],
       onDismiss: () => {},
     });
@@ -879,7 +880,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   }
 
   function promptYourMove(): void {
-    setStatus('Your move', 'pt-status--prompt');
+    setStatus(t('drill.yourMove'), 'pt-status--prompt');
   }
 
   // ── Error flash ─────────────────────────────────────────────────────────────
@@ -952,7 +953,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     noteCardEl.classList.add('pt-note-card--edit');
     const ta = document.createElement('textarea');
     ta.className = 'pt-note-input';
-    ta.placeholder = 'Why does the line play this move?';
+    ta.placeholder = t('drill.notePlaceholder');
     ta.value = expected.note ?? '';
     ta.addEventListener('input', () => {
       expected.note = ta.value.trim() || undefined;
@@ -972,7 +973,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     // Brief headline: a sound move, but not the saved line.
     const headEl = document.createElement('div');
     headEl.className = 'pt-alt-head';
-    headEl.textContent = `Good move${explore ? ` (${formatMove(explore.san)})` : ''} — but not your saved line.`;
+    headEl.textContent = explore ? t('drill.alt.named', { move: formatMove(explore.san) }) : t('drill.alt.plain');
     altCardEl.appendChild(headEl);
 
     if (expected.note) {
@@ -984,11 +985,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       const addBtn = document.createElement('button');
       addBtn.type = 'button';
       addBtn.className = 'pt-alt-add-note-btn';
-      addBtn.textContent = '+ Add a note to remember this';
+      addBtn.textContent = t('drill.addNoteRemember');
 
       const textarea = document.createElement('textarea');
       textarea.className = 'pt-alt-note-input';
-      textarea.placeholder = 'Why does the line play this move?';
+      textarea.placeholder = t('drill.notePlaceholder');
       textarea.hidden = true;
 
       addBtn.addEventListener('click', () => {
@@ -1014,9 +1015,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       const exploreBtn = document.createElement('button');
       exploreBtn.type = 'button';
       exploreBtn.className = 'pt-alt-explore-btn';
-      exploreBtn.textContent = 'Explore this line →';
+      exploreBtn.textContent = t('drill.explore');
       exploreBtn.addEventListener('click', () => {
-        opts.onExplore!(explore.fen, `After ${formatMove(explore.san)}`, userColour);
+        opts.onExplore!(explore.fen, t('drill.after', { move: formatMove(explore.san) }), userColour);
       });
       btnRow.appendChild(exploreBtn);
     }
@@ -1024,7 +1025,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     const newLineBtn = document.createElement('button');
     newLineBtn.type = 'button';
     newLineBtn.className = 'pt-alt-new-line-btn';
-    newLineBtn.textContent = 'Create new line';
+    newLineBtn.textContent = t('drill.createLine');
     newLineBtn.addEventListener('click', () => { cleanup(); opts.onCancel(); });
     btnRow.appendChild(newLineBtn);
 
@@ -1071,14 +1072,14 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       setStatus(note, 'pt-status--error');
     } else {
       const left = retriesAllowed - wrongAttempts + 1;
-      setStatus(left === 1 ? 'Not quite — one more try' : 'Not quite — try again', 'pt-status--error');
+      setStatus(t(left === 1 ? 'drill.oneMore' : 'drill.tryAgain'), 'pt-status--error');
     }
   }
 
   // Draw the hint arrow and require the user to replay the correct move.
   function revealCorrectMove(expected: MoveNode): void {
     awaitingCorrectReplay = true;
-    setStatus(expected.note ? '' : 'Play the highlighted move', 'pt-status--reveal');
+    setStatus(expected.note ? '' : t('drill.playHighlighted'), 'pt-status--reveal');
 
     // The moment a miss has hardened into a reveal: the answer is on the board
     // and you're looking straight at the move you keep forgetting. That's when
@@ -1111,7 +1112,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn-primary pt-note-fix-btn';
-    btn.textContent = 'Fix it';
+    btn.textContent = t('home.forgotten.fix');
     btn.addEventListener('click', () => {
       struggleUsed = true;
       const preFen = tasks[taskIndex].preFen;
@@ -1122,7 +1123,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
     const hint = document.createElement('div');
     hint.className = 'pt-note-fix-hint';
-    hint.textContent = 'Play the move 3× then replay the full line.';
+    hint.textContent = t('drill.fixHint');
     noteCardEl.appendChild(hint);
   }
 
@@ -1132,7 +1133,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     awaitingAlternativePlay = true;
 
     // A sound move, but it isn't the line we saved — still ask for the saved move.
-    setStatus(`Good move — but not your line. Play ${formatMove(expected.san)} to continue.`, 'pt-status--alt');
+    setStatus(t('drill.alt.continue', { move: formatMove(expected.san) }), 'pt-status--alt');
 
     // Restrict board to only the expected move (the green arrow shows where).
     const orig = expected.uci.slice(0, 2) as Key;
@@ -1235,7 +1236,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
     const head = document.createElement('div');
     head.className = 'pt-divert-head';
-    head.textContent = 'This position is also in your repertoire elsewhere.';
+    head.textContent = t('drill.divert.head');
     divertCardEl.appendChild(head);
 
     const list = document.createElement('div');
@@ -1253,13 +1254,13 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       row.appendChild(label);
       list.appendChild(row);
     };
-    addRow(`${config.titleText || 'This line'} (training)`, 'pt-divert-dot--trained');
+    addRow(t('drill.divert.training', { line: config.titleText || t('reply.fact.thisLine') }), 'pt-divert-dot--trained');
     for (const c of candidates) addRow(c.lineName, 'pt-divert-dot--sibling');
     divertCardEl.appendChild(list);
 
     const hint = document.createElement('div');
     hint.className = 'pt-divert-hint';
-    hint.textContent = 'Play either move to continue in that line.';
+    hint.textContent = t('drill.divert.hint');
     divertCardEl.appendChild(hint);
 
     divertCardEl.removeAttribute('hidden');
@@ -1391,7 +1392,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
               // line the move came from, so the app explains rather than just
               // refusing.
               registerWrongAttempt(
-                expected, `That’s your move from “${verdict.lineName}”, which isn’t in training right now.`);
+                expected, t('drill.divert.paused', { line: verdict.lineName }));
             } else {
               registerWrongAttempt(expected);
             }
@@ -1408,7 +1409,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       // Gentle mode (default) — used by pre-training. Retry freely, no arrow.
       opts.recordMiss?.(expected);
       markDot(taskIndex, 'wrong');
-      setStatus('Not yet — try that move again', 'pt-status--error');
+      setStatus(t('drill.notYet'), 'pt-status--error');
       snapBack();
     }
   }
@@ -1609,7 +1610,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // A never-graded move: show it, then ask for it (DrillOptions.teachNewMoves).
   function maybeTeach(task: Task): void {
     if (!task.teach) return;
-    setStatus('New move — play the arrow', 'pt-status--prompt');
+    setStatus(t('drill.newMove'), 'pt-status--prompt');
     const orig = task.expected.uci.slice(0, 2) as Key;
     const dest = task.expected.uci.slice(2, 4) as Key;
     cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
@@ -1634,7 +1635,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       await opts.onBeforeComplete();
     }
 
-    setStatus(opts.completeMessage ?? 'Line complete', 'pt-status--success');
+    setStatus(opts.completeMessage ?? t('train.lineComplete'), 'pt-status--success');
     // Fill this line's notch on the session bar before we hand off.
     if (showLineBar && sp) renderSessionBar(sp.completed + 1);
     // Single-move modes: top the bar off — every position is behind us now.
@@ -1686,7 +1687,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       turnColor: 'white',
       movable: { color: undefined, dests: new Map() },
     });
-    setStatus('Watch the line once', 'pt-status--prompt');
+    setStatus(t('drill.watch'), 'pt-status--prompt');
 
     const playIn = (): void => {
       if (isCleaned) return;

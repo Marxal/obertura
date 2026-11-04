@@ -4638,10 +4638,10 @@ let trainTab: DomainId | null = null;
 let showLiveTrainTab: ((id: DomainId) => boolean) | null = null;
 
 const TRAIN_TABS: Record<DomainId, { label: string; icon: () => SVGElement }> = {
-  openings: { label: 'Openings', icon: () => Icons.pawn(16) },
-  middlegame: { label: 'Middlegame', icon: () => Icons.swords(16) },
-  tactics: { label: 'Tactics', icon: () => Icons.puzzlePiece(16) },
-  endgames: { label: 'Endgames', icon: () => Icons.flag(16) },
+  openings: { label: t('nav.openings'), icon: () => Icons.pawn(16) },
+  middlegame: { label: t('train.domain.middlegame'), icon: () => Icons.swords(16) },
+  tactics: { label: t('train.domain.tactics'), icon: () => Icons.puzzlePiece(16) },
+  endgames: { label: t('train.domain.endgames'), icon: () => Icons.flag(16) },
 };
 
 function renderTrainRoom(host: HTMLElement): void {

@@ -24,6 +24,7 @@ import {
   type Repertoire,
 } from './repertoire';
 import { projectLine } from './lines-view';
+import { t } from './i18n';
 
 /** One move the run will ask for. */
 export interface RunPosition {
@@ -214,9 +215,7 @@ function dueTime(p: RunPosition, now: Date): number {
 export function runSavingNote(plan: RunPlan): string | null {
   const saved = plan.asLineWalks - plan.totalMoves;
   if (saved <= 0) return null;
-  return saved === 1
-    ? 'one move you’d otherwise answer twice'
-    : `${saved} repeated moves you’d otherwise answer twice`;
+  return t('train.info.saving', { n: saved });
 }
 
 // No review record, or one that has never been graded either way.
