@@ -4536,7 +4536,7 @@ function updateHeaderTitle(): void {
       ? (suspendedSession ? ''
         : builderMode === 'analyser' ? (builderDesc || 'Unknown')
         : (currentTitle() || 'New line'))
-    : currentView === 'settings' ? 'Settings'
+    : currentView === 'settings' ? t('nav.settings')
     : 'bito chess';
   el.classList.toggle('header-title--screen', !onTab);
   // The lower case is the logo. Said aloud, it's the product's name.
@@ -6049,7 +6049,7 @@ function buildSideUser(): HTMLElement {
 // What the sidebar's bottom entry is called. No account system exists, so it's
 // the destination's name; a later round returns the signed-in name here.
 function sideUserLabel(): string {
-  return 'Settings';
+  return t('nav.settings');
 }
 
 // Keep the sidebar entry's avatar in step with identityAvatarUrl() (the same

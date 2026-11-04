@@ -27,6 +27,7 @@ import type { ImportedGame, TimeClass } from './import-core';
 import { getAccessToken, isConnected } from './lichess-auth';
 import { getExplorerBand, getManualLevel } from './prefs';
 import type { ExplorerBand } from './explorer-bands';
+import { t, type MessageKey } from './i18n';
 
 export type LevelSource = 'manual' | 'games' | 'lichess';
 
@@ -210,11 +211,15 @@ export function activeBand(level: MyLevel | null = cachedMyLevel()): ActiveBand 
 
 // How the caption explains where an inferred level came from — the quiet line
 // that stops the band feeling like a guess made behind the user's back.
+const SPEED_WORDS: Record<TimeClass, MessageKey> = {
+  bullet: 'level.speed.bullet', blitz: 'level.speed.blitz', rapid: 'level.speed.rapid', daily: 'level.speed.classical',
+};
+
 export function levelSourceLabel(level: MyLevel): string {
-  const speed = level.timeClass === 'daily' ? 'classical' : level.timeClass;
+  const speed = level.timeClass ? t(SPEED_WORDS[level.timeClass]) : '';
   switch (level.source) {
-    case 'manual': return `from the rating you set, ${level.rating}`;
-    case 'lichess': return `from your Lichess ${speed ?? ''} rating, ${level.rating}`.replace('  ', ' ');
-    default: return `from your ${speed ?? ''} rating, ${level.rating}`.replace('  ', ' ');
+    case 'manual': return t('level.manual', { rating: level.rating });
+    case 'lichess': return t('level.lichess', { speed, rating: level.rating }).replace('  ', ' ');
+    default: return t('level.games', { speed, rating: level.rating }).replace('  ', ' ');
   }
 }

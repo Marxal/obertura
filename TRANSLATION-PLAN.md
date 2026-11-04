@@ -1,11 +1,10 @@
 # Translating Bito Chess: the plan
 
-Status: **Phases 0 and 1 done, Phase 2 under way (2026-11-04).** The system is in place
-and English users see no change. The bottom menu, the Language row, "Where do you play?",
-the recap of your games, the import sheet, starter packs, the builder tour and the sign-up
-sheet use it so far. The Pro popup, checkout messages, Home and opening training do too. Pack names
-and notes wait for Phase 7. The Middlegame, Tactics and Endgames boxes wait for Phase 6.
-Still to do in Phase 2: Settings. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
+Status: **Phases 0, 1 and 2 done (2026-11-04).** First run, Home, opening training, the Pro
+popup and Settings go through `t()`, and English users see no change beyond small layout
+fixes. Next is Phase 3: Marçal's Catalan tone answers, then the glossary. Pack names and notes
+wait for Phase 7. The builder, Middlegame, Tactics, Endgames and the other screens wait for
+Phase 6. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
 
 Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
 and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
@@ -218,7 +217,7 @@ Each phase can stop safely, because of the English fallback.
 |---|---|---|
 | 0 ✅ | Declare a version, and re-run the string count | `v0.18` |
 | 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers all of first run, starter packs, the builder tour, the import sheet, the Pro popup, a drill, the five tabs and Settings |
-| 2 | Move the core screens to keys: first-run, Home, training, Pro popup, Settings | Selftests pass, screens look identical in English |
+| 2 ✅ | Move the core screens to keys: first-run, Home, training, Pro popup, Settings | Selftests pass, screens look identical in English |
 | 3 | Marçal approves voice and glossary | Glossary approved |
 | 4 | Translate the core screens into all three, build the review page | Layout check passes in all languages |
 | 5 | Marçal reviews Catalan first, then Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
@@ -247,6 +246,9 @@ the first-run picker exist but stay hidden until a second language is in
 - A language with too much out-of-date text gets fixed before its next release.
 
 ## Questions to settle when starting
+
+- The default book names ("My White lines", "My Black lines") are saved in each person's data, so
+  they stay in English for now. Decide in Phase 4 whether new books get a translated name.
 
 - Is the app calm enough to start? Translating text that's about to change is wasted
   work, and day-two retention (7 returns from 80 installs by 2026-11-03) may matter

@@ -76,7 +76,7 @@ export function renderDailyPrefs(host: HTMLElement, onChange?: () => void): void
         write({ ...getDailyConfig(), enabled: on });
         again();
       }),
-      { sub: 'Pick your challenges, how many of each, and the order they run in.' },
+      { sub: t('daily.pref.sub') },
     ));
 
     if (!config.enabled) return;

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // The rating band the opening explorer's numbers are filtered to, and the one
 // place that turns a human band into the Lichess API's fixed rating buckets.
 //
@@ -61,12 +62,12 @@ const FIXED: Record<Exclude<ExplorerBand, 'mine'>, readonly number[]> = {
 // The full label, for the info dialog, Settings and aria-labels.
 export function bandLabel(band: ExplorerBand): string {
   switch (band) {
-    case 'u1400': return 'Under 1400';
+    case 'u1400': return t('level.under1400');
     case 'r1400': return '1400–1800';
     case 'r1800': return '1800–2200';
     case 'r2200': return '2200+';
-    case 'mine': return 'Around my level';
-    default: return 'All ratings';
+    case 'mine': return t('level.aroundMyLevel');
+    default: return t('level.allRatings');
   }
 }
 
@@ -78,8 +79,8 @@ export function bandShort(band: ExplorerBand): string {
     case 'r1400': return '1400–1800';
     case 'r1800': return '1800–2200';
     case 'r2200': return '2200+';
-    case 'mine': return 'My level';
-    default: return 'All';
+    case 'mine': return t('level.myLevel');
+    default: return t('import.all');
   }
 }
 
@@ -112,7 +113,7 @@ export function aroundBuckets(rating: number): number[] {
 // number the user can't see.
 export function bandRangeLabel(band: ExplorerBand, rating: number | null): string {
   const buckets = bucketsFor(band, rating);
-  if (!buckets || buckets.length === RATING_BUCKETS.length) return 'all ratings';
+  if (!buckets || buckets.length === RATING_BUCKETS.length) return t('level.allRatings13');
   const low = buckets[0];
   const topIndex = RATING_BUCKETS.indexOf(buckets[buckets.length - 1] as typeof RATING_BUCKETS[number]);
   // The last bucket is open-ended, so a band that reaches it has no upper edge.

@@ -3066,3 +3066,14 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - English otherwise compares as identical, apart from faint rendering differences. The end-of-session summaries and
   celebrations need finishing a session, so the automatic check doesn't reach them.
 
+### Translation: Settings (Phase 2, last round)
+
+- ✅ **Settings, the account screens and their error messages, backup and restore, repertoires, feedback and About**
+  use keys. That finishes Phase 2. The word to type when deleting an account is translated too, and checked against
+  the same key.
+- ✅ **The layout check can list what's still in English,** screen by screen (`--untranslated`).
+- ✅ **Layouts fixed for longer languages:** the account status beside "Account" and the Custom button in the Daily
+  challenge preferences. English is unchanged.
+- Feedback emails keep English subjects and categories, because they're for reading here.
+- The default book names ("My White lines") are saved in people's data, so they stay in English for now.
+

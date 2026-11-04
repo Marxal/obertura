@@ -17,6 +17,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { showToast } from './toast';
 import { track, trackOncePerLaunch } from './metrics';
 import type { AuthError, User, EmailOtpType } from '@supabase/supabase-js';
+import { t } from './i18n';
 
 // ENTITLEMENT LIVES IN entitlement.ts, not here. There is exactly one answer to
 // "is this user entitled?" and it comes from the `profiles.entitled` column.
@@ -251,7 +252,7 @@ export async function initAuth(): Promise<void> {
   });
 
   if (authReturn?.errorDescription) {
-    showToast(`Sign-in link failed — ${authReturn.errorDescription}`);
+    showToast(t('account.signInLinkFailed', { errorDescription: authReturn.errorDescription }));
   } else if (authReturn?.tokenHash && authReturn.otpType) {
     // An email link: confirmation, recovery, or an address change. Works in any
     // browser, which is the whole reason to prefer this shape.
@@ -267,10 +268,10 @@ export async function initAuth(): Promise<void> {
       } else if (authReturn.otpType === 'magiclink' || authReturn.otpType === 'email') {
         // A sign-in link, not a confirmation — there was no address to confirm.
         track('signed_in');
-        showToast('Signed in', { variant: 'success' });
+        showToast(t('account.signedIn'), { variant: 'success' });
       } else {
         track('signed_in');
-        showToast('Email confirmed — you’re signed in', { variant: 'success' });
+        showToast(t('account.emailConfirmedYouReSigned'), { variant: 'success' });
       }
     } catch (err) {
       showToast(friendlyAuthError(err));
@@ -283,7 +284,7 @@ export async function initAuth(): Promise<void> {
       );
       if (error) showToast(friendlyAuthError(error));
       else if (authReturn.otpType === 'recovery') beginPasswordRecovery();
-      else { track('signed_in'); showToast('Signed in', { variant: 'success' }); }
+      else { track('signed_in'); showToast(t('account.signedIn'), { variant: 'success' }); }
     } catch (err) {
       showToast(friendlyAuthError(err));
     }
@@ -323,7 +324,7 @@ export function authRedirectUrl(): string {
 }
 
 export async function signUpWithPassword(email: string, password: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -348,7 +349,7 @@ export async function signUpWithPassword(email: string, password: string): Promi
 }
 
 export async function signInWithPassword(email: string, password: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return { ok: false, message: friendlyAuthError(error) };
@@ -363,7 +364,7 @@ export async function signInWithPassword(email: string, password: string): Promi
 // authRedirectUrl() with a `?code=`, which captureAuthReturn() picks up on the
 // next load. Only returns (with an error) if the redirect couldn't be started.
 export async function signInWithProvider(provider: OAuthProvider): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -416,7 +417,7 @@ export function signInWithFacebook(): Promise<AuthResult> {
  * a bug ("we sent a link" for a link that will never arrive).
  */
 export async function signInWithMagicLink(email: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
@@ -451,7 +452,7 @@ function isNoAccountError(err: unknown): boolean {
  * success either way for that reason.
  */
 export async function sendPasswordReset(email: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: authRedirectUrl(),
@@ -476,7 +477,7 @@ export type EmailCodeKind = 'signup' | 'email' | 'recovery';
 export async function verifyEmailCode(
   email: string, code: string, kind: EmailCodeKind,
 ): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
@@ -488,7 +489,7 @@ export async function verifyEmailCode(
       return {
         ok: false,
         message: expired
-          ? 'That code is wrong or has expired. Check it, or send a new one.'
+          ? t('account.thatCodeIsWrong')
           : friendlyAuthError(error),
       };
     }
@@ -502,7 +503,7 @@ export async function verifyEmailCode(
 
 /** Set a new password on the session a recovery link just created. */
 export async function updatePassword(password: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) return { ok: false, message: friendlyAuthError(error) };
@@ -515,7 +516,7 @@ export async function updatePassword(password: string): Promise<AuthResult> {
 
 /** Send the confirmation email again, for the one that never arrived. */
 export async function resendConfirmation(email: string): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.resend({
       type: 'signup',
@@ -530,7 +531,7 @@ export async function resendConfirmation(email: string): Promise<AuthResult> {
 }
 
 export async function signOut(): Promise<AuthResult> {
-  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  if (!isSupabaseConfigured) return { ok: false, message: t('account.accountsArenTAvailable') };
   try {
     const { error } = await supabase.auth.signOut();
     if (error) return { ok: false, message: friendlyAuthError(error) };
@@ -556,41 +557,41 @@ export function friendlyAuthError(err: unknown): string {
 
   switch (code) {
     case 'invalid_credentials':
-      return 'That email and password don’t match an account.';
+      return t('account.thatEmailAndPassword');
     case 'email_not_confirmed':
-      return 'Confirm your email first: the code or link is in your inbox.';
+      return t('account.confirmYourEmailFirst');
     case 'user_already_exists':
     case 'email_exists':
-      return 'There’s already an account with that email. Sign in instead.';
+      return t('account.thereSAlreadyAn');
     case 'weak_password':
-      return 'That password is too weak — use at least 6 characters.';
+      return t('account.thatPasswordIsToo');
     case 'over_email_send_rate_limit':
     case 'over_request_rate_limit':
-      return 'Too many tries. Wait a minute and try again.';
+      return t('account.tooManyTriesWait');
     case 'validation_failed':
-      return 'Check the email address and try again.';
+      return t('account.checkTheEmailAddress');
     case 'same_password':
-      return 'That’s already your password.';
+      return t('account.thatSAlreadyYour');
     case 'otp_expired':
-      return 'That link has expired — ask for a new one.';
+      return t('account.thatLinkHasExpired');
     case 'provider_disabled':
     case 'validation_failed_provider':
-      return 'That sign-in method isn’t switched on yet.';
+      return t('account.thatSignInMethod');
     case 'otp_disabled':
       // Only reachable from signInWithMagicLink, which asks Supabase not to
       // create accounts — so this always means "no account with that email".
-      return 'No account with that email yet. Create one first.';
+      return t('account.noAccountWithThatEmail');
   }
 
-  if (/invalid login credentials/i.test(message)) return 'That email and password don’t match an account.';
-  if (/email not confirmed/i.test(message)) return 'Confirm your email first: the code or link is in your inbox.';
-  if (/already registered/i.test(message)) return 'There’s already an account with that email. Sign in instead.';
-  if (/password should be at least/i.test(message)) return 'That password is too short — use at least 6 characters.';
-  if (/rate limit|too many/i.test(message)) return 'Too many tries. Wait a minute and try again.';
-  if (/expired|invalid.*token/i.test(message)) return 'That link has expired — ask for a new one.';
-  if (/signups not allowed for otp/i.test(message)) return 'No account with that email yet. Create one first.';
-  if (/unsupported provider|provider is not enabled/i.test(message)) return 'That sign-in method isn’t switched on yet.';
-  if (/failed to fetch|network|offline/i.test(message)) return 'Couldn’t reach the server — check your connection.';
+  if (/invalid login credentials/i.test(message)) return t('account.thatEmailAndPassword');
+  if (/email not confirmed/i.test(message)) return t('account.confirmYourEmailFirst');
+  if (/already registered/i.test(message)) return t('account.thereSAlreadyAn');
+  if (/password should be at least/i.test(message)) return t('account.thatPasswordIsTooShort');
+  if (/rate limit|too many/i.test(message)) return t('account.tooManyTriesWait');
+  if (/expired|invalid.*token/i.test(message)) return t('account.thatLinkHasExpired');
+  if (/signups not allowed for otp/i.test(message)) return t('account.noAccountWithThatEmail');
+  if (/unsupported provider|provider is not enabled/i.test(message)) return t('account.thatSignInMethod');
+  if (/failed to fetch|network|offline/i.test(message)) return t('account.couldnTReachThe');
 
-  return 'Something went wrong. Try again in a moment.';
+  return t('account.somethingWentWrongTry');
 }

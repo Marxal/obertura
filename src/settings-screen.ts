@@ -175,10 +175,10 @@ function buildGoProCta(): HTMLElement {
   const restore = document.createElement('button');
   restore.type = 'button';
   restore.className = 'settings-gopro-restore';
-  restore.textContent = 'Already paid? Check again';
+  restore.textContent = t('settings.alreadyPaidCheckAgain');
   restore.addEventListener('click', () => {
     restore.disabled = true;
-    restore.textContent = 'Checking…';
+    restore.textContent = t('settings.checking');
     void import('./checkout')
       .then(m => m.checkForPurchase())
       .then((found) => {
@@ -187,11 +187,11 @@ function buildGoProCta(): HTMLElement {
         // said so in a toast, and the button goes back to being offerable.
         if (found) return;
         restore.disabled = false;
-        restore.textContent = 'Already paid? Check again';
+        restore.textContent = t('settings.alreadyPaidCheckAgain');
       })
       .catch(() => {
         restore.disabled = false;
-        restore.textContent = 'Already paid? Check again';
+        restore.textContent = t('settings.alreadyPaidCheckAgain');
       });
   });
   wrap.appendChild(restore);
@@ -212,25 +212,25 @@ function buildGoProCta(): HTMLElement {
 // sheet, so there is exactly one copy of the wording.
 
 function buildAboutGroup(): HTMLElement {
-  const sec = staticGroup('Feedback & about', Icons.smile(16));
+  const sec = staticGroup(t('settings.feedbackAbout'), Icons.smile(16));
 
-  sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
+  sec.appendChild(linkRow(t('settings.sendFeedback'), openFeedbackSheet, Icons.note(18)));
   // Replay the builder walkthrough on demand — the coach-marks that teach the
   // panels by using them. It doesn't gate anything, so re-running it never
   // resets a choice you've made.
   sec.appendChild(linkRow(
-    'Replay walkthrough',
+    t('settings.replayWalkthrough'),
     () => window.dispatchEvent(new Event(REPLAY_WALKTHROUGH_EVENT)),
     Icons.play(18),
   ));
-  sec.appendChild(linkRow('About', () => openDoc(LANDING_URL), Icons.info(18)));
-  sec.appendChild(linkRow('Privacy policy', () => openDoc(PRIVACY_URL), Icons.shield(18)));
+  sec.appendChild(linkRow(t('settings.about'), () => openDoc(LANDING_URL), Icons.info(18)));
+  sec.appendChild(linkRow(t('settings.privacyPolicy'), () => openDoc(PRIVACY_URL), Icons.shield(18)));
   // Sits directly under the privacy link, which is the only place someone would
   // go looking for it. Built ONLY where there is something to switch off: the
   // GitHub Pages build has no Worker behind it and counts nothing at all, so a
   // switch there would be a control that does nothing (see src/metrics.ts).
   if (metricsActive()) sec.appendChild(buildCountMeRow());
-  sec.appendChild(linkRow('Terms of use', () => openDoc(TERMS_URL), Icons.file(18)));
+  sec.appendChild(linkRow(t('settings.termsOfUse'), () => openDoc(TERMS_URL), Icons.file(18)));
 
   return sec;
 }
@@ -255,14 +255,10 @@ function buildAboutGroup(): HTMLElement {
 // policy is where that list is maintained.
 function buildCountMeRow(): HTMLElement {
   return row(
-    'Leave me out of the counts',
+    t('settings.leaveMeOutOf'),
     toggle(isMetricsOptedOut(), (on) => setMetricsOptedOut(on)),
     {
-      sub: 'The app counts anonymous events like “a line was saved” — no cookies, '
-        + 'no identifier, nothing that says it was you. Turn this on and this '
-        + 'device stops contributing to those counts. It covers anonymous usage '
-        + 'counting only — if you’re signed in, see the privacy policy for what '
-        + 'your account itself stores.',
+      sub: t('settings.theAppCountsAnonymous'),
     },
   );
 }
@@ -344,15 +340,15 @@ const BOARD_PRESETS: {
   light?: string;
   dark?: string;
 }[] = [
-  { value: 'wood', label: 'Brown', light: '#eecfa1', dark: '#b58863' },
-  { value: 'green', label: 'Green', light: '#ebecd0', dark: '#779556' },
-  { value: 'blue', label: 'Blue', light: '#dee3e6', dark: '#8ca2ad' },
-  { value: 'grey', label: 'Grey', light: '#dcdcdc', dark: '#909090' },
-  { value: 'purple-diag', label: 'Purple' },
-  { value: 'wood4', label: 'Wood' },
-  { value: 'newspaper', label: 'Newspaper' },
-  { value: 'olive', label: 'Olive' },
-  { value: 'blue-marble', label: 'Blue Marble' },
+  { value: 'wood', label: t('settings.brown'), light: '#eecfa1', dark: '#b58863' },
+  { value: 'green', label: t('settings.green'), light: '#ebecd0', dark: '#779556' },
+  { value: 'blue', label: t('settings.blue'), light: '#dee3e6', dark: '#8ca2ad' },
+  { value: 'grey', label: t('settings.grey'), light: '#dcdcdc', dark: '#909090' },
+  { value: 'purple-diag', label: t('settings.purple') },
+  { value: 'wood4', label: t('settings.wood') },
+  { value: 'newspaper', label: t('settings.newspaper') },
+  { value: 'olive', label: t('settings.olive') },
+  { value: 'blue-marble', label: t('settings.blueMarble') },
 ];
 
 export function boardSwatches(
@@ -488,10 +484,10 @@ const THEME_PRESETS: {
   accent: string;
   icon: (s?: number) => SVGElement;
 }[] = [
-  { value: 'classic-light', label: 'Light',   bg: '#f1ece1', accent: '#c07a2a', icon: Icons.sun },
-  { value: 'classic-dark',  label: 'Dark',    bg: '#211c16', accent: '#d4892c', icon: Icons.moon },
-  { value: 'elegant',       label: 'Elegant', bg: '#1e3128', accent: '#dca844', icon: Icons.sparkles },
-  { value: 'gamer',         label: 'Gamer',   bg: '#0e1020', accent: '#27e0ff', icon: Icons.gamepad },
+  { value: 'classic-light', label: t('settings.light'),   bg: '#f1ece1', accent: '#c07a2a', icon: Icons.sun },
+  { value: 'classic-dark',  label: t('settings.dark'),    bg: '#211c16', accent: '#d4892c', icon: Icons.moon },
+  { value: 'elegant',       label: t('settings.elegant'), bg: '#1e3128', accent: '#dca844', icon: Icons.sparkles },
+  { value: 'gamer',         label: t('settings.gamer'),   bg: '#0e1020', accent: '#27e0ff', icon: Icons.gamepad },
 ];
 
 function themeSwatches(): { element: HTMLElement; reflect: (active: ThemeChoice) => void } {
@@ -557,13 +553,13 @@ export function buildThemeRow(): HTMLElement {
   head.className = 'pref-row-head theme-row-head';
   const title = document.createElement('div');
   title.className = 'pref-row-title';
-  title.textContent = 'Theme';
+  title.textContent = t('settings.theme');
   head.appendChild(title);
 
   const systemBtn = document.createElement('button');
   systemBtn.type = 'button';
   systemBtn.className = 'theme-system-btn';
-  systemBtn.textContent = 'System';
+  systemBtn.textContent = t('settings.system');
   head.appendChild(systemBtn);
   r.appendChild(head);
 
@@ -573,7 +569,7 @@ export function buildThemeRow(): HTMLElement {
   const sub = document.createElement('div');
   sub.className = 'pref-row-desc';
   sub.textContent =
-    'Elegant is a felt-table green; Gamer is a neon-glow dark. System follows your phone’s light/dark setting.';
+    t('settings.elegantIsAFelt');
   r.appendChild(sub);
 
   const sync = () => {
@@ -593,7 +589,7 @@ export function buildThemeRow(): HTMLElement {
 }
 
 function buildAppearanceGroup(): HTMLElement {
-  const sec = group('Appearance', Icons.eye(16));
+  const sec = group(t('settings.appearance'), Icons.eye(16));
 
   if (hasLanguageChoice()) sec.appendChild(row(t('settings.language'), buildLanguagePicker()));
 
@@ -601,49 +597,49 @@ function buildAppearanceGroup(): HTMLElement {
 
   const boardUI = boardSwatches(getBoardColour(), (v) => setBoardColour(v));
   refreshBoardSwatches = () => boardUI.reflect(getBoardColour());
-  sec.appendChild(row('Board colours', boardUI.element));
+  sec.appendChild(row(t('settings.boardColours'), boardUI.element));
 
   sec.appendChild(row(
-    'Pieces',
+    t('settings.pieces'),
     pieceSwatches(getPieceSet(), (v) => setPieceSet(v)),
-    { sub: 'New sets download once, then stay cached.' },
+    { sub: t('settings.newSetsDownloadOnce') },
   ));
 
   sec.appendChild(row(
-    'Move notation',
+    t('settings.moveNotation'),
     segmented<MoveNotation>(
       [{ value: 'standard', label: 'Nf3' }, { value: 'figurine', label: '♞f3' }],
       getMoveNotation(),
       (v) => setMoveNotation(v),
     ),
-    { sub: 'How moves are written everywhere: plain letters (Nf3, Bxf7) or piece symbols (♞f3, ♝xf7).' },
+    { sub: t('settings.howMovesAreWritten') },
   ));
 
   sec.appendChild(row(
-    'Board coordinates',
+    t('settings.boardCoordinates'),
     toggle(getShowCoordinates(), (on) => setShowCoordinates(on)),
-    { sub: 'The a–h and 1–8 labels tucked into the board corners.' },
+    { sub: t('settings.theAHAnd') },
   ));
 
   sec.appendChild(row(
-    'Board miniatures',
+    t('settings.boardMiniatures'),
     toggle(getShowLineMiniatures(), (on) => setShowLineMiniatures(on)),
-    { sub: 'A tiny board on every saved-line and suggestion card, showing where the line ends up.' },
+    { sub: t('settings.aTinyBoardOn') },
   ));
 
   sec.appendChild(row(
-    'Engine always on',
+    t('settings.engineAlwaysOn'),
     toggle(getEngineAlwaysOn(), (on) => setEngineAlwaysOn(on)),
-    { sub: 'Start the engine automatically whenever you open the board. Either way, the engine button on the board turns it on or off at any time.' },
+    { sub: t('settings.startTheEngineAutomatically') },
   ));
 
   sec.appendChild(row(
-    'Feedback sound',
+    t('settings.feedbackSound'),
     toggle(getFeedbackSound(), (on) => {
       setFeedbackSound(on);
       if (on) previewFeedback();
     }),
-    { sub: 'A soft tone on right and wrong moves while training.' },
+    { sub: t('settings.aSoftToneOn') },
   ));
 
   return sec;
@@ -660,15 +656,12 @@ function buildAppearanceGroup(): HTMLElement {
 // everybody wants; more than one is an option, and options live in Settings.
 
 function buildRepertoiresGroup(): HTMLElement {
-  const sec = group('Repertoires', Icons.book(16));
+  const sec = group(t('settings.repertoires'), Icons.book(16));
 
   const blurb = document.createElement('p');
   blurb.className = 'pref-note';
   blurb.textContent =
-    'A repertoire is a book of lines of one colour. You start with two — White '
-    + 'and Black — and for most people that is the whole story. More are for '
-    + 'situations rather than colours: one for blitz, one for a tournament, one '
-    + 'prepared for a particular opponent.';
+    t('settings.aRepertoireIsA');
   sec.appendChild(blurb);
 
   const host = document.createElement('div');
@@ -696,52 +689,52 @@ function buildRepertoiresGroup(): HTMLElement {
 // ── Training ─────────────────────────────────────────────────────────────────
 
 function buildTrainingGroup(): HTMLElement {
-  const sec = group('Training', Icons.zap(16));
+  const sec = group(t('train.training'), Icons.zap(16));
 
   sec.appendChild(row(
-    'Confirm run before training',
+    t('settings.confirmRunBeforeTraining'),
     toggle(getConfirmRunBeforeTraining(), (on) => setConfirmRunBeforeTraining(on)),
-    { sub: 'Do one clean run before a line joins training. Off adds it straight away.' },
+    { sub: t('settings.doOneCleanRun') },
   ));
 
   sec.appendChild(row(
-    'New moves per day',
+    t('settings.newMovesPerDay'),
     segmented<string>(
-      NEW_MOVE_CHOICES.map(n => ({ value: String(n), label: n === 0 ? 'No limit' : String(n) })),
+      NEW_MOVE_CHOICES.map(n => ({ value: String(n), label: n === 0 ? t('settings.noLimit') : String(n) })),
       String(getNewMovesPerDay()),
       (v) => setNewMovesPerDay(Number(v) as NewMoveChoice),
     ),
-    { sub: 'How many never-trained moves a session brings in each day. Reviews are never limited.' },
+    { sub: t('settings.howManyNeverTrained') },
   ));
 
   sec.appendChild(row(
-    'Retries before arrow',
+    t('settings.retriesBeforeArrow'),
     segmented<string>(
       [{ value: '0', label: '0' }, { value: '1', label: '1' }, { value: '2', label: '2' }],
       String(getRetriesBeforeReveal()),
       (v) => setRetriesBeforeReveal(Number(v) as Retries),
     ),
-    { sub: 'Wrong tries allowed before the answer arrow shows.' },
+    { sub: t('settings.wrongTriesAllowedBefore') },
   ));
 
   sec.appendChild(row(
-    'Watch-line speed',
+    t('settings.watchLineSpeed'),
     segmented<WatchSpeed>(
-      [{ value: 'slow', label: 'Slow' }, { value: 'normal', label: 'Normal' }, { value: 'fast', label: 'Fast' }],
+      [{ value: 'slow', label: t('settings.slow') }, { value: 'normal', label: t('settings.normal') }, { value: 'fast', label: t('settings.fast') }],
       getWatchSpeed(),
       (v) => setWatchSpeed(v),
     ),
-    { sub: 'How fast the play button auto-plays a line.' },
+    { sub: t('settings.howFastThePlay') },
   ));
 
   sec.appendChild(row(
-    'Default training mode',
+    t('settings.defaultTrainingMode'),
     segmented<TrainingMode>(
-      [{ value: 'due', label: 'Due now' }, { value: 'recent', label: 'Recent' }, { value: 'weakest', label: 'Weakest' }],
+      [{ value: 'due', label: t('due.now') }, { value: 'recent', label: t('settings.recent') }, { value: 'weakest', label: t('settings.weakest') }],
       getDefaultTrainingMode(),
       (v) => setDefaultTrainingMode(v),
     ),
-    { sub: 'What “Start training” launches from the Today screen.' },
+    { sub: t('settings.whatStartTrainingLaunches') },
   ));
 
   // The Train tabs are reordered by long-pressing one (main.ts); this is the
@@ -750,15 +743,15 @@ function buildTrainingGroup(): HTMLElement {
   const reset = document.createElement('button');
   reset.type = 'button';
   reset.className = 'btn-secondary pref-reset-btn';
-  reset.textContent = 'Reset';
+  reset.textContent = t('settings.reset');
   reset.disabled = !isCustomTrainOrder();
   reset.addEventListener('click', () => {
     resetTrainOrder();
     reset.disabled = true;
-    showToast('Train tabs are back in their first order');
+    showToast(t('settings.trainTabsAreBack'));
   });
-  sec.appendChild(row('Train tab order', reset,
-    { sub: 'Long-press a tab on Train and drag it to reorder. Train opens on the first one.' }));
+  sec.appendChild(row(t('settings.trainTabOrder'), reset,
+    { sub: t('settings.longPressATab') }));
 
   return sec;
 }
@@ -769,7 +762,7 @@ function buildTrainingGroup(): HTMLElement {
 // them.
 
 function buildDailyChallengeGroup(): HTMLElement {
-  const sec = group('Daily challenge', Icons.checkCircle(16));
+  const sec = group(t('daily.title'), Icons.checkCircle(16));
   const body = document.createElement('div');
   sec.appendChild(body);
   renderDailyPrefs(body);
@@ -788,8 +781,8 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   const source = getGamesSource();
   const imported = gameCount > 0 && !!source;
   const sec = imported
-    ? group('Add your games', Icons.download(16))
-    : staticGroup('Add your games', Icons.download(16));
+    ? group(t('settings.addYourGames'), Icons.download(16))
+    : staticGroup(t('settings.addYourGames'), Icons.download(16));
 
   // Open the panel pre-filled with the connected account (or the last-used one),
   // then re-render Settings so the connected card and counts update.
@@ -806,21 +799,20 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
 
     const heading = document.createElement('h3');
     heading.className = 'settings-connect-title';
-    heading.textContent = 'Import your games';
+    heading.textContent = t('firstRun.importTitle');
     card.appendChild(heading);
 
     const blurb = document.createElement('p');
     blurb.className = 'settings-connect-desc';
     blurb.textContent =
-      'Pull your recent games from Chess.com or Lichess to see which openings ' +
-      'you actually play, where you score badly, and what to prep next.';
+      t('settings.pullYourRecentGames');
     card.appendChild(blurb);
 
     const cta = document.createElement('button');
     cta.type = 'button';
     cta.className = 'btn-primary settings-connect-btn';
     cta.appendChild(Icons.download(16));
-    cta.appendChild(document.createTextNode('Import my games'));
+    cta.appendChild(document.createTextNode(t('tour.lines.import')));
     cta.addEventListener('click', openPanel);
     card.appendChild(cta);
 
@@ -852,7 +844,7 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   refreshBtn.type = 'button';
   refreshBtn.className = 'btn-secondary btn-compact settings-connected-refresh';
   refreshBtn.appendChild(Icons.reset(15));
-  refreshBtn.appendChild(document.createTextNode('Refresh'));
+  refreshBtn.appendChild(document.createTextNode(t('settings.refresh')));
   refreshBtn.addEventListener('click', openPanel);
   who.appendChild(refreshBtn);
   card.appendChild(who);
@@ -860,8 +852,7 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   const meta = document.createElement('p');
   meta.className = 'settings-connected-meta';
   meta.textContent =
-    `${gameCount} game${gameCount === 1 ? '' : 's'} on this device · ` +
-    `synced ${relativeDate(getLastGamesRefresh() ?? source.syncedAt)}`;
+    t('settings.games.meta', { n: gameCount, when: relativeDate(getLastGamesRefresh() ?? source.syncedAt) });
   card.appendChild(meta);
 
   sec.appendChild(card);
@@ -880,7 +871,7 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
     addBtn.type = 'button';
     addBtn.className = 'btn-secondary';
     addBtn.appendChild(Icons.download(16));
-    addBtn.appendChild(document.createTextNode(`Add games from ${platformLabel(other)}`));
+    addBtn.appendChild(document.createTextNode(t('settings.addGamesFrom', { site: platformLabel(other) })));
     addBtn.addEventListener('click', () => openImportPanel({
       platform: other,
       onImported: () => refresh(),
@@ -892,9 +883,9 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   };
 
   sec.appendChild(row(
-    'Include my other platform',
+    t('settings.includeMyOtherPlatform'),
     toggle(getIncludeSecondPlatform(), (on) => { setIncludeSecondPlatform(on); renderAddBtn(); }),
-    { sub: `Also pull games from ${platformLabel(other)} into this same library.` },
+    { sub: t('settings.alsoPullGamesFrom', { site: platformLabel(other) }) },
   ));
   sec.appendChild(addSlot);
   renderAddBtn();
@@ -909,13 +900,13 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
 // down (the caller decides where via isConnected()).
 function buildLichessGroup(refresh: () => void): HTMLElement {
   if (!isConnected()) {
-    const sec = staticGroup('Lichess connection', Icons.compass(16));
+    const sec = staticGroup(t('settings.lichessConnection'), Icons.compass(16));
     const card = document.createElement('div');
     card.className = 'settings-connect-card';
 
     const heading = document.createElement('h3');
     heading.className = 'settings-connect-title';
-    heading.textContent = 'Connect to Lichess';
+    heading.textContent = t('settings.connectToLichess');
     card.appendChild(heading);
 
     const blurb = document.createElement('p');
@@ -927,7 +918,7 @@ function buildLichessGroup(refresh: () => void): HTMLElement {
     cta.type = 'button';
     cta.className = 'btn-primary settings-connect-btn';
     cta.appendChild(Icons.compass(16));
-    cta.appendChild(document.createTextNode('Connect to Lichess'));
+    cta.appendChild(document.createTextNode(t('settings.connectToLichess')));
     cta.addEventListener('click', () => void connect());
     card.appendChild(cta);
 
@@ -936,7 +927,7 @@ function buildLichessGroup(refresh: () => void): HTMLElement {
   }
 
   // Connected: nothing to act on, so it lives as a collapsed accordion lower down.
-  const sec = group('Lichess connection', Icons.compass(16));
+  const sec = group(t('settings.lichessConnection'), Icons.compass(16));
   const card = document.createElement('div');
   card.className = 'settings-connected settings-connected--compact';
 
@@ -945,13 +936,13 @@ function buildLichessGroup(refresh: () => void): HTMLElement {
   who.appendChild(Icons.compass(22));
   const handle = document.createElement('span');
   handle.className = 'settings-connected-handle';
-  handle.textContent = 'Connected';
+  handle.textContent = t('settings.connected');
   who.appendChild(handle);
 
   const disconnectBtn = document.createElement('button');
   disconnectBtn.type = 'button';
   disconnectBtn.className = 'empty-state-link settings-connected-refresh';
-  disconnectBtn.textContent = 'Disconnect';
+  disconnectBtn.textContent = t('settings.disconnect');
   disconnectBtn.addEventListener('click', () => { disconnect(); refresh(); });
   who.appendChild(disconnectBtn);
   card.appendChild(who);
@@ -990,22 +981,21 @@ function buildExplorerBandRow(): HTMLElement {
       { fullWidth: true },
     );
 
-    const r = row('Opening statistics level', seg, {
-      sub: 'Filters the live opening statistics to games played at a rating band, '
-        + 'so the numbers describe the opponents you actually get.',
+    const r = row(t('settings.openingStatisticsLevel'), seg, {
+      sub: t('settings.filtersTheLiveOpening'),
     });
 
     // What the band means right now, in numbers — never just a label.
     const caption = document.createElement('div');
     caption.className = 'pref-row-caption';
     if (band === 'mine' && !level) {
-      caption.textContent = 'No rating found — set one below, or import your games.';
+      caption.textContent = t('settings.noRatingFoundSet');
     } else if (band === 'all') {
-      caption.textContent = 'Every rated Lichess game, whatever the level.';
+      caption.textContent = t('settings.everyRatedLichessGame');
     } else {
-      const bits = [`${bandLabel(band)} · ${bandRangeLabel(band, level?.rating ?? null)}`];
+      const bits = [t('settings.band.caption', { band: bandLabel(band), range: bandRangeLabel(band, level?.rating ?? null) })];
       if (band === 'mine' && level) bits.push(levelSourceLabel(level));
-      if (inferred) bits.push('chosen for you — tap a band to change it');
+      if (inferred) bits.push(t('settings.chosenForYouTap'));
       caption.textContent = bits.join(' · ');
     }
     r.appendChild(caption);
@@ -1021,7 +1011,7 @@ function buildExplorerBandRow(): HTMLElement {
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'empty-state-link';
-      reset.textContent = 'Choose automatically';
+      reset.textContent = t('settings.chooseAutomatically');
       reset.addEventListener('click', () => { setExplorerBand(null); paint(); });
       r.appendChild(reset);
     }
@@ -1049,7 +1039,7 @@ function manualLevelField(onChange: () => void): HTMLElement {
   input.placeholder = '1500';
   const manual = getManualLevel();
   if (manual !== null) input.value = String(manual);
-  input.setAttribute('aria-label', 'My rating');
+  input.setAttribute('aria-label', t('settings.myRating'));
   input.addEventListener('change', () => {
     const raw = Math.round(Number(input.value));
     if (!Number.isFinite(raw) || raw <= 0) { setManualLevel(null); onChange(); return; }
@@ -1062,14 +1052,14 @@ function manualLevelField(onChange: () => void): HTMLElement {
 
   const suffix = document.createElement('span');
   suffix.className = 'daily-custom-suffix';
-  suffix.textContent = manual === null ? 'my rating (optional)' : 'my rating';
+  suffix.textContent = manual === null ? t('settings.myRatingOptional') : t('settings.myRating13');
   wrap.appendChild(suffix);
 
   if (manual !== null) {
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'empty-state-link';
-    clear.textContent = 'Clear';
+    clear.textContent = t('settings.clear');
     clear.addEventListener('click', () => { setManualLevel(null); onChange(); });
     wrap.appendChild(clear);
   }
@@ -1079,13 +1069,13 @@ function manualLevelField(onChange: () => void): HTMLElement {
 // "synced 2 days ago" from an ISO timestamp.
 function relativeDate(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (!Number.isFinite(diff) || diff < 0) return 'just now';
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (!Number.isFinite(diff) || diff < 0) return t('settings.ago.now');
+  if (diff < 60) return t('settings.ago.now');
+  if (diff < 3600) return t('settings.ago.minutes', { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t('settings.ago.hours', { n: Math.floor(diff / 3600) });
   const days = Math.floor(diff / 86400);
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days} days ago`;
+  if (days === 1) return t('settings.ago.yesterday');
+  if (days < 30) return t('settings.ago.days', { n: days });
   return iso.slice(0, 10);
 }
 
@@ -1095,23 +1085,23 @@ function relativeDate(iso: string): string {
 // "never" before any games have been pulled.
 function lastRefreshCaption(): string {
   const iso = getLastGamesRefresh();
-  if (!iso) return 'Last refreshed: never';
+  if (!iso) return t('settings.lastRefreshedNever');
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-  if (!Number.isFinite(days) || days <= 0) return 'Last refreshed: today';
-  if (days === 1) return 'Last refreshed: yesterday';
-  return `Last refreshed: ${days} days ago`;
+  if (!Number.isFinite(days) || days <= 0) return t('settings.lastRefreshedToday');
+  if (days === 1) return t('settings.lastRefreshedYesterday');
+  return t('settings.lastRefreshedDaysAgo', { days: days });
 }
 
 function buildBackupGroup(): HTMLElement {
-  const sec = group('Data', Icons.save(16));
+  const sec = group(t('settings.data'), Icons.save(16));
 
   // Auto-refresh games — the weekly check. Only does anything once a username
   // has been saved by a previous import (see auto-refresh.ts); the caption
   // underneath reports when games were last pulled.
   const autoRow = row(
-    'Auto-refresh games',
+    t('settings.autoRefreshGames'),
     toggle(getAutoRefreshEnabled(), (on) => setAutoRefreshEnabled(on)),
-    { sub: 'Checks for new games about once a week, when you open the app.' },
+    { sub: t('settings.checksForNewGames') },
   );
   const caption = document.createElement('div');
   caption.className = 'pref-row-caption';
@@ -1124,7 +1114,7 @@ function buildBackupGroup(): HTMLElement {
   // they mostly didn't. Off is here for anyone on a metered connection or an old
   // phone who would rather decide when the engine runs.
   sec.appendChild(row(
-    'Analyse games in the background',
+    t('settings.analyseGamesInThe'),
     // One switch for both background passes — they read the same pref, and two
     // toggles for "analyse my games quietly" would be one question too many.
     toggle(getAutoScanEnabled(), (on) => {
@@ -1136,9 +1126,7 @@ function buildBackupGroup(): HTMLElement {
       if (on) { startAutoScan(); startEndgameAutoScan({ retryOffline: true }); }
       else stopEndgameAutoScan();
     }),
-    { sub: 'Reads your imported games while the app is open — mistakes first, then the '
-      + 'endgames you reached — so the Middlegame and Endgames boxes on Train fill in '
-      + 'without you starting a scan.' },
+    { sub: t('settings.readsYourImportedGames') },
   ));
 
   // Export / import — the existing backup section does both.
@@ -1149,7 +1137,7 @@ function buildBackupGroup(): HTMLElement {
   resetBtn.type = 'button';
   resetBtn.className = 'btn-danger';
   resetBtn.appendChild(Icons.reset(16));
-  resetBtn.appendChild(document.createTextNode('Reset progress'));
+  resetBtn.appendChild(document.createTextNode(t('settings.resetProgress')));
 
   const status = document.createElement('p');
   status.className = 'settings-note';
@@ -1157,21 +1145,20 @@ function buildBackupGroup(): HTMLElement {
 
   resetBtn.addEventListener('click', () => {
     confirmDialog({
-      title: 'Reset all progress?',
-      body: 'This clears every training score, streak and timed best, and marks all ' +
-        'moves as never-trained. Your lines, notes and tags are kept. This can’t be undone.'
+      title: t('settings.resetAllProgress'),
+      body: t('settings.thisClearsEveryTraining')
         + (getAuthUser()
           // Reset used to be a purely local action, and it isn't any more: the
           // cleared state is pushed to the account like any other change, so it
           // reaches the other phone too. Saying so is the difference between a
           // feature and a nasty surprise.
-          ? '\n\nYou’re signed in, so the reset syncs to your account and your other devices.'
+          ? `\n\n${t('settings.resetSyncs')}`
           : ''),
-      confirmLabel: 'Reset progress',
+      confirmLabel: t('settings.resetProgress'),
       danger: true,
       onConfirm: async () => {
         resetBtn.disabled = true;
-        status.textContent = 'Resetting…';
+        status.textContent = t('settings.resetting');
         try {
           await resetAllProgress();
           clearTrainingDays();
@@ -1193,13 +1180,13 @@ function buildBackupGroup(): HTMLElement {
           // the next unrelated edit — and a pull in the meantime would hand the
           // old statistics straight back from the account.
           if (getAuthUser()) {
-            status.textContent = 'Progress reset ✓ — syncing…';
+            status.textContent = t('settings.progressResetSyncing');
             markEverythingDirty();
             await syncNow();
           }
-          status.textContent = 'Progress reset ✓ — every line is due again.';
+          status.textContent = t('settings.progressResetEveryLine');
         } catch (err) {
-          status.textContent = `Reset failed — ${(err as Error).message}`;
+          status.textContent = t('settings.resetFailed', { error: (err as Error).message });
         } finally {
           resetBtn.disabled = false;
         }
@@ -1211,10 +1198,10 @@ function buildBackupGroup(): HTMLElement {
   wrap.className = 'settings-reset';
   const heading = document.createElement('h3');
   heading.className = 'settings-subheading';
-  heading.textContent = 'Reset progress';
+  heading.textContent = t('settings.resetProgress');
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
-  blurb.textContent = 'Start the spaced-repetition schedule over without deleting any lines.';
+  blurb.textContent = t('settings.startTheSpacedRepetition');
   wrap.appendChild(heading);
   wrap.appendChild(blurb);
   const actions = document.createElement('div');
@@ -1276,15 +1263,13 @@ function buildRestoreFromAccountSubsection(): HTMLElement {
 
   const heading = document.createElement('h3');
   heading.className = 'settings-subheading';
-  heading.textContent = 'Replace this device from your account';
+  heading.textContent = t('settings.replaceThisDeviceFrom');
   wrap.appendChild(heading);
 
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
   blurb.textContent =
-    'Your devices normally merge, so nothing is ever lost. This does the other ' +
-    'thing: it deletes what’s on this phone and restores exactly what your ' +
-    'account holds. Use it after tidying up on another device.';
+    t('settings.yourDevicesNormallyMerge');
   wrap.appendChild(blurb);
 
   const status = document.createElement('p');
@@ -1295,24 +1280,22 @@ function buildRestoreFromAccountSubsection(): HTMLElement {
   btn.type = 'button';
   btn.className = 'btn-secondary';
   btn.appendChild(Icons.download(16));
-  btn.appendChild(document.createTextNode('Replace from account'));
+  btn.appendChild(document.createTextNode(t('settings.replaceFromAccount')));
   btn.addEventListener('click', () => {
     confirmDialog({
-      title: 'Replace everything on this phone?',
-      body: 'The lines, games, statistics and settings on this device are deleted and ' +
-        'replaced with your account’s copy. Anything here that never reached the ' +
-        'account is lost. Export a backup first if you’re not sure.',
-      confirmLabel: 'Replace from account',
+      title: t('settings.replaceEverythingOnThis'),
+      body: t('settings.theLinesGamesStatistics'),
+      confirmLabel: t('settings.replaceFromAccount'),
       danger: true,
       onConfirm: async () => {
         btn.disabled = true;
-        status.textContent = 'Restoring…';
+        status.textContent = t('settings.restoring');
         try {
           const n = await replaceFromAccount();
-          status.textContent = `Restored ${n} line${n === 1 ? '' : 's'} ✓ — reloading…`;
+          status.textContent = t('settings.replace.done', { n });
           setTimeout(() => window.location.reload(), 1200);
         } catch (err) {
-          status.textContent = `Couldn’t restore — ${(err as Error).message}`;
+          status.textContent = t('settings.couldnTRestore', { error: (err as Error).message });
           btn.disabled = false;
         }
       },
@@ -1345,19 +1328,18 @@ function buildDeleteAccountSubsection(): HTMLElement {
 
   const heading = document.createElement('h3');
   heading.className = 'settings-subheading';
-  heading.textContent = 'Delete your account';
+  heading.textContent = t('settings.deleteYourAccount');
 
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
   blurb.textContent =
-    'Close your Bito Chess account and delete the copy of your data stored with ' +
-    'it. This is permanent, it can’t be undone, and it doesn’t refund a purchase.';
+    t('settings.closeYourBitoChess');
 
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-danger';
   btn.appendChild(Icons.trash(16));
-  btn.appendChild(document.createTextNode('Delete account'));
+  btn.appendChild(document.createTextNode(t('settings.deleteAccount')));
   btn.addEventListener('click', openDeleteAccountDialog);
 
   const actions = document.createElement('div');
@@ -1389,16 +1371,14 @@ function openDeleteAccountDialog(): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = 'Delete your account?';
+  h.textContent = t('settings.deleteYourAccount13');
   sheet.appendChild(h);
 
   const body = document.createElement('p');
   body.className = 'section-desc';
   const email = getAuthUser()?.email;
   body.textContent =
-    `This closes ${email ? email : 'your account'} and deletes the copy of your lines, ` +
-    'games and statistics stored with it. It cannot be undone, and a paid unlock ' +
-    'is not refunded by it.';
+    email ? t('settings.delete.bodyEmail', { email }) : t('settings.delete.body');
   sheet.appendChild(body);
 
   const status = document.createElement('p');
@@ -1411,15 +1391,15 @@ function openDeleteAccountDialog(): void {
   exportBtn.type = 'button';
   exportBtn.className = 'btn-secondary';
   exportBtn.appendChild(Icons.download(16));
-  exportBtn.appendChild(document.createTextNode('Export a backup first'));
+  exportBtn.appendChild(document.createTextNode(t('settings.exportABackupFirst')));
   exportBtn.addEventListener('click', async () => {
     exportBtn.disabled = true;
-    status.textContent = 'Exporting…';
+    status.textContent = t('settings.exporting');
     try {
       const summary = await exportBackupNow();
-      status.textContent = `Backup downloaded — ${summary} ✓`;
+      status.textContent = t('settings.backupDownloaded', { summary: summary });
     } catch (err) {
-      status.textContent = `Export failed — ${(err as Error).message}`;
+      status.textContent = t('settings.exportFailed', { error: (err as Error).message });
     } finally {
       exportBtn.disabled = false;
     }
@@ -1437,8 +1417,7 @@ function openDeleteAccountDialog(): void {
   wipeRow.appendChild(wipe);
   const wipeText = document.createElement('span');
   wipeText.className = 'account-consent-text';
-  wipeText.textContent = 'Also erase everything on this phone. Leave this off and your '
-    + 'lines stay here, offline, exactly as they are.';
+  wipeText.textContent = t('settings.alsoEraseEverythingOn');
   wipeRow.appendChild(wipeText);
   sheet.appendChild(wipeRow);
 
@@ -1448,12 +1427,12 @@ function openDeleteAccountDialog(): void {
   confirmField.className = 'account-field';
   const confirmLabel = document.createElement('span');
   confirmLabel.className = 'account-field-label';
-  confirmLabel.textContent = 'Type DELETE to confirm';
+  confirmLabel.textContent = t('settings.delete.type', { word: t('settings.delete.word') });
   confirmField.appendChild(confirmLabel);
   const confirmInput = document.createElement('input');
   confirmInput.type = 'text';
   confirmInput.className = 'account-input';
-  confirmInput.placeholder = 'DELETE';
+  confirmInput.placeholder = t('settings.delete.word');
   confirmInput.autocapitalize = 'characters';
   confirmInput.spellcheck = false;
   confirmField.appendChild(confirmInput);
@@ -1462,22 +1441,22 @@ function openDeleteAccountDialog(): void {
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'btn-danger';
-  deleteBtn.textContent = 'Delete account';
+  deleteBtn.textContent = t('settings.deleteAccount');
   deleteBtn.disabled = true;
   confirmInput.addEventListener('input', () => {
-    deleteBtn.disabled = confirmInput.value.trim().toUpperCase() !== 'DELETE';
+    deleteBtn.disabled = confirmInput.value.trim().toUpperCase() !== t('settings.delete.word').toUpperCase();
   });
 
   deleteBtn.addEventListener('click', async () => {
     deleteBtn.disabled = true;
     exportBtn.disabled = true;
-    status.textContent = 'Deleting…';
+    status.textContent = t('settings.deleting');
     try {
       // The account first: if this fails, nothing has been lost and the phone is
       // untouched.
       await deleteAccountOnServer();
     } catch (err) {
-      status.textContent = `Couldn’t delete the account — ${(err as Error).message}`;
+      status.textContent = t('settings.couldnTDeleteThe', { error: (err as Error).message });
       deleteBtn.disabled = false;
       exportBtn.disabled = false;
       return;
@@ -1492,14 +1471,14 @@ function openDeleteAccountDialog(): void {
         /* the account is already gone; a failed local wipe is not worth blocking on */
       }
     }
-    status.textContent = 'Account deleted ✓ — reloading…';
+    status.textContent = t('settings.accountDeletedReloading');
     setTimeout(() => window.location.reload(), 1200);
   });
 
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'edit-cancel-btn';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = t('common.cancel');
   cancel.addEventListener('click', close);
 
   const btnRow = document.createElement('div');
@@ -1527,13 +1506,12 @@ function buildRescanSubsection(): HTMLElement {
 
   const heading = document.createElement('h3');
   heading.className = 'settings-subheading';
-  heading.textContent = 'Read my games again';
+  heading.textContent = t('settings.readMyGamesAgain');
   wrap.appendChild(heading);
 
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
-  blurb.textContent = 'Clears what the scan found in your games and starts the Middlegame '
-    + 'exercises over. Your games and their analysis are kept.';
+  blurb.textContent = t('settings.clearsWhatTheScan');
   wrap.appendChild(blurb);
 
   const status = document.createElement('p');
@@ -1544,21 +1522,16 @@ function buildRescanSubsection(): HTMLElement {
   btn.type = 'button';
   btn.className = 'btn-danger';
   btn.appendChild(Icons.reset(16));
-  btn.appendChild(document.createTextNode('Read my games again'));
+  btn.appendChild(document.createTextNode(t('settings.readMyGamesAgain')));
   btn.addEventListener('click', () => {
     confirmDialog({
-      title: 'Start these exercises again?',
-      body: 'This clears every spot the scan has found and every one you have marked fixed, '
-        + 'then reads your games from scratch. Every brilliant move you have re-found, every '
-        + 'detective case you have cracked and every which-move question you have answered '
-        + 'becomes available again too.\n\nYour games and their saved analysis are untouched, '
-        + 'so nothing you have written is lost — the same finds will be there again once the '
-        + 're-read is done.',
-      confirmLabel: 'Start again',
+      title: t('settings.startTheseExercisesAgain'),
+      body: t('settings.thisClearsEverySpot'),
+      confirmLabel: t('settings.startAgain'),
       danger: true,
       onConfirm: async () => {
         btn.disabled = true;
-        status.textContent = 'Clearing…';
+        status.textContent = t('settings.clearing');
         // Stop the background pass before the wipe, or it would be halfway
         // through writing a result for a game we are about to clear.
         suspendAutoScan();
@@ -1574,10 +1547,10 @@ function buildRescanSubsection(): HTMLElement {
           // Don't promise a background pass to someone who has turned it off
           // two rows above this one.
           status.textContent = getAutoScanEnabled()
-            ? 'Cleared — your games are being read again.'
-            : 'Cleared. Switch background analysis on above to read them again.';
+            ? t('settings.clearedYourGamesAre')
+            : t('settings.clearedSwitchBackgroundAnalysis');
         } catch {
-          status.textContent = 'Couldn’t reset these exercises.';
+          status.textContent = t('settings.couldnTResetThese');
         } finally {
           resumeAutoScan();
           btn.disabled = false;
@@ -1604,19 +1577,18 @@ function buildEraseSubsection(): HTMLElement {
 
   const heading = document.createElement('h3');
   heading.className = 'settings-subheading';
-  heading.textContent = 'Erase everything';
+  heading.textContent = t('settings.eraseEverything');
 
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
   blurb.textContent =
-    'Delete all your data and start over from scratch — lines, training history, ' +
-    'imported games, opponents and preferences. There is no undo.';
+    t('settings.deleteAllYourData');
 
   const eraseBtn = document.createElement('button');
   eraseBtn.type = 'button';
   eraseBtn.className = 'btn-danger';
   eraseBtn.appendChild(Icons.trash(16));
-  eraseBtn.appendChild(document.createTextNode('Erase everything'));
+  eraseBtn.appendChild(document.createTextNode(t('settings.eraseEverything')));
   eraseBtn.addEventListener('click', openEraseDialog);
 
   const actions = document.createElement('div');
@@ -1673,21 +1645,19 @@ function buildEraseStep1(
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = 'Erase everything?';
+  h.textContent = t('settings.eraseEverything13');
   sheet.appendChild(h);
 
   const body = document.createElement('p');
   body.className = 'section-desc';
   body.textContent =
-    'This permanently deletes everything Bito Chess keeps on this device: all your ' +
-    'lines, every training score and your streak, imported games, scouted ' +
-    'opponents, and all preferences. The app returns to a brand-new state.';
+    t('settings.thisPermanentlyDeletesEverything');
   sheet.appendChild(body);
 
   const warn = document.createElement('p');
   warn.className = 'section-desc';
   warn.textContent =
-    'There is no cloud copy. If you might want any of it back, export a backup first.';
+    t('settings.thereIsNoCloud');
   sheet.appendChild(warn);
 
   const status = document.createElement('p');
@@ -1699,15 +1669,15 @@ function buildEraseStep1(
   exportBtn.type = 'button';
   exportBtn.className = 'btn-secondary';
   exportBtn.appendChild(Icons.download(16));
-  exportBtn.appendChild(document.createTextNode('Export a backup first'));
+  exportBtn.appendChild(document.createTextNode(t('settings.exportABackupFirst')));
   exportBtn.addEventListener('click', async () => {
     exportBtn.disabled = true;
-    status.textContent = 'Exporting…';
+    status.textContent = t('settings.exporting');
     try {
       const summary = await exportBackupNow();
-      status.textContent = `Backup downloaded — ${summary} ✓`;
+      status.textContent = t('settings.backupDownloaded', { summary: summary });
     } catch (err) {
-      status.textContent = `Export failed — ${(err as Error).message}`;
+      status.textContent = t('settings.exportFailed', { error: (err as Error).message });
     } finally {
       exportBtn.disabled = false;
     }
@@ -1717,13 +1687,13 @@ function buildEraseStep1(
   const continueBtn = document.createElement('button');
   continueBtn.type = 'button';
   continueBtn.className = 'btn-danger';
-  continueBtn.textContent = 'Continue';
+  continueBtn.textContent = t('common.continue');
   continueBtn.addEventListener('click', () => setSheet(buildEraseStep2(close)));
 
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'edit-cancel-btn';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = t('common.cancel');
   cancel.addEventListener('click', close);
 
   const btnRow = document.createElement('div');
@@ -1744,14 +1714,13 @@ function buildEraseStep2(close: () => void): HTMLElement {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = 'Last chance — erase it all?';
+  h.textContent = t('settings.lastChanceEraseIt');
   sheet.appendChild(h);
 
   const body = document.createElement('p');
   body.className = 'section-desc';
   body.textContent =
-    'This cannot be undone. The app will close and reopen empty, exactly as if you ' +
-    'had just installed it.';
+    t('settings.thisCannotBeUndone');
   sheet.appendChild(body);
 
   const status = document.createElement('p');
@@ -1761,17 +1730,17 @@ function buildEraseStep2(close: () => void): HTMLElement {
   const eraseBtn = document.createElement('button');
   eraseBtn.type = 'button';
   eraseBtn.className = 'btn-danger';
-  eraseBtn.textContent = 'Erase everything';
+  eraseBtn.textContent = t('settings.eraseEverything');
   eraseBtn.addEventListener('click', async () => {
     eraseBtn.disabled = true;
-    status.textContent = 'Erasing…';
+    status.textContent = t('settings.erasing');
     try {
       await eraseAllData();
       wipeOberturaLocalStorage();
       // Reload into a true first-launch state — no data, default preferences.
       location.reload();
     } catch (err) {
-      status.textContent = `Erase failed — ${(err as Error).message}`;
+      status.textContent = t('settings.eraseFailed', { error: (err as Error).message });
       eraseBtn.disabled = false;
     }
   });
@@ -1779,7 +1748,7 @@ function buildEraseStep2(close: () => void): HTMLElement {
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'edit-cancel-btn';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = t('common.cancel');
   cancel.addEventListener('click', close);
 
   const btnRow = document.createElement('div');
@@ -1847,7 +1816,7 @@ export function confirmDialog(opts: {
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'edit-cancel-btn';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = t('common.cancel');
   cancel.addEventListener('click', close);
 
   btnRow.appendChild(confirm);

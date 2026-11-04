@@ -17,6 +17,7 @@ import { migrateLines } from './repertoire-migrate';
 // account's synced copy are allowed to carry, and it is the reason the
 // signed-in session no longer travels. See local-keys.ts.
 import { backupLocalKey, RETIRED_KEY_PREFIXES } from './local-keys';
+import { t } from './i18n';
 
 // Thin IndexedDB wrapper. IndexedDB's native API is event-based: every call
 // returns a request and you attach onsuccess / onerror handlers. This module
@@ -732,17 +733,17 @@ export function describeBackup(backup: BackupFile): string {
   const parts = partsInBackup(backup);
   if (parts.includes('lines')) {
     const n = backupLineCount(backup);
-    bits.push(`${n} line${n === 1 ? '' : 's'}`);
+    bits.push(t('starter.lines', { n }));
   }
   if (parts.includes('games')) {
     const g = backup.games?.length ?? 0;
-    bits.push(`${g} game${g === 1 ? '' : 's'}`);
+    bits.push(t('backup.games.count', { n: g }));
   }
-  if (parts.includes('stats')) bits.push('your statistics');
-  if (parts.includes('settings')) bits.push('your settings');
-  if (bits.length === 0) return 'nothing this app can restore';
+  if (parts.includes('stats')) bits.push(t('backup.yourStatistics'));
+  if (parts.includes('settings')) bits.push(t('backup.yourSettings'));
+  if (bits.length === 0) return t('backup.nothingRestorable');
   if (bits.length === 1) return bits[0];
-  return `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}`;
+  return t('backup.list', { list: bits.slice(0, -1).join(', '), last: bits[bits.length - 1] });
 }
 
 // Everything EXCEPT the imported games: the lines and the localStorage

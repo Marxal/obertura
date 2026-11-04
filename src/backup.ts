@@ -33,16 +33,17 @@ import {
 } from './storage';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { t } from './i18n';
 
 // What the dropdown offers, in the order it offers it. "Everything" first
 // because it is what most people want and what the erase dialog's one-tap
 // backup uses.
 const EXPORT_CHOICES: { value: 'everything' | BackupPart; label: string; hint: string }[] = [
-  { value: 'everything', label: 'Everything', hint: 'Lines, games, statistics and settings.' },
-  { value: 'lines', label: 'Lines', hint: 'Your repertoires and their move trees.' },
-  { value: 'games', label: 'Games', hint: 'Your imported games.' },
-  { value: 'stats', label: 'Statistics', hint: 'Training history, streaks, ratings and bests.' },
-  { value: 'settings', label: 'Settings', hint: 'Board, pieces, notation and preferences.' },
+  { value: 'everything', label: t('backup.everything'), hint: t('backup.linesGamesStatisticsAnd') },
+  { value: 'lines', label: t('backup.lines'), hint: t('backup.yourRepertoiresAndTheir') },
+  { value: 'games', label: t('backup.games'), hint: t('backup.yourImportedGames') },
+  { value: 'stats', label: t('nav.statistics'), hint: t('backup.trainingHistoryStreaksRatings') },
+  { value: 'settings', label: t('nav.settings'), hint: t('backup.boardPiecesNotationAnd') },
 ];
 
 function partsFor(choice: 'everything' | BackupPart): readonly BackupPart[] {
@@ -57,15 +58,13 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
 
   const heading = document.createElement('h2');
   heading.className = 'backup-title';
-  heading.textContent = 'Backup & restore';
+  heading.textContent = t('backup.backupRestore');
   section.appendChild(heading);
 
   const blurb = document.createElement('p');
   blurb.className = 'backup-blurb';
   blurb.textContent =
-    'A backup file carries your lines, imported games, statistics and settings — ' +
-    'restore it and the app picks up exactly where you left it, on this phone or ' +
-    'a new one. Pick a smaller piece below if that’s all you want.';
+    t('backup.aBackupFileCarries');
   section.appendChild(blurb);
 
   // What to export. A plain <select>, so a phone gives it the native wheel.
@@ -73,7 +72,7 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   choiceWrap.className = 'backup-choice-field';
   const choiceLabel = document.createElement('span');
   choiceLabel.className = 'backup-choice-label';
-  choiceLabel.textContent = 'Export';
+  choiceLabel.textContent = t('backup.export');
   choiceWrap.appendChild(choiceLabel);
 
   const choice = document.createElement('select');
@@ -103,13 +102,13 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   exportBtn.type = 'button';
   exportBtn.className = 'backup-btn';
   exportBtn.appendChild(Icons.download(16));
-  exportBtn.appendChild(document.createTextNode('Export'));
+  exportBtn.appendChild(document.createTextNode(t('backup.export')));
 
   const importBtn = document.createElement('button');
   importBtn.type = 'button';
   importBtn.className = 'backup-btn';
   importBtn.appendChild(Icons.upload(16));
-  importBtn.appendChild(document.createTextNode('Import'));
+  importBtn.appendChild(document.createTextNode(t('import.go')));
 
   // The actual file picker, kept off-screen and triggered by the Import button.
   const fileInput = document.createElement('input');
@@ -138,9 +137,9 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
     const picked = choice.value as 'everything' | BackupPart;
     try {
       const summary = await exportBackupNow(partsFor(picked));
-      setStatus(`Exported ${summary} ✓`, 'ok');
+      setStatus(t('backup.exported', { summary: summary }), 'ok');
     } catch (err) {
-      setStatus(`Export failed — ${(err as Error).message}`, 'error');
+      setStatus(t('settings.exportFailed', { error: (err as Error).message }), 'error');
     }
   });
 
@@ -157,7 +156,7 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
       const text = await file.text();
       backup = parseBackup(text);
     } catch (err) {
-      setStatus(`Couldn’t read that file — ${(err as Error).message}`, 'error');
+      setStatus(t('backup.couldnTReadThat', { error: (err as Error).message }), 'error');
       return;
     }
 
@@ -167,14 +166,14 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
         await restoreBackup(backup, mode);
         setStatus(
           mode === 'replace'
-            ? `Restored ${describeBackup(backup)} ✓`
-            : `Merged in ${describeBackup(backup)} ✓`,
+            ? t('backup.restored', { what: describeBackup(backup) })
+            : t('backup.merged', { what: describeBackup(backup) }),
           'ok',
         );
         onRestored();
         reloadAfterRestore(backup, setStatus);
       } catch (err) {
-        setStatus(`Import failed — ${(err as Error).message}`, 'error');
+        setStatus(t('backup.importFailed', { error: (err as Error).message }), 'error');
       }
     });
   });
@@ -190,7 +189,7 @@ function reloadAfterRestore(
   setStatus: (msg: string, kind?: 'ok' | 'error' | 'info') => void,
 ): void {
   if (!backupHasExtras(backup)) return;
-  setStatus('Everything restored ✓ — reloading…', 'ok');
+  setStatus(t('backup.everythingRestoredReloading'), 'ok');
   setTimeout(() => window.location.reload(), 1200);
 }
 
@@ -231,16 +230,16 @@ function downloadBackup(data: BackupFile): void {
 type ImportMode = 'merge' | 'replace';
 
 const PART_LABELS: Record<BackupPart, string> = {
-  lines: 'your lines',
-  games: 'your games',
-  stats: 'your statistics',
-  settings: 'your settings',
+  lines: t('backup.yourLines'),
+  games: t('backup.yourGames'),
+  stats: t('backup.yourStatistics'),
+  settings: t('backup.yourSettings'),
 };
 
 function partLabels(parts: readonly BackupPart[]): string {
   const names = parts.map((p) => PART_LABELS[p]);
-  if (names.length <= 1) return names[0] ?? 'nothing';
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  if (names.length <= 1) return names[0] ?? t('backup.nothing');
+  return t('backup.list', { list: names.slice(0, -1).join(', '), last: names[names.length - 1] });
 }
 
 // Ask how to bring the file in. Merge is the safe default — it never deletes
@@ -264,16 +263,16 @@ export function openImportChooser(
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Import backup';
+  title.textContent = t('backup.importBackup');
   sheet.appendChild(title);
 
   const parts = partsInBackup(backup);
   const summary = document.createElement('p');
   summary.className = 'backup-import-summary';
-  const when = backup.exportedAt ? ` from ${backup.exportedAt.slice(0, 10)}` : '';
-  summary.textContent =
-    `This backup${when} has ${describeBackup(backup)}. ` +
-    `You currently have ${existingCount} line${existingCount === 1 ? '' : 's'} on this device.`;
+  const has = backup.exportedAt
+    ? t('backup.hasDated', { date: backup.exportedAt.slice(0, 10), what: describeBackup(backup) })
+    : t('backup.has', { what: describeBackup(backup) });
+  summary.textContent = `${has} ${t('backup.currently', { n: existingCount })}`;
   sheet.appendChild(summary);
 
   // What "Replace everything" would actually touch. A partial file only ever
@@ -282,8 +281,8 @@ export function openImportChooser(
   const scope = document.createElement('p');
   scope.className = 'backup-import-scope';
   scope.textContent = parts.length === ALL_BACKUP_PARTS.length
-    ? 'It covers everything on this device.'
-    : `It only covers ${partLabels(parts)} — the rest of your data is left alone either way.`;
+    ? t('backup.itCoversEverythingOn')
+    : t('backup.onlyCovers', { parts: partLabels(parts) });
   sheet.appendChild(scope);
 
   // Merge — recommended/safe. Listed first.
@@ -291,8 +290,7 @@ export function openImportChooser(
   mergeBtn.type = 'button';
   mergeBtn.className = 'backup-choice-btn';
   mergeBtn.innerHTML =
-    '<strong>Merge (recommended)</strong>' +
-    '<span>Add what the file has and update what matches. Nothing is deleted.</span>';
+    t('backup.strongMergeRecommendedStrong');
   mergeBtn.addEventListener('click', () => {
     close();
     onChoose('merge');
@@ -304,8 +302,7 @@ export function openImportChooser(
   replaceBtn.type = 'button';
   replaceBtn.className = 'backup-choice-btn backup-choice-btn--danger';
   replaceBtn.innerHTML =
-    '<strong>Replace</strong>' +
-    '<span>Delete what the file covers and restore exactly what it holds. Best for a fresh or cleared browser.</span>';
+    t('backup.strongReplaceStrongSpan');
   replaceBtn.addEventListener('click', () => {
     close();
     onChoose('replace');
@@ -317,7 +314,7 @@ export function openImportChooser(
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'edit-cancel-btn';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('common.cancel');
   cancelBtn.addEventListener('click', close);
   btnRow.appendChild(cancelBtn);
   sheet.appendChild(btnRow);

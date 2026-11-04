@@ -28,6 +28,7 @@ import { requestRepertoireSlot } from './entitlement';
 import { pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { showToast } from './toast';
+import { t } from './i18n';
 
 const SELECTED_KEY = 'obertura.lines.book';
 
@@ -90,8 +91,8 @@ export function renderRepertoireManager(host: HTMLElement, opts: PickerOptions):
   const choosable = opts.rows.length > 2;
   if (choosable) {
     list.appendChild(bookRow({
-      label: 'By colour',
-      note: 'New lines go to your default White or Black book',
+      label: t('repertoire.byColour'),
+      note: t('repertoire.newLinesGoTo'),
       active: opts.selected === 'all',
       onPick: () => { setSelectedBookId('all'); opts.onSelect('all'); },
     }));
@@ -100,8 +101,8 @@ export function renderRepertoireManager(host: HTMLElement, opts: PickerOptions):
   for (const row of opts.rows) {
     list.appendChild(bookRow({
       label: row.book.name,
-      note: `${row.book.colour === 'white' ? 'White' : 'Black'} · ${
-        row.lines === 1 ? '1 line' : `${row.lines} lines`}${row.book.archived ? ' · put aside' : ''}`,
+      note: `${t(row.book.colour === 'white' ? 'common.white' : 'common.black')} · ${
+        t('starter.lines', { n: row.lines })}${row.book.archived ? ` · ${t('repertoire.putAside')}` : ''}`,
       active: choosable && opts.selected === row.book.id,
       archived: row.book.archived,
       // With only the two defaults there is nothing to pick BETWEEN, so the row
@@ -116,7 +117,7 @@ export function renderRepertoireManager(host: HTMLElement, opts: PickerOptions):
   const add = document.createElement('button');
   add.type = 'button';
   add.className = 'btn-secondary book-add';
-  add.textContent = '+ New repertoire';
+  add.textContent = t('repertoire.newRepertoire');
   add.addEventListener('click', () => {
     void (async () => {
       if (!(await requestRepertoireSlot(opts.rows.length))) return;
@@ -155,7 +156,7 @@ function bookRow(o: {
     const manage = document.createElement('button');
     manage.type = 'button';
     manage.className = 'book-row-manage';
-    manage.setAttribute('aria-label', `Manage ${o.label}`);
+    manage.setAttribute('aria-label', t('repertoire.manage', { label: o.label }));
     manage.textContent = '⋯';
     manage.addEventListener('click', o.onManage);
     row.appendChild(manage);
@@ -177,27 +178,27 @@ function openNewBookSheet(opts: PickerOptions): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'New repertoire';
+  title.textContent = t('repertoire.newRepertoire13');
   sheet.appendChild(title);
 
   const why = document.createElement('p');
   why.className = 'branch-sub';
-  why.textContent = 'A separate book of lines — for blitz, for a tournament, or prepared for one opponent.';
+  why.textContent = t('repertoire.aSeparateBookOf');
   sheet.appendChild(why);
 
   const nameLabel = document.createElement('label');
   nameLabel.className = 'edit-label';
-  nameLabel.textContent = 'Name';
+  nameLabel.textContent = t('repertoire.name');
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
   nameInput.className = 'edit-input';
-  nameInput.placeholder = 'e.g. Blitz — White';
+  nameInput.placeholder = t('repertoire.eGBlitzWhite');
   sheet.appendChild(nameLabel);
   sheet.appendChild(nameInput);
 
   const colourLabel = document.createElement('span');
   colourLabel.className = 'edit-label';
-  colourLabel.textContent = 'The side you play';
+  colourLabel.textContent = t('repertoire.theSideYouPlay');
   sheet.appendChild(colourLabel);
 
   let colour: 'white' | 'black' = 'white';
@@ -207,7 +208,7 @@ function openNewBookSheet(opts: PickerOptions): void {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `branch-seg-btn${c === colour ? ' active' : ''}`;
-    b.textContent = c === 'white' ? 'White' : 'Black';
+    b.textContent = c === 'white' ? t('common.white') : t('common.black');
     b.addEventListener('click', () => {
       colour = c;
       seg.querySelectorAll('.branch-seg-btn').forEach((el, i) =>
@@ -222,7 +223,7 @@ function openNewBookSheet(opts: PickerOptions): void {
   const create = document.createElement('button');
   create.type = 'button';
   create.className = 'btn-primary edit-save-btn';
-  create.textContent = 'Create';
+  create.textContent = t('repertoire.create');
   create.addEventListener('click', () => {
     void (async () => {
       const name = nameInput.value.trim();
@@ -230,7 +231,7 @@ function openNewBookSheet(opts: PickerOptions): void {
       await saveRepertoire(rep);
       setSelectedBookId(rep.id);
       close();
-      showToast(`“${rep.name}” created ✓`, { variant: 'success' });
+      showToast(t('repertoire.created', { name: rep.name }), { variant: 'success' });
       opts.onSelect(rep.id);
       opts.onChanged();
     })();
@@ -238,7 +239,7 @@ function openNewBookSheet(opts: PickerOptions): void {
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'btn-secondary';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = t('common.cancel');
   cancel.addEventListener('click', close);
   row.appendChild(create);
   row.appendChild(cancel);
@@ -271,7 +272,7 @@ function openBookManageSheet(row: BookRow, opts: PickerOptions): void {
   nameInput.value = row.book.name;
   const nameLabel = document.createElement('label');
   nameLabel.className = 'edit-label';
-  nameLabel.textContent = 'Name';
+  nameLabel.textContent = t('repertoire.name');
   sheet.appendChild(nameLabel);
   sheet.appendChild(nameInput);
 
@@ -281,7 +282,7 @@ function openBookManageSheet(row: BookRow, opts: PickerOptions): void {
   const save = document.createElement('button');
   save.type = 'button';
   save.className = 'btn-primary';
-  save.textContent = 'Save';
+  save.textContent = t('repertoire.save');
   save.addEventListener('click', () => {
     void (async () => {
       const name = nameInput.value.trim();
@@ -300,7 +301,7 @@ function openBookManageSheet(row: BookRow, opts: PickerOptions): void {
   const archive = document.createElement('button');
   archive.type = 'button';
   archive.className = 'btn-secondary';
-  archive.textContent = row.book.archived ? 'Bring it back' : 'Put it aside';
+  archive.textContent = row.book.archived ? t('repertoire.bringItBack') : t('repertoire.putItAside');
   archive.addEventListener('click', () => {
     void (async () => {
       if (row.book.archived) delete row.book.archived;
@@ -308,8 +309,8 @@ function openBookManageSheet(row: BookRow, opts: PickerOptions): void {
       await saveRepertoire(row.book);
       close();
       showToast(row.book.archived
-        ? `“${row.book.name}” put aside — its lines are out of training`
-        : `“${row.book.name}” is back in training`);
+        ? t('repertoire.putAsideItsLines', { name: row.book.name })
+        : t('repertoire.isBackInTraining', { name: row.book.name }));
       opts.onChanged();
     })();
   });
@@ -318,27 +319,25 @@ function openBookManageSheet(row: BookRow, opts: PickerOptions): void {
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'btn-danger';
-  remove.textContent = 'Delete repertoire';
+  remove.textContent = t('repertoire.deleteRepertoire');
   remove.addEventListener('click', () => {
     showDialog({
-      title: `Delete “${row.book.name}”?`,
-      body: `All ${row.lines === 1 ? 'of its 1 line' : `${row.lines} of its lines`} and their `
-        + `review history go with it. This can’t be undone — put it aside instead if you `
-        + `might want it back.`,
+      title: t('repertoire.delete', { name: row.book.name }),
+      body: t('repertoire.deleteBody', { n: row.lines }),
       buttons: [
         {
-          label: 'Delete', variant: 'danger', onClick: () => {
+          label: t('repertoire.delete13'), variant: 'danger', onClick: () => {
             void (async () => {
               await deleteRepertoire(row.book.id);
               if (selectedBookId() === row.book.id) setSelectedBookId('all');
               close();
-              showToast(`“${row.book.name}” deleted`);
+              showToast(t('repertoire.deleted', { name: row.book.name }));
               opts.onSelect('all');
               opts.onChanged();
             })();
           },
         },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
   });

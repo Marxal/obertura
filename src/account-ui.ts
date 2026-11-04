@@ -48,6 +48,7 @@ import { group } from './settings-screen';
 import { pushBack } from './back-nav';
 import { PRIVACY_URL, TERMS_URL } from './legal';
 import { SYNC_CHANGE_EVENT, getSyncState, getLastSync, getSyncError, syncNow } from './repertoire-sync';
+import { t, tParts } from './i18n';
 
 // Which of the two forms is showing. Kept per-instance, not persisted — every
 // visit starts on Sign in, which is what a returning user wants.
@@ -59,7 +60,7 @@ type Mode = 'signin' | 'signup';
 let dropPreviousListener: (() => void) | null = null;
 
 export function buildAccountGroup(): HTMLElement {
-  const sec = group('Account', Icons.userCircle(16));
+  const sec = group(t('account.account'), Icons.userCircle(16));
 
   // ── THE ANSWER TO "AM I SIGNED IN?", ON THE ROW ITSELF ─────────────────────
   // Everything that tells you the state used to be INSIDE the accordion, so the
@@ -82,8 +83,8 @@ export function buildAccountGroup(): HTMLElement {
     while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild!);
     const signedIn = !!getAuthUser();
     hint.textContent = signedIn
-      ? `Signed in · ${isEntitled() ? 'Full Access' : 'Free'}`
-      : 'Not signed in';
+      ? t(isEntitled() ? 'account.summary.pro' : 'account.summary.free')
+      : t('account.notSignedIn');
     hint.classList.toggle('account-summary-hint--out', !signedIn);
     sec.classList.toggle('section--acc-highlight', !signedIn);
     if (!signedIn) sec.setAttribute('open', '');
@@ -120,7 +121,7 @@ function signedInBody(refresh: () => void): HTMLElement {
   who.appendChild(Icons.userCircle(22));
   const handle = document.createElement('span');
   handle.className = 'settings-connected-handle account-email';
-  handle.textContent = user.email ?? 'Signed in';
+  handle.textContent = user.email ?? t('account.signedIn');
   who.appendChild(handle);
   card.appendChild(who);
 
@@ -145,7 +146,7 @@ function signedInBody(refresh: () => void): HTMLElement {
   const outBtn = document.createElement('button');
   outBtn.type = 'button';
   outBtn.className = 'btn-secondary';
-  outBtn.textContent = 'Sign out';
+  outBtn.textContent = t('account.signOut');
   outBtn.addEventListener('click', () => confirmSignOut(outBtn, refresh));
 
   const actions = document.createElement('div');
@@ -174,24 +175,19 @@ function confirmSignOut(btn: HTMLButtonElement, refresh: () => void): void {
   const paid = isEntitled();
 
   const body = [
-    'Your lines, training and statistics stay on this phone — signing out never '
-    + 'deletes anything, here or in your account.',
+    t('account.yourLinesTrainingAnd'),
     paid
-      ? 'What stops is syncing and your full access: this phone goes back to the '
-      + `free tier (${FREE_TRAINING_LINES} lines in training at a time) until you `
-      + 'sign back in. Nothing is un-paid — your purchase is on the account, not '
-      + 'on the phone.'
-      : 'What stops is syncing: changes made here won’t reach your other devices '
-      + 'until you sign back in.',
+      ? t('account.whatStopsIsSyncing', { FREE_TRAINING_LINES: FREE_TRAINING_LINES })
+      : t('account.whatStopsIsSyncingChanges'),
   ].join('\n\n');
 
   showDialog({
-    title: email ? `Sign out of ${email}?` : 'Sign out?',
+    title: email ? t('account.signOutOf', { email: email }) : t('account.signOut13'),
     body,
     buttons: [
-      { label: 'Stay signed in' },
+      { label: t('account.staySignedIn') },
       {
-        label: 'Sign out',
+        label: t('account.signOut'),
         variant: 'danger',
         onClick: () => { void runSignOut(btn, refresh); },
       },
@@ -203,8 +199,8 @@ async function runSignOut(btn: HTMLButtonElement, refresh: () => void): Promise<
   btn.disabled = true;
   const result = await signOut();
   btn.disabled = false;
-  if (!result.ok) { showToast(result.message ?? 'Couldn’t sign out. Try again.'); return; }
-  showToast('Signed out — your lines are still on this phone');
+  if (!result.ok) { showToast(result.message ?? t('account.couldnTSignOut')); return; }
+  showToast(t('account.signedOutYourLines'));
   refresh();
 }
 
@@ -224,16 +220,16 @@ function syncRow(): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'account-sync-now';
-  btn.textContent = 'Sync now';
+  btn.textContent = t('account.syncNow');
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     const was = btn.textContent;
-    btn.textContent = 'Syncing…';
+    btn.textContent = t('account.syncing');
     await syncNow();
     btn.textContent = was;
     btn.disabled = false;
     paint();
-    if (getSyncState() !== 'failed') showToast('Synced', { variant: 'success' });
+    if (getSyncState() !== 'failed') showToast(t('account.synced'), { variant: 'success' });
   });
 
   const paint = (): void => {
@@ -261,29 +257,26 @@ function syncRow(): HTMLElement {
 // gateGamesToEntitlement); a free caption has to say so rather than claim
 // "Synced" for a half that never left the phone. Left off 'failed' — an error
 // should stand alone, not share the line with an unrelated upsell note.
-const GAMES_PRO_NOTE = ' · games sync is Pro.';
-
 function syncCaption(): string {
-  const proNote = isEntitled() ? '' : GAMES_PRO_NOTE;
   switch (getSyncState()) {
     case 'failed':
       // Whatever actually went wrong, in words. The old caption said "Sync
       // failed — will retry" for everything, which made a project whose SQL had
       // never been run look identical to a train tunnel; repertoire-sync.ts's
       // describeSyncError names the difference.
-      return getSyncError() ?? 'Sync failed — will retry.';
+      return getSyncError() ?? t('account.syncFailedWillRetry');
     case 'pending':
       return isEntitled()
-        ? 'Pending — your latest changes go up in a moment.'
-        : `Pending — your lines go up in a moment${proNote}`;
+        ? t('account.sync.pending')
+        : t('account.sync.pendingFree');
     case 'synced':
       return isEntitled()
-        ? `Synced ${agoLabel(getLastSync())}.`
-        : `Lines synced ${agoLabel(getLastSync())}${proNote}`;
+        ? t('account.sync.synced', { when: agoLabel(getLastSync()) })
+        : t('account.sync.syncedFree', { when: agoLabel(getLastSync()) });
     default:
       // 'never' — signed in, nothing up from this device yet. ('off' can't
       // reach here: this row only exists inside the signed-in body.)
-      return isEntitled() ? 'Nothing synced yet.' : `Nothing synced yet${proNote}`;
+      return t(isEntitled() ? 'account.sync.none' : 'account.sync.noneFree');
   }
 }
 
@@ -291,15 +284,15 @@ function syncCaption(): string {
 // than a daily caption would be, because a sync you triggered seconds ago
 // showing "today" would read as broken.
 function agoLabel(iso: string | null): string {
-  if (!iso) return 'just now';
+  if (!iso) return t('settings.ago.now');
   const ms = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(ms) || ms < 90_000) return 'just now';
+  if (!Number.isFinite(ms) || ms < 90_000) return t('settings.ago.now');
   const minutes = Math.round(ms / 60_000);
-  if (minutes < 60) return `${minutes} minutes ago`;
+  if (minutes < 60) return t('account.ago.minutes', { n: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (hours < 24) return t('account.ago.hours', { n: hours });
   const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
+  return t('account.ago.days', { n: days });
 }
 
 // ── Signed out ───────────────────────────────────────────────────────────────
@@ -333,8 +326,7 @@ function signedOutBody(
   wrap.className = 'account-auth';
 
   const copy = blurbText ?? (
-    'An account keeps your lines, training and statistics in step across your '
-    + 'phones, and brings them back if you ever reinstall.'
+    t('account.anAccountKeepsYour')
   );
   if (copy) {
     const blurb = document.createElement('p');
@@ -349,8 +341,8 @@ function signedOutBody(
   const tabs = document.createElement('div');
   tabs.className = 'account-tabs';
   for (const tab of [
-    { value: 'signup' as Mode, label: 'Create account' },
-    { value: 'signin' as Mode, label: 'Sign in' },
+    { value: 'signup' as Mode, label: t('account.createAccount') },
+    { value: 'signin' as Mode, label: t('signup.signIn') },
   ]) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -409,15 +401,15 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
   const form = document.createElement('form');
   form.className = 'account-form';
 
-  const email = field('email', 'Email', 'you@example.com', 'username');
-  const password = field('password', 'Password', '', 'new-password', 'At least 6 characters');
+  const email = field('email', t('account.email'), 'you@example.com', 'username');
+  const password = field('password', t('account.password'), '', 'new-password', t('account.atLeast6Characters'));
   form.appendChild(email.wrap);
   form.appendChild(password.wrap);
 
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.className = 'btn-primary account-submit';
-  submit.textContent = 'Create account';
+  submit.textContent = t('account.createAccount');
   form.appendChild(submit);
   const setFormError = formError(form);
 
@@ -425,24 +417,24 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
     e.preventDefault();
     const emailValue = email.input.value.trim();
     const passwordValue = password.input.value;
-    if (!emailValue) { email.setError('Enter your email address.'); email.input.focus(); return; }
-    if (!passwordValue) { password.setError('Choose a password.'); password.input.focus(); return; }
+    if (!emailValue) { email.setError(t('account.enterYourEmailAddress')); email.input.focus(); return; }
+    if (!passwordValue) { password.setError(t('account.chooseAPassword')); password.input.focus(); return; }
     if (passwordValue.length < 6) {
-      password.setError('Use at least 6 characters.');
+      password.setError(t('account.useAtLeast6'));
       password.input.focus();
       return;
     }
 
     submit.disabled = true;
-    submit.textContent = 'Creating…';
+    submit.textContent = t('account.creating');
 
     const result = await signUpWithPassword(emailValue, passwordValue);
 
     submit.disabled = false;
-    submit.textContent = 'Create account';
+    submit.textContent = t('account.createAccount');
 
     if (!result.ok) {
-      setFormError(result.message ?? 'Something went wrong. Try again in a moment.');
+      setFormError(result.message ?? t('account.somethingWentWrongTry'));
       return;
     }
     if (result.needsEmailConfirmation) {
@@ -453,14 +445,14 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
       openEmailCodeSheet({
         email: emailValue,
         kind: 'signup',
-        submitLabel: 'Confirm my email',
-        successToast: 'Email confirmed. You’re signed in',
+        submitLabel: t('account.confirmMyEmail'),
+        successToast: t('account.emailConfirmedYouRe'),
         resend: () => resendConfirmation(emailValue),
       });
       password.input.value = '';
       return;
     }
-    showToast('Account created', { variant: 'success' });
+    showToast(t('steps.account.done'), { variant: 'success' });
     // The auth listener re-renders this section; nothing else to do.
   });
 
@@ -506,10 +498,10 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   const form = document.createElement('form');
   form.className = 'account-form';
 
-  const email = field('email', 'Email', 'you@example.com', 'username');
+  const email = field('email', t('account.email'), 'you@example.com', 'username');
   form.appendChild(email.wrap);
 
-  const password = field('password', 'Password', '', 'current-password');
+  const password = field('password', t('account.password'), '', 'current-password');
   // A hidden input that is still `required` silently blocks submit with a
   // validation bubble pointing at nothing, so `paint` keeps the two in step.
   form.appendChild(password.wrap);
@@ -525,7 +517,7 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   const forgot = document.createElement('button');
   forgot.type = 'button';
   forgot.className = 'account-link-btn';
-  forgot.textContent = 'Forgot your password?';
+  forgot.textContent = t('account.forgotYourPassword');
   forgot.addEventListener('click', () => openPasswordResetSheet(email.input.value.trim()));
   panel.appendChild(forgot);
 
@@ -540,10 +532,10 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   const paint = (): void => {
     password.wrap.hidden = !usePassword;
     password.input.required = usePassword;
-    submit.textContent = usePassword ? 'Sign in' : 'Email me a sign-in code';
+    submit.textContent = usePassword ? t('signup.signIn') : t('account.emailMeASign');
     swap.textContent = usePassword
-      ? 'Email me a sign-in code instead'
-      : 'Use a password instead';
+      ? t('account.emailMeASignIn')
+      : t('account.useAPasswordInstead');
     forgot.hidden = !usePassword;
   };
 
@@ -556,16 +548,16 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const emailValue = email.input.value.trim();
-    if (!emailValue) { email.setError('Enter your email address.'); email.input.focus(); return; }
+    if (!emailValue) { email.setError(t('account.enterYourEmailAddress')); email.input.focus(); return; }
     if (usePassword && !password.input.value) {
-      password.setError('Enter your password.');
+      password.setError(t('account.enterYourPassword'));
       password.input.focus();
       return;
     }
 
     submit.disabled = true;
     const restore = submit.textContent;
-    submit.textContent = usePassword ? 'Signing in…' : 'Sending…';
+    submit.textContent = usePassword ? t('account.signingIn') : t('account.sending');
 
     const result = usePassword
       ? await signInWithPassword(emailValue, password.input.value)
@@ -579,23 +571,21 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
         // A dead end unless we point somewhere: the address simply isn't
         // registered, and the fix is one tab away.
         showDialog({
-          title: 'No account with that email',
-          body: `We couldn’t find an account for ${emailValue}. Sign-in links only `
-            + 'work for accounts that already exist. Create one first and you can use '
-            + 'them from then on.',
+          title: t('account.noAccountWithThat'),
+          body: t('account.weCouldnTFind', { emailValue: emailValue }),
           buttons: [
-            { label: 'Not now' },
-            { label: 'Create account', variant: 'primary', onClick: () => setMode('signup') },
+            { label: t('pro.notNow') },
+            { label: t('account.createAccount'), variant: 'primary', onClick: () => setMode('signup') },
           ],
         });
         return;
       }
-      setFormError(result.message ?? 'Something went wrong. Try again in a moment.');
+      setFormError(result.message ?? t('account.somethingWentWrongTry'));
       return;
     }
 
     if (usePassword) {
-      showToast('Signed in', { variant: 'success' });
+      showToast(t('account.signedIn'), { variant: 'success' });
       // The auth listener re-renders this section; nothing else to do.
       return;
     }
@@ -603,8 +593,8 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
     openEmailCodeSheet({
       email: emailValue,
       kind: 'email',
-      submitLabel: 'Sign in',
-      successToast: 'Signed in',
+      submitLabel: t('signup.signIn'),
+      successToast: t('account.signedIn'),
       resend: () => signInWithMagicLink(emailValue),
     });
   });
@@ -633,7 +623,7 @@ function emailOptionButton(onClick: () => void): HTMLElement {
   btn.type = 'button';
   btn.className = 'btn-secondary account-provider account-provider--lead account-provider--email';
   btn.appendChild(mailMark());
-  btn.appendChild(document.createTextNode('Continue with email'));
+  btn.appendChild(document.createTextNode(t('account.continueWithEmail')));
   btn.addEventListener('click', onClick);
   return btn;
 }
@@ -642,7 +632,7 @@ function backLink(onClick: () => void): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'account-link-btn account-link-btn--quiet account-back-link';
-  btn.textContent = '← Other options';
+  btn.textContent = t('account.otherOptions');
   btn.addEventListener('click', onClick);
   return btn;
 }
@@ -655,11 +645,10 @@ function backLink(onClick: () => void): HTMLElement {
 function legalNote(): HTMLElement {
   const legal = document.createElement('p');
   legal.className = 'account-legal-note';
-  legal.appendChild(document.createTextNode('By continuing you agree to our '));
-  legal.appendChild(docLink(PRIVACY_URL, 'Privacy policy'));
-  legal.appendChild(document.createTextNode(' and '));
-  legal.appendChild(docLink(TERMS_URL, 'Terms'));
-  legal.appendChild(document.createTextNode('.'));
+  legal.append(...tParts('account.legal', {
+    privacy: docLink(PRIVACY_URL, t('account.legal.privacy')),
+    terms: docLink(TERMS_URL, t('account.legal.terms')),
+  }));
   return legal;
 }
 
@@ -672,7 +661,7 @@ function providerButton(provider: OAuthProvider, lead = false): HTMLElement {
   btn.className = `btn-secondary account-provider account-provider--${provider}`
     + (lead ? ' account-provider--lead' : '');
   btn.appendChild(providerMark(provider));
-  btn.appendChild(document.createTextNode(`Continue with ${OAUTH_PROVIDER_LABELS[provider]}`));
+  btn.appendChild(document.createTextNode(t('account.continueWith', { provider: OAUTH_PROVIDER_LABELS[provider] })));
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     const result = await signInWithProvider(provider);
@@ -680,7 +669,7 @@ function providerButton(provider: OAuthProvider, lead = false): HTMLElement {
     // nothing to re-enable — we only get here meaningfully when it failed.
     if (!result.ok) {
       btn.disabled = false;
-      showToast(result.message ?? `Couldn’t start ${OAUTH_PROVIDER_LABELS[provider]} sign-in. Try again.`);
+      showToast(result.message ?? t('account.oauthFailed', { provider: OAUTH_PROVIDER_LABELS[provider] }));
     }
   });
   return btn;
@@ -701,44 +690,43 @@ export function openPasswordResetSheet(prefill = ''): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Reset your password';
+  title.textContent = t('account.resetYourPassword');
   sheet.appendChild(title);
 
   const lead = document.createElement('p');
   lead.className = 'section-desc';
-  lead.textContent = 'We’ll email you a code. Type it here and you can choose a '
-    + 'new password straight away.';
+  lead.textContent = t('account.weLlEmailYou');
   sheet.appendChild(lead);
 
   const form = document.createElement('form');
   form.className = 'account-form';
-  const email = field('email', 'Email', 'you@example.com', 'username');
+  const email = field('email', t('account.email'), 'you@example.com', 'username');
   email.input.value = prefill;
   form.appendChild(email.wrap);
 
   const send = document.createElement('button');
   send.type = 'submit';
   send.className = 'btn-primary account-submit';
-  send.textContent = 'Send the code';
+  send.textContent = t('account.sendTheCode');
   form.appendChild(send);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const value = email.input.value.trim();
-    if (!value) { email.setError('Enter your email address.'); email.input.focus(); return; }
+    if (!value) { email.setError(t('account.enterYourEmailAddress')); email.input.focus(); return; }
     send.disabled = true;
-    send.textContent = 'Sending…';
+    send.textContent = t('account.sending');
     const result = await sendPasswordReset(value);
     send.disabled = false;
-    send.textContent = 'Send the code';
-    if (!result.ok) { showToast(result.message ?? 'Couldn’t send it. Try again.'); return; }
+    send.textContent = t('account.sendTheCode');
+    if (!result.ok) { showToast(result.message ?? t('account.couldnTSendIt')); return; }
     close();
     openEmailCodeSheet({
       email: value,
       kind: 'recovery',
       // Still doesn't say whether the address has an account: see the note above.
-      lead: `If there’s an account for ${value}, a code is on its way.`,
-      submitLabel: 'Continue',
+      lead: t('account.ifThereSAn', { value: value }),
+      submitLabel: t('common.continue'),
       // The "choose a new password" sheet takes over from here.
       successToast: null,
       resend: () => sendPasswordReset(value),
@@ -771,18 +759,17 @@ function openEmailCodeSheet(opts: {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Check your inbox';
+  title.textContent = t('account.checkYourInbox');
   sheet.appendChild(title);
 
   const lead = document.createElement('p');
   lead.className = 'section-desc';
-  lead.textContent = `${opts.lead ?? `We’ve sent a code to ${opts.email}.`} Type it here `
-    + 'to carry on in this app. It can take a minute, and it sometimes lands in spam.';
+  lead.textContent = `${opts.lead ?? t('account.code.sent', { email: opts.email })} ${t('account.code.typeIt')}`;
   sheet.appendChild(lead);
 
   const form = document.createElement('form');
   form.className = 'account-form';
-  const code = field('code', 'Code from the email', '', 'one-time-code');
+  const code = field('code', t('account.codeFromTheEmail'), '', 'one-time-code');
   form.appendChild(code.wrap);
 
   const submit = document.createElement('button');
@@ -797,17 +784,17 @@ function openEmailCodeSheet(opts: {
     // People paste "123 456", or a code with a stray space from the mail app.
     const value = code.input.value.replace(/\s/g, '');
     if (!/^\d{4,10}$/.test(value)) {
-      code.setError('Enter the code from the email: digits only.');
+      code.setError(t('account.enterTheCodeFrom'));
       code.input.focus();
       return;
     }
     submit.disabled = true;
-    submit.textContent = 'Checking…';
+    submit.textContent = t('settings.checking');
     const result = await verifyEmailCode(opts.email, value, opts.kind);
     submit.disabled = false;
     submit.textContent = opts.submitLabel;
     if (!result.ok) {
-      setFormError(result.message ?? 'Something went wrong. Try again in a moment.');
+      setFormError(result.message ?? t('account.somethingWentWrongTry'));
       return;
     }
     close();
@@ -818,15 +805,15 @@ function openEmailCodeSheet(opts: {
   const again = document.createElement('button');
   again.type = 'button';
   again.className = 'account-link-btn';
-  again.textContent = 'Send it again';
+  again.textContent = t('account.sendItAgain');
   again.addEventListener('click', async () => {
     again.disabled = true;
     const result = await opts.resend();
     again.disabled = false;
     showToast(
       result.ok
-        ? 'Sent. Check your inbox again in a minute.'
-        : result.message ?? 'Couldn’t send it. Try again in a minute.',
+        ? t('account.sentCheckYourInbox')
+        : result.message ?? t('account.couldnTSendItTry'),
       result.ok ? { variant: 'success' } : undefined,
     );
   });
@@ -834,8 +821,7 @@ function openEmailCodeSheet(opts: {
 
   const note = document.createElement('p');
   note.className = 'account-field-hint';
-  note.textContent = 'The email has a link too. It works, but on some phones it opens '
-    + 'your browser instead of this app.';
+  note.textContent = t('account.theEmailHasA');
   sheet.appendChild(note);
 
   sheet.appendChild(cancelRow(close));
@@ -857,40 +843,39 @@ export function openNewPasswordSheet(): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Choose a new password';
+  title.textContent = t('account.chooseANewPassword');
   sheet.appendChild(title);
 
   const lead = document.createElement('p');
   lead.className = 'section-desc';
-  lead.textContent = 'You’re signed in from the reset link. Pick a new password '
-    + 'now — at least 6 characters.';
+  lead.textContent = t('account.youReSignedIn');
   sheet.appendChild(lead);
 
   const form = document.createElement('form');
   form.className = 'account-form';
-  const pw = field('password', 'New password', 'At least 6 characters', 'new-password');
-  const again = field('password', 'Repeat it', 'The same again', 'new-password');
+  const pw = field('password', t('account.newPassword'), t('account.atLeast6Characters'), 'new-password');
+  const again = field('password', t('account.repeatIt'), t('account.theSameAgain'), 'new-password');
   form.appendChild(pw.wrap);
   form.appendChild(again.wrap);
 
   const save = document.createElement('button');
   save.type = 'submit';
   save.className = 'btn-primary account-submit';
-  save.textContent = 'Save password';
+  save.textContent = t('account.savePassword');
   form.appendChild(save);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (pw.input.value.length < 6) { showToast('Use at least 6 characters.'); return; }
-    if (pw.input.value !== again.input.value) { showToast('Those two don’t match.'); return; }
+    if (pw.input.value.length < 6) { showToast(t('account.useAtLeast6')); return; }
+    if (pw.input.value !== again.input.value) { showToast(t('account.thoseTwoDonT')); return; }
     save.disabled = true;
-    save.textContent = 'Saving…';
+    save.textContent = t('account.saving');
     const result = await updatePassword(pw.input.value);
     save.disabled = false;
-    save.textContent = 'Save password';
-    if (!result.ok) { showToast(result.message ?? 'Couldn’t save it. Try again.'); return; }
+    save.textContent = t('account.savePassword');
+    if (!result.ok) { showToast(result.message ?? t('account.couldnTSaveIt')); return; }
     close();
-    showToast('Password changed — you’re signed in', { variant: 'success' });
+    showToast(t('account.passwordChangedYouRe'), { variant: 'success' });
   });
 
   sheet.appendChild(form);
@@ -898,7 +883,7 @@ export function openNewPasswordSheet(): void {
   const later = document.createElement('button');
   later.type = 'button';
   later.className = 'account-link-btn';
-  later.textContent = 'Not now';
+  later.textContent = t('pro.notNow');
   later.addEventListener('click', () => { clearPasswordRecovery(); close(); });
   sheet.appendChild(later);
 
@@ -936,7 +921,7 @@ function cancelRow(close: () => void): HTMLElement {
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'edit-cancel-btn';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = t('common.cancel');
   cancel.addEventListener('click', close);
   row.appendChild(cancel);
   return row;
@@ -1012,13 +997,13 @@ function field(
     const reveal = document.createElement('button');
     reveal.type = 'button';
     reveal.className = 'account-reveal';
-    reveal.textContent = 'Show';
-    reveal.setAttribute('aria-label', 'Show password');
+    reveal.textContent = t('account.show');
+    reveal.setAttribute('aria-label', t('account.showPassword'));
     reveal.addEventListener('click', () => {
       const showing = input.type === 'text';
       input.type = showing ? 'password' : 'text';
-      reveal.textContent = showing ? 'Show' : 'Hide';
-      reveal.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      reveal.textContent = showing ? t('account.show') : t('account.hide');
+      reveal.setAttribute('aria-label', showing ? t('account.showPassword') : t('account.hidePassword'));
     });
     row.appendChild(reveal);
   }

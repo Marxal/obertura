@@ -776,9 +776,8 @@ body {
   flex: 0 1 auto;
   min-width: 0;
   margin-left: auto;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  text-align: right;
+  overflow-wrap: break-word;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -17567,6 +17566,14 @@ html:not([lang="en"]) .pt-header-title {
 /* ── Daily-challenge preferences (Settings) ────────────────────────────────── */
 /* The count picker sits just under each task's title. */
 .daily-count-seg { margin-top: var(--space-sm); }
+/* Off and Custom are words among narrow numbers. Outside English they take the room
+   they need, so a longer "Custom" isn't cut off at the edge. */
+html:not([lang="en"]) .daily-count-seg { display: flex; }
+html:not([lang="en"]) .daily-count-seg .seg-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: 0.4rem;
+}
 
 /* THE RUNNING ORDER. Each part's row carries its place in the day, its name and
    a pair of move buttons on one line, with the count picker below — so reading

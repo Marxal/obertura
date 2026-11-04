@@ -6,6 +6,7 @@
 // mine is ever shown in the UI.)
 
 import { pushBack } from './back-nav';
+import { t, type MessageKey } from './i18n';
 
 const ACCESS_KEY = '07647d12-a144-4031-a14c-2c8cc3145650';
 const ENDPOINT = 'https://api.web3forms.com/submit';
@@ -30,6 +31,10 @@ export function deviceLabel(): string {
   const h = window.screen?.height ?? window.innerHeight;
   return `${coarsePlatform()} · ${w}×${h}`;
 }
+
+const CATEGORY_KEYS: Record<Category, MessageKey> = {
+  Bug: 'feedback.bug', Idea: 'feedback.idea', Other: 'feedback.other',
+};
 
 export function openFeedbackSheet(): void {
   // ── Shell ──
@@ -62,14 +67,14 @@ export function openFeedbackSheet(): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Send feedback';
+  title.textContent = t('settings.sendFeedback');
   sheet.appendChild(title);
 
   // ── Category chips: Bug / Idea / Other ──
   let category: Category = 'Bug';
   const chipLabel = document.createElement('label');
   chipLabel.className = 'edit-label';
-  chipLabel.textContent = 'What kind?';
+  chipLabel.textContent = t('feedback.whatKind');
   sheet.appendChild(chipLabel);
 
   const chips = document.createElement('div');
@@ -88,7 +93,7 @@ export function openFeedbackSheet(): void {
     b.type = 'button';
     b.className = 'seg-btn';
     b.dataset.value = c;
-    b.textContent = c;
+    b.textContent = t(CATEGORY_KEYS[c]);
     b.addEventListener('click', () => { category = c; reflectChips(); });
     chipButtons.push(b);
     chips.appendChild(b);
@@ -99,25 +104,25 @@ export function openFeedbackSheet(): void {
   // ── Message ──
   const msgLabel = document.createElement('label');
   msgLabel.className = 'edit-label';
-  msgLabel.textContent = 'Message';
+  msgLabel.textContent = t('feedback.message');
   sheet.appendChild(msgLabel);
 
   const message = document.createElement('textarea');
   message.className = 'edit-input feedback-message';
   message.rows = 4;
-  message.placeholder = 'What happened, or what would make Bito Chess better?';
+  message.placeholder = t('feedback.whatHappenedOrWhat');
   sheet.appendChild(message);
 
   // ── Optional reply email ──
   const emailLabel = document.createElement('label');
   emailLabel.className = 'edit-label';
-  emailLabel.textContent = 'Your email (optional)';
+  emailLabel.textContent = t('feedback.yourEmailOptional');
   sheet.appendChild(emailLabel);
 
   const email = document.createElement('input');
   email.type = 'email';
   email.className = 'edit-input';
-  email.placeholder = 'So I can reply';
+  email.placeholder = t('feedback.soICanReply');
   email.autocomplete = 'email';
   sheet.appendChild(email);
 
@@ -136,7 +141,7 @@ export function openFeedbackSheet(): void {
   // ── Preview of exactly what gets auto-attached ──
   const preview = document.createElement('p');
   preview.className = 'feedback-preview';
-  preview.textContent = `Attached automatically: v${__APP_VERSION__} · ${deviceLabel()}`;
+  preview.textContent = t('feedback.attachedAutomaticallyV', { version: __APP_VERSION__, site: deviceLabel() });
   sheet.appendChild(preview);
 
   // ── Status line — success and failure both land here, clearly. ──
@@ -148,25 +153,25 @@ export function openFeedbackSheet(): void {
   const sendBtn = document.createElement('button');
   sendBtn.type = 'button';
   sendBtn.className = 'btn-primary feedback-send-btn';
-  sendBtn.textContent = 'Send';
+  sendBtn.textContent = t('feedback.send');
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary';
-  cancelBtn.textContent = 'Close';
+  cancelBtn.textContent = t('common.close');
   cancelBtn.addEventListener('click', close);
 
   sendBtn.addEventListener('click', async () => {
     const text = message.value.trim();
     if (!text) {
-      status.textContent = 'Add a message first.';
+      status.textContent = t('feedback.addAMessageFirst');
       message.focus();
       return;
     }
 
     sendBtn.disabled = true;
     cancelBtn.disabled = true;
-    status.textContent = 'Sending…';
+    status.textContent = t('account.sending');
 
     const replyEmail = email.value.trim();
     const payload: Record<string, unknown> = {
@@ -196,27 +201,27 @@ export function openFeedbackSheet(): void {
         sheet.innerHTML = '';
         const ok = document.createElement('h3');
         ok.className = 'edit-sheet-title';
-        ok.textContent = 'Thanks ✓';
+        ok.textContent = t('feedback.thanks');
         const body = document.createElement('p');
         body.className = 'section-desc';
         body.textContent = replyEmail
-          ? 'Your feedback is on its way. I’ll reply to the email you gave.'
-          : 'Your feedback is on its way.';
+          ? t('feedback.yourFeedbackIsOn')
+          : t('feedback.yourFeedbackIsOnIts');
         const done = document.createElement('button');
         done.type = 'button';
         done.className = 'btn-primary feedback-send-btn';
-        done.textContent = 'Done';
+        done.textContent = t('common.done');
         done.addEventListener('click', close);
         sheet.append(ok, body, done);
         done.focus();
       } else {
         const reason = (data && (data.message as string)) || `HTTP ${res.status}`;
-        status.textContent = `Couldn’t send — ${reason}. Please try again.`;
+        status.textContent = t('feedback.couldnTSendPlease', { reason: reason });
         sendBtn.disabled = false;
         cancelBtn.disabled = false;
       }
     } catch {
-      status.textContent = 'Couldn’t send — you may be offline. Please try again.';
+      status.textContent = t('feedback.couldnTSendYou');
       sendBtn.disabled = false;
       cancelBtn.disabled = false;
     }

@@ -4,6 +4,7 @@
 // links ("Buy me a coffee") live in their own Settings section — see support.ts.
 
 import { pushBack } from './back-nav';
+import { t } from './i18n';
 
 interface Licence { name: string; licence: string; }
 
@@ -61,23 +62,23 @@ export function openAboutSheet(): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'About';
+  title.textContent = t('settings.about');
   sheet.appendChild(title);
 
   // ── App ──
-  sheet.appendChild(sectionHeading('App'));
+  sheet.appendChild(sectionHeading(t('about.app')));
   const appName = document.createElement('p');
   appName.className = 'about-app-name';
   appName.textContent = `${__APP_NAME__} v${__APP_VERSION__}`;
   sheet.appendChild(appName);
-  sheet.appendChild(externalLink('Created by marxal', 'https://marxal.net', 'about-link'));
+  sheet.appendChild(externalLink(t('about.createdByMarxal'), 'https://marxal.net', 'about-link'));
 
   // ── Open source ──
-  sheet.appendChild(sectionHeading('Open source'));
+  sheet.appendChild(sectionHeading(t('about.openSource')));
   const details = document.createElement('details');
   details.className = 'about-licences';
   const summary = document.createElement('summary');
-  summary.textContent = 'Licences';
+  summary.textContent = t('about.licences');
   details.appendChild(summary);
 
   const list = document.createElement('ul');
@@ -99,13 +100,13 @@ export function openAboutSheet(): void {
   // ── Version row, quiet, at the very bottom ──
   const version = document.createElement('p');
   version.className = 'about-version';
-  version.textContent = `Version ${__APP_VERSION__}`;
+  version.textContent = t('about.version', { version: __APP_VERSION__ });
   sheet.appendChild(version);
 
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'btn-secondary';
-  done.textContent = 'Close';
+  done.textContent = t('common.close');
   done.addEventListener('click', close);
   sheet.appendChild(done);
 

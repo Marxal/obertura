@@ -10,6 +10,7 @@
 //   npm run i18n:layout -- ca es         checks those languages
 //   npm run i18n:layout -- xx --shots=DIR   also saves a screenshot of each screen
 //   npm run i18n:layout -- xx --baseline    also lists the problems English already has
+//   npm run i18n:layout -- xx --untranslated   also lists the text still in English, per screen
 //
 // It tests what `npm run build` last produced, so build first. Playwright isn't a
 // repo dependency (the deploy has no use for it): `npm i --no-save playwright`.
@@ -350,6 +351,12 @@ try {
     console.log(`── ${lang} ──`);
     console.log(`Screens checked: ${results.length} (${results.length / WIDTHS.length} at each of ${WIDTHS.join(' and ')} px)`);
     if (lang === 'xx') console.log(`Visible text not going through t(): ${untranslated.size} different strings`);
+    if (lang === 'xx' && args.includes('--untranslated')) {
+      for (const r of results) {
+        const here = [...new Set(r.untranslated)];
+        if (r.width === WIDTHS[0] && here.length) console.log(`  ${r.screen}: ${here.join(' | ')}`);
+      }
+    }
     if (fresh.length) {
       failed = true;
       console.log(`NEW problems: ${fresh.length}`);

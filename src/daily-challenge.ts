@@ -784,7 +784,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
   lock.className = 'daily-lock-pill';
   lock.appendChild(Icons.lock(13));
   const lockLabel = document.createElement('span');
-  lockLabel.textContent = `${saved} / ${TRAINING_UNLOCK_LINES} lines`;
+  lockLabel.textContent = t('daily.lockLabel', { saved, total: TRAINING_UNLOCK_LINES });
   lock.appendChild(lockLabel);
   head.appendChild(buildHeadEnd(lock, deps.onOpenPrefs));
   card.appendChild(head);
