@@ -236,6 +236,27 @@ async function walk(browser: Browser, lang: string, width: number): Promise<Resu
   await record(fresh.page, 'first-run-done', width, lang, out);
   await fresh.context.close();
 
+  // The two ways in with no games: starter packs, and building a line by hand.
+  const packs = await newContext(browser, width, false, lang);
+  await packs.page.click('.where-tab:nth-child(3)');
+  await packs.page.click('.where-go.btn-primary');
+  await packs.page.waitForSelector('.onb-pack-head');
+  await record(packs.page, 'starter-packs', width, lang, out);
+  await packs.page.click('.onb-pack-head');
+  await record(packs.page, 'starter-pack-open', width, lang, out);
+  await packs.context.close();
+
+  const own = await newContext(browser, width, false, lang);
+  await own.page.click('.where-tab:nth-child(3)');
+  await own.page.click('.where-go--second');
+  await own.page.waitForSelector('.picker-colour');
+  await record(own.page, 'colour-picker', width, lang, out);
+  await own.page.click('.picker-colour');
+  await own.page.click('.picker-start');
+  await own.page.waitForSelector('.tour-bubble');
+  await record(own.page, 'builder-tour', width, lang, out);
+  await own.context.close();
+
   const { context, page } = await newContext(browser, width, true, lang);
   for (const view of ['home', 'train', 'explore', 'games', 'progress']) {
     await page.click(`#bottom-nav [data-view="${view}"]`);
@@ -249,6 +270,15 @@ async function walk(browser: Browser, lang: string, width: number): Promise<Resu
     await record(page, `settings-${i + 1}`, width, lang, out);
   }
   await context.close();
+
+  // The import sheet, from a profile that already has lines but no games.
+  const later = await newContext(browser, width, true, lang);
+  await later.page.click('#bottom-nav [data-view="games"]');
+  await later.page.fill('.inline-import input', 'tester');
+  await later.page.press('.inline-import input', 'Enter');
+  await later.page.waitForSelector('.import-found', { timeout: 30000 });
+  await record(later.page, 'import-choose', width, lang, out);
+  await later.context.close();
   return out;
 }
 

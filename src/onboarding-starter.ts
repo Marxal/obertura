@@ -21,6 +21,7 @@ import { formatSanLine } from './notation';
 import { pushBack } from './back-nav';
 import { track } from './metrics';
 import { freeTrainingSlots, showBulkCapToast } from './entitlement';
+import { t } from './i18n';
 
 // Lines in training that count as "onboarded". The Train screen stamps the
 // completion flag once this is reached, which is how the first-run picker knows
@@ -194,7 +195,7 @@ function openPackPicker(
 
     const h = document.createElement('h3');
     h.className = 'edit-sheet-title';
-    h.textContent = firstRun?.title ?? 'Starter packs';
+    h.textContent = firstRun?.title ?? t('starter.title');
     sheet.appendChild(h);
 
     const repaint = () => {
@@ -258,7 +259,7 @@ function packCard(
   titleWrap.appendChild(title);
   const meta = document.createElement('span');
   meta.className = 'onb-pack-meta';
-  meta.textContent = `${pack.level} · ${pack.style} · ${pack.lines.length} lines`;
+  meta.textContent = `${pack.level} · ${pack.style} · ${t('starter.lines', { n: pack.lines.length })}`;
   titleWrap.appendChild(meta);
   headBtn.appendChild(titleWrap);
 
@@ -298,7 +299,7 @@ function packCard(
     const addAll = document.createElement('button');
     addAll.type = 'button';
     addAll.className = 'onb-addall';
-    addAll.textContent = `Add all ${pending.length} without opening them`;
+    addAll.textContent = t('starter.addAll', { n: pending.length });
     addAll.addEventListener('click', () => {
       // ONE count for the tap, not one per line. addSequentially loops
       // onAddLine over every pending line, so counting inside that loop would
@@ -306,7 +307,7 @@ function packCard(
       // enthusiastic afternoon look like a busy month.
       track('starter_pack_added');
       addAll.disabled = true;
-      addAll.textContent = 'Adding…';
+      addAll.textContent = t('starter.adding');
       void addSequentially(pending, pack.colour, onAddLine).then(() => {
         for (const l of pending) existing.push(lineKey(pack.colour, l.ucis));
         repaint();
@@ -431,20 +432,20 @@ function lineRow(o: {
   if (o.noteCount) {
     const notesEl = document.createElement('div');
     notesEl.className = 'onb-line-notes';
-    notesEl.textContent = `✎ ${o.noteCount} move note${o.noteCount === 1 ? '' : 's'}`;
+    notesEl.textContent = t('starter.notes', { n: o.noteCount });
     content.appendChild(notesEl);
   }
 
   if (o.added) {
     const done = document.createElement('span');
     done.className = 'onb-added';
-    done.textContent = '✓ Added';
+    done.textContent = t('starter.added');
     content.appendChild(done);
   } else {
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'btn-primary onb-add';
-    add.textContent = 'Add & learn';
+    add.textContent = t('starter.addLearn');
     add.addEventListener('click', o.onAdd);
     content.appendChild(add);
   }

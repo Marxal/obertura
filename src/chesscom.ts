@@ -38,6 +38,7 @@ export {
   type NormalisedGame,
 } from './import-core';
 import type { ImportedGame } from './import-core';
+import { t } from './i18n';
 
 const API_BASE = 'https://api.chess.com/pub';
 const USERNAME_KEY = 'obertura.chesscomUser';
@@ -175,13 +176,13 @@ export function parseGame(raw: RawGame, username: string): ImportedGame | null {
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (res.status === 404) {
-    throw new Error('Player not found — check the username.');
+    throw new Error(t('import.err.notFound'));
   }
   if (res.status === 429) {
-    throw new Error('Chess.com rate limit hit — wait a moment and try again.');
+    throw new Error(t('import.err.rateLimit', { site: 'Chess.com' }));
   }
   if (!res.ok) {
-    throw new Error(`Chess.com API error ${res.status} ${res.statusText}`);
+    throw new Error(t('import.err.api', { site: 'Chess.com', status: res.status, text: res.statusText }));
   }
   return (await res.json()) as T;
 }
@@ -198,7 +199,7 @@ export async function listArchives(username: string): Promise<string[]> {
 // emitting each month's games (newest-first within the month) to the core.
 export const fetchChesscom: SourceFetch = async (username, months, emit) => {
   const user = username.trim();
-  if (!user) throw new Error('Enter your Chess.com username first.');
+  if (!user) throw new Error(t('import.enterUsername', { site: 'Chess.com' }));
 
   const all = await listArchives(user);
   const recent = all.slice(-months);          // last N months (URLs are date-ascending)

@@ -62,6 +62,7 @@ import {
 } from './prefs';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
+import { t } from './i18n';
 
 // Gap between the spotlight and the bubble, how far the spotlight is inflated
 // past the target's own box, how far inside the viewport a spot edge is always
@@ -389,7 +390,7 @@ export function showCoachMarks(
       // Back on the left, always in the same place — including on the first
       // bubble, where it leaves the walkthrough for the screen before it.
       if (index > 0 || step.onBack) {
-        foot.appendChild(actionButton('Back', 'quiet', back));
+        foot.appendChild(actionButton(t('common.back'), 'quiet', back));
       } else {
         const spacer = document.createElement('span');
         spacer.className = 'tour-back-spacer';
@@ -401,7 +402,7 @@ export function showCoachMarks(
         spacer.className = 'tour-back-spacer';
         foot.appendChild(spacer);
       } else {
-        foot.appendChild(actionButton(step.nextLabel ?? (last ? 'Got it' : 'Next'), 'primary', advance));
+        foot.appendChild(actionButton(step.nextLabel ?? t(last ? 'tour.gotIt' : 'common.next'), 'primary', advance));
       }
       // Nothing left to skip on the last bubble.
       if (!last && !step.cornerSkip) skipRow.appendChild(cornerSkip(finish));
@@ -557,8 +558,8 @@ function cornerSkip(onClick: () => void): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'tour-skip tour-skip--corner';
-  btn.textContent = 'Skip';
-  btn.setAttribute('aria-label', 'Skip');
+  btn.textContent = t('tour.skip');
+  btn.setAttribute('aria-label', t('tour.skip'));
   btn.addEventListener('click', onClick);
   return btn;
 }
@@ -920,9 +921,9 @@ function buildSteps(
       // The title is the instruction. It was "Enter your line", with the ask at the
       // end of a paragraph, so the bubble read like one more thing to dismiss, on the
       // one step with no Next to press.
-      title: 'Play your first move',
-      body: 'Move a piece on the board to start your line.',
-      waiting: 'Waiting for your move',
+      title: t('tour.first.title'),
+      body: t('tour.first.body'),
+      waiting: t('tour.first.waiting'),
       pad: 0,
       // Live, and it advances on a move: the fastest way to learn that the board
       // is yours to play on is to play on it.
@@ -950,9 +951,8 @@ function buildSteps(
       // Not on a desktop: the controls sit under the board there, so a hole around
       // both would light the whole screen and leave the bubble nowhere to stand.
       spanSelector: window.innerWidth >= TOUR_DESKTOP_MIN ? undefined : ['#builder-dock'],
-      title: 'Explore',
-      body: 'Suggested moves from your games, the library and the engine. '
-        + 'Auto-reply plays the suggested answer for you.',
+      title: t('tour.explore.title'),
+      body: t('tour.explore.body'),
       pad: 4,
       // Look-only, and the panel's own tiles are the reason: every row here
       // PLAYS when tapped, so the panel that taught itself by being used was
@@ -973,24 +973,22 @@ function buildSteps(
     },
     {
       selector: ['#builder-sheet'],
-      title: 'Opening Library',
+      title: t('tour.library.title'),
       // No "Connect Lichess" button here any more: an OAuth trip out of the app
       // in somebody's second minute was the wrong ask (UX-AUDIT C2). The Library
       // panel's own (i) and Settings still offer it, for when it's wanted.
-      body: 'See what Masters and online players choose in this position. '
-        + 'Tap a move to add it to your line.',
+      body: t('tour.library.body'),
       pad: 4,
       // Look-only for the same reason as Explore: every book move in this list
       // plays onto the line when tapped.
       lookOnly: true,
       onEnter: () => deps.showSlide('library'),
-      mainDone: connected ? 'Lichess connected' : undefined,
+      mainDone: connected ? t('tour.library.connected') : undefined,
     },
     {
       selector: ['#builder-sheet'],
-      title: 'My lines',
-      body: 'See your saved lines, moves you’ve played in your games, and '
-        + 'scouted opponents here.',
+      title: t('tour.lines.title'),
+      body: t('tour.lines.body'),
       pad: 4,
       // Look-only. This panel doesn't just add moves — tapping a saved line
       // OPENS it, which would throw away the line the walkthrough is in the
@@ -1000,9 +998,9 @@ function buildSteps(
       // The same before/after the Library step gives Lichess: once there are
       // games on the device the ask is answered, so the button becomes a pill
       // that says so rather than an invitation to do it again.
-      mainDone: imported ? 'Games imported' : undefined,
+      mainDone: imported ? t('tour.lines.imported') : undefined,
       mainAction: imported ? undefined : {
-        label: 'Import my games',
+        label: t('tour.lines.import'),
         onClick: () => {
           stepAside();
           // Imported or cancelled, the walkthrough comes back to this very
@@ -1015,9 +1013,9 @@ function buildSteps(
       // Back to the board. The panels have had their turn; this is where the
       // line actually gets built, and two more moves is enough to have one.
       selector: ['#board'],
-      title: 'Back to your line',
-      body: 'Play two more moves for now — you can keep adding moves later.',
-      waiting: 'Waiting for your moves',
+      title: t('tour.back.title'),
+      body: t('tour.back.body'),
+      waiting: t('tour.back.waiting'),
       pad: 0,
       interactive: true,
       onEnter: () => {
@@ -1039,9 +1037,8 @@ function buildSteps(
     },
     {
       selector: ['#header-save', '#save-line-btn'],
-      title: 'Ready when you are',
-      body: 'Keep playing moves to make the line your own, or save it now to add '
-        + 'it to your training repertoire.',
+      title: t('tour.ready.title'),
+      body: t('tour.ready.body'),
       pad: 8,
       interactive: true,
       onEnter: deps.goToLineEnd,
@@ -1052,7 +1049,7 @@ function buildSteps(
       // line.
       // stepAside first: saving takes the screen, and without it the walkthrough
       // would leave the panel tabs it locked on the way in still disabled.
-      mainAction: { label: 'Save line', onClick: () => { stepAside(); deps.onSave(); } },
+      mainAction: { label: t('tour.ready.save'), onClick: () => { stepAside(); deps.onSave(); } },
       // …and so does the real button under the spotlight. This step is live, so
       // the header's own Save ("Add 6 moves") is tappable — and tapping it saved
       // the line, started the trainer, and left this bubble sitting on top of it,
@@ -1069,7 +1066,7 @@ function buildSteps(
       watchDelay: 0,
       // `advance` on the LAST step is the sequence's ordinary end, which runs
       // the walkthrough's own onDone — the tidy-up included.
-      actions: [{ label: 'Add more moves', variant: 'quiet', advance: true }],
+      actions: [{ label: t('recap.preview.addMoves'), variant: 'quiet', advance: true }],
     },
   ];
 }
@@ -1086,13 +1083,12 @@ export function showSaveStep(o: { onSave: () => void; onKeepEditing?: () => void
   showCoachMarks([
     {
       selector: ['#header-save', '#save-line-btn'],
-      title: 'Ready when you are',
-      body: 'Keep playing moves to make the line your own, or save it now to add '
-        + 'it to your training repertoire.',
+      title: t('tour.ready.title'),
+      body: t('tour.ready.body'),
       pad: 8,
       actions: [
-        { label: 'Add more moves', variant: 'quiet', onClick: o.onKeepEditing },
-        { label: 'Save line', variant: 'primary', onClick: o.onSave },
+        { label: t('recap.preview.addMoves'), variant: 'quiet', onClick: o.onKeepEditing },
+        { label: t('tour.ready.save'), variant: 'primary', onClick: o.onSave },
       ],
     },
   ]);
@@ -1109,14 +1105,12 @@ export function showTrainerIntro(o: { onStart: () => void; onSkip: () => void })
   showCoachMarks([
     {
       selector: ['.pt-board', '.pt-board-wrap'],
-      title: 'Saved. Now learn it.',
-      body: 'Watch the line played once, then repeat it from memory. You get two '
-        + 'attempts before the move is revealed. Bito Chess tracks your mistakes '
-        + 'so you can master them.',
+      title: t('tour.saved.title'),
+      body: t('tour.saved.body'),
       pad: 0,
       // The Train tab's own bolt on the button that starts training, so the
       // thing about to happen is named with the mark it lives under in the app.
-      mainAction: { label: 'Start training', onClick: o.onStart, icon: Icons.zap(17) },
+      mainAction: { label: t('firstRun.startTraining'), onClick: o.onStart, icon: Icons.zap(17) },
       // One thing to do and one quiet way out of it, in the same corner the
       // walkthrough's Skip sits in — so "Skip" is in one place in the app.
       actions: [],

@@ -71,6 +71,7 @@ import { wdlBlock } from './wdl-bar';
 import { showToast } from './toast';
 import { isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
+import { formatNumber, t } from './i18n';
 import {
   countOptionsFor,
   defaultCountFor,
@@ -89,8 +90,8 @@ const REFRESH_KEY = 'obertura.lastGamesRefresh';
 // Where each site shows you your own handle, and the page it's on. Used only by
 // the no-games block above — the moment someone actually needs it.
 const USERNAME_WHERE: Record<Platform, string> = {
-  chesscom: 'On Chess.com it’s in Settings, under “Username”.',
-  lichess: 'On Lichess your @username is shown top-right when you’re signed in.',
+  chesscom: t('import.find.chesscom'),
+  lichess: t('import.find.lichess'),
 };
 
 const USERNAME_HELP: Record<Platform, string> = {
@@ -430,7 +431,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = opts.title ?? 'Import games';
+  title.textContent = opts.title ?? t('import.title');
   sheet.appendChild(title);
 
   // Inline, friendly error line (unknown user, network, …). Never silent.
@@ -459,13 +460,12 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     errorEl.replaceChildren();
 
     const headline = document.createElement('strong');
-    headline.textContent = `No games found for “${user}” on ${PLATFORM_LABELS[platform]}.`;
+    headline.textContent = t('import.none.headline', { name: user, site: PLATFORM_LABELS[platform] });
     errorEl.appendChild(headline);
 
     const hint = document.createElement('span');
     hint.className = 'import-error-hint';
-    hint.textContent = 'Make sure you typed your username correctly — it’s not '
-      + 'your email or your display name.';
+    hint.textContent = t('import.none.hint');
     errorEl.appendChild(hint);
 
     const where = document.createElement('span');
@@ -478,7 +478,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     link.href = USERNAME_HELP[platform];
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = `Open ${PLATFORM_LABELS[platform]} to check ↗`;
+    link.textContent = t('import.none.open', { site: PLATFORM_LABELS[platform] });
     errorEl.appendChild(link);
 
     errorEl.hidden = false;
@@ -504,7 +504,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       platform = p;
       reflectPlatform();
       userInput.value = opts.username ?? savedUsername(platform);
-      userInput.placeholder = `Your ${PLATFORM_LABELS[platform]} username`;
+      userInput.placeholder = t('where.usernameOn', { site: PLATFORM_LABELS[platform] });
       resetScan();
     });
     platButtons.push(b);
@@ -518,7 +518,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     }
   };
   reflectPlatform();
-  step1.appendChild(field('Platform', platSeg));
+  step1.appendChild(field(t('import.platform'), platSeg));
 
   // Username.
   const userInput = document.createElement('input');
@@ -527,17 +527,16 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   userInput.autocomplete = 'off';
   userInput.autocapitalize = 'none';
   userInput.spellcheck = false;
-  userInput.placeholder = `Your ${PLATFORM_LABELS[platform]} username`;
+  userInput.placeholder = t('where.usernameOn', { site: PLATFORM_LABELS[platform] });
   userInput.value = opts.username ?? savedUsername(platform);
   userInput.addEventListener('input', resetScan);
-  step1.appendChild(field('Username', userInput));
+  step1.appendChild(field(t('import.usernameField'), userInput));
 
   // A quiet line where the range chips used to be, so it's clear the scan isn't
   // quietly limiting itself to the last few months.
   const reachNote = document.createElement('p');
   reachNote.className = 'import-reach-note';
-  reachNote.textContent = 'We’ll look at your whole history, newest games first. '
-    + 'You choose how many to keep on the next screen.';
+  reachNote.textContent = t('import.reach');
   step1.appendChild(reachNote);
 
   // Scan button — the progress itself takes over the whole screen (the import
@@ -545,7 +544,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   const scanBtn = document.createElement('button');
   scanBtn.type = 'button';
   scanBtn.className = 'btn-primary import-scan-btn';
-  scanBtn.textContent = 'Import';
+  scanBtn.textContent = t('import.go');
   scanBtn.addEventListener('click', runScan);
   step1.appendChild(scanBtn);
 
@@ -580,7 +579,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     // Bring the prominent Scan button back: editing step 1 invalidates the scan,
     // so the obvious next action is to scan again (step 2 hides its quiet link).
     scanBtn.hidden = false;
-    scanBtn.textContent = 'Import';
+    scanBtn.textContent = t('import.go');
     clearError();
   }
 
@@ -615,25 +614,25 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       close();
     } catch (err) {
       unmountLoader();
-      showError(`Couldn’t save your games — ${(err as Error).message}`);
+      showError(t('import.saveFailed', { error: (err as Error).message }));
     }
   }
 
   async function runScan(): Promise<void> {
     const user = userInput.value.trim();
-    if (!user) { showError(`Enter your ${PLATFORM_LABELS[platform]} username first.`); return; }
+    if (!user) { showError(t('import.enterUsername', { site: PLATFORM_LABELS[platform] })); return; }
     clearError();
     resetScan();
     if (opts.rememberUser !== false) setLastPlatform(platform);
     scanBtn.disabled = true;
-    scanBtn.textContent = 'Importing…';
+    scanBtn.textContent = t('import.importing');
 
     // The scan takes over the whole screen. Neither platform reports a known
     // total up front, so the fill tracks approxScanFraction(gamesSoFar) the
     // whole way through — same curve for both, always moving forward.
     loader = createImportLoader();
     loader.start();
-    loader.setStatus('Looking up your games…');
+    loader.setStatus(t('import.lookingUp'));
     document.body.appendChild(loader.el);
     // The system back gesture dismisses the loader and returns to step 1; the
     // in-flight fetch resolves into a closed loader harmlessly (scanCancelled
@@ -642,7 +641,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       scanCancelled = true;
       unmountLoader();
       scanBtn.disabled = false;
-      scanBtn.textContent = 'Import';
+      scanBtn.textContent = t('import.go');
     });
 
     // Fetch the subject's Chess.com picture alongside the scan and fade it into
@@ -669,8 +668,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         onGames: (batch) => { loader?.openings.add(batch.map(g => g.opening)); },
         onProgress: (p) => {
           loader?.setStatus(p.monthsTotal > 1
-            ? `Reading ${p.label} (${p.monthsDone}/${p.monthsTotal}): ${p.gamesSoFar} games so far…`
-            : `${p.gamesSoFar} games so far…`);
+            ? t('import.progress.months', { month: p.label, done: p.monthsDone, total: p.monthsTotal, n: p.gamesSoFar })
+            : t('import.progress.games', { n: p.gamesSoFar }));
           loader?.set(approxScanFraction(p.gamesSoFar));
         },
       });
@@ -711,7 +710,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       showError(friendlyError(err, platform));
     } finally {
       scanBtn.disabled = false;
-      scanBtn.textContent = 'Import';
+      scanBtn.textContent = t('import.go');
     }
   }
 
@@ -743,12 +742,12 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     head.className = 'import-step2-head';
     const heading = document.createElement('h4');
     heading.className = 'import-step-title';
-    heading.textContent = 'Choose what to import';
+    heading.textContent = t('import.choose');
     head.appendChild(heading);
     const editSearch = document.createElement('button');
     editSearch.type = 'button';
     editSearch.className = 'import-rescan-link';
-    editSearch.textContent = '← Edit search';
+    editSearch.textContent = t('import.editSearch');
     editSearch.addEventListener('click', () => {
       step1.hidden = false;
       step2.hidden = true;
@@ -791,14 +790,14 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     const found = document.createElement('p');
     found.className = 'import-found';
     found.textContent = result.truncated
-      ? `Found more than ${HARD_CAP.toLocaleString()} games.`
-      : `Found ${total.toLocaleString()} game${total === 1 ? '' : 's'}.`;
+      ? t('import.foundMore', { count: formatNumber(HARD_CAP) })
+      : t('import.found', { n: total, count: formatNumber(total) });
     who.appendChild(found);
 
     if (total === 0) {
       const none = document.createElement('p');
       none.className = 'import-status';
-      none.textContent = 'No games found for that username — check the spelling, or try the other platform.';
+      none.textContent = t('import.none.short');
       who.appendChild(none);
       step2.hidden = false;
       return;
@@ -822,7 +821,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     if (countOpts.length > 1) {
       const countLabel = document.createElement('div');
       countLabel.className = 'edit-label';
-      countLabel.textContent = 'How many';
+      countLabel.textContent = t('import.howMany');
       choices.appendChild(countLabel);
 
       const countRow = document.createElement('div');
@@ -837,7 +836,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         if (opt.locked) {
           c.appendChild(lockIcon());
           c.appendChild(document.createTextNode(opt.label));
-          c.setAttribute('aria-label', `${opt.label} — sign in to unlock`);
+          c.setAttribute('aria-label', t('import.locked', { label: opt.label }));
           // A locked chip never changes the slice; it makes the offer instead.
           c.addEventListener('click', () => openSignUp(unlock));
         } else {
@@ -863,14 +862,13 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
         const note = document.createElement('p');
         note.className = 'import-guest-note';
-        note.textContent = `Without an account you can import ${FREE_GUEST_IMPORT} games — `
-          + 'a free account lifts that to your whole history.';
+        note.textContent = t('import.guestNote', { n: FREE_GUEST_IMPORT });
         guest.appendChild(note);
 
         const link = document.createElement('button');
         link.type = 'button';
         link.className = 'import-guest-btn';
-        link.textContent = 'Create a free account';
+        link.textContent = t('common.createAccount');
         link.addEventListener('click', () => openSignUp(unlock));
         guest.appendChild(link);
 
@@ -887,7 +885,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     // ── Which to import (time-control toggles, counts reflect the slice) ──
     const tcLabel = document.createElement('div');
     tcLabel.className = 'edit-label';
-    tcLabel.textContent = 'Which to import';
+    tcLabel.textContent = t('import.which');
     choices.appendChild(tcLabel);
 
     const tcRow = document.createElement('div');
@@ -936,8 +934,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         capNote.appendChild(warnIcon());
         const msg = document.createElement('span');
         msg.textContent = result.truncated
-          ? `Importing the most recent ${HARD_CAP.toLocaleString()} games — the cap. Big imports make the map and the board browser slow on a phone; around 500 keeps it snappy.`
-          : `Importing all ${slice.length.toLocaleString()} games. More than ~500 can make the map and the board browser slow on a phone.`;
+          ? t('import.cap.recent', { count: formatNumber(HARD_CAP) })
+          : t('import.cap.all', { count: formatNumber(slice.length) });
         capNote.appendChild(msg);
         capNote.hidden = false;
       } else {
@@ -967,8 +965,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       const games = filterByTimeClasses(sliceGames(), selected);
       const n = games.length;
       importBtn.textContent = n === 0
-        ? 'Pick at least one'
-        : `Import ${n.toLocaleString()} game${n === 1 ? '' : 's'}`;
+        ? t('import.pickOne')
+        : t('import.submit', { n, count: formatNumber(n) });
       importBtn.disabled = n === 0;
 
       // Your won/lost graph for exactly what will land (hidden when nothing is).
@@ -978,7 +976,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         const scorePct = Math.round(((s.wins + s.draws / 2) / n) * 100);
         wdlWrap.appendChild(wdlBlock(
           { wins: s.wins, draws: s.draws, losses: s.losses, scorePct, games: n },
-          isMine ? 'your results' : `${userInput.value.trim()}'s results`,
+          isMine ? t('import.yourResults') : t('import.theirResults', { name: userInput.value.trim() }),
         ));
       }
 
@@ -986,7 +984,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         splitNote.hidden = true;
       } else {
         const white = games.filter(g => g.colour === 'white').length;
-        splitNote.textContent = `${white.toLocaleString()} as White · ${(n - white).toLocaleString()} as Black`;
+        splitNote.textContent = t('import.split', { white: formatNumber(white), black: formatNumber(n - white) });
         splitNote.hidden = false;
       }
     }
@@ -998,7 +996,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     ): Promise<void> {
       importBtn.disabled = true;
       scanBtn.disabled = true;
-      importStatus.textContent = 'Saving to this device…';
+      importStatus.textContent = t('import.saving');
       try {
         const firstGames = (await countGames()) === 0;
         await persist(games, {
@@ -1007,7 +1005,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
           avatarUrl: scannedAvatarUrl,
         });
         showToast(
-          `Imported ${games.length.toLocaleString()} game${games.length === 1 ? '' : 's'}`,
+          t('import.imported', { n: games.length, count: formatNumber(games.length) }),
           { variant: 'success' },
         );
         // One import finished. Counted here rather than on the onImported
@@ -1021,7 +1019,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         opts.onImported?.(games.length);
         close();
       } catch (err) {
-        showError(`Couldn’t save your games — ${(err as Error).message}`);
+        showError(t('import.saveFailed', { error: (err as Error).message }));
         importBtn.disabled = false;
         scanBtn.disabled = false;
         importStatus.textContent = '';
@@ -1108,14 +1106,14 @@ function chooseImportMode(
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Add to your games?';
+  title.textContent = t('import.add.title');
   sheet.appendChild(title);
 
   const summary = document.createElement('p');
   summary.className = 'backup-import-summary';
   summary.textContent =
-    `You're importing ${incomingCount.toLocaleString()} game${incomingCount === 1 ? '' : 's'}. ` +
-    `You already have ${existingCount.toLocaleString()} game${existingCount === 1 ? '' : 's'} on this device.`;
+    `${t('import.add.incoming', { n: incomingCount, count: formatNumber(incomingCount) })} `
+    + t('import.add.existing', { n: existingCount, count: formatNumber(existingCount) });
   sheet.appendChild(summary);
 
   // Add — safe default. Keeps the existing games and merges these in (dedup by
@@ -1124,8 +1122,7 @@ function chooseImportMode(
   addBtn.type = 'button';
   addBtn.className = 'backup-choice-btn';
   addBtn.innerHTML =
-    '<strong>Add to existing</strong>' +
-    '<span>Keep the games you have and merge these in. Good for combining Chess.com and Lichess.</span>';
+    `<strong>${t('import.add.merge')}</strong><span>${t('import.add.mergeHint')}</span>`;
   addBtn.addEventListener('click', () => { close(); onChoose('add'); });
   sheet.appendChild(addBtn);
 
@@ -1134,8 +1131,7 @@ function chooseImportMode(
   replaceBtn.type = 'button';
   replaceBtn.className = 'backup-choice-btn backup-choice-btn--danger';
   replaceBtn.innerHTML =
-    '<strong>Replace everything</strong>' +
-    '<span>Delete the games you have and keep only this import.</span>';
+    `<strong>${t('import.add.replace')}</strong><span>${t('import.add.replaceHint')}</span>`;
   replaceBtn.addEventListener('click', () => { close(); onChoose('replace'); });
   sheet.appendChild(replaceBtn);
 
@@ -1144,7 +1140,7 @@ function chooseImportMode(
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'edit-cancel-btn';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('common.cancel');
   cancelBtn.addEventListener('click', close);
   btnRow.appendChild(cancelBtn);
   sheet.appendChild(btnRow);
@@ -1193,8 +1189,8 @@ function field(labelText: string, control: HTMLElement): HTMLElement {
 function friendlyError(err: unknown, platform: Platform): string {
   // fetch() rejects with a TypeError on a network/CORS/offline failure.
   if (err instanceof TypeError) {
-    return `Couldn’t reach ${PLATFORM_LABELS[platform]} — check your connection and try again.`;
+    return t('import.unreachable', { site: PLATFORM_LABELS[platform] });
   }
   const msg = (err as Error)?.message ?? '';
-  return msg || 'Something went wrong — try again.';
+  return msg || t('common.somethingWrong');
 }

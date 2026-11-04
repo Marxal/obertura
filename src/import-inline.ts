@@ -22,6 +22,7 @@ import { getUsername as getChesscomUser } from './chesscom';
 import { getUsername as getLichessUser } from './lichess';
 import type { Platform } from './import-games';
 import { Icons } from './icons';
+import { t } from './i18n';
 
 export interface InlineImportOptions {
   // Heading inside the box. Say what THIS screen gets out of the import.
@@ -65,7 +66,7 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
   const seg = document.createElement('div');
   seg.className = 'seg-control inline-import-platform';
   seg.setAttribute('role', 'group');
-  seg.setAttribute('aria-label', 'Platform');
+  seg.setAttribute('aria-label', t('import.platform'));
   const buttons: HTMLButtonElement[] = [];
   for (const p of ['chesscom', 'lichess'] as Platform[]) {
     const b = document.createElement('button');
@@ -81,7 +82,7 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
       // what the user has typed if we actually have something to put there.
       const saved = savedUsername(p);
       if (saved || !input.value) input.value = saved;
-      input.placeholder = `Your ${platformLabel(p)} username`;
+      input.placeholder = t('where.usernameOn', { site: platformLabel(p) });
     });
     buttons.push(b);
     seg.appendChild(b);
@@ -107,15 +108,15 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
   input.autocomplete = 'off';
   input.autocapitalize = 'none';
   input.spellcheck = false;
-  input.placeholder = `Your ${platformLabel(platform)} username`;
+  input.placeholder = t('where.usernameOn', { site: platformLabel(platform) });
   input.value = savedUsername(platform);
-  input.setAttribute('aria-label', 'Username');
+  input.setAttribute('aria-label', t('import.usernameField'));
   row.appendChild(input);
 
   const go = document.createElement('button');
   go.type = 'submit';
   go.className = 'btn-primary inline-import-go';
-  go.textContent = 'Import';
+  go.textContent = t('import.go');
   row.appendChild(go);
 
   const error = document.createElement('p');
@@ -127,7 +128,7 @@ export function buildInlineImport(opts: InlineImportOptions): HTMLElement {
     e.preventDefault();
     const username = input.value.trim();
     if (!username) {
-      error.textContent = `Enter your ${platformLabel(platform)} username first.`;
+      error.textContent = t('import.enterUsername', { site: platformLabel(platform) });
       error.hidden = false;
       input.focus();
       return;

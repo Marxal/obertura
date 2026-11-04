@@ -16,6 +16,7 @@ import { isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
 import { pushBack } from './back-nav';
 import { celebratePawn, burstConfetti } from './confetti';
+import { t } from './i18n';
 
 // ── First run is done ───────────────────────────────────────────────────────
 //
@@ -45,7 +46,7 @@ export function showFirstLineSuccess(opts: {
 
   const title = document.createElement('h3');
   title.className = 'firstwin-title';
-  title.textContent = opts.title ?? 'Your first line is set!';
+  title.textContent = opts.title ?? t('signup.firstLine');
   card.appendChild(title);
 
   if (opts.lead) {
@@ -67,7 +68,7 @@ export function showFirstLineSuccess(opts: {
   const next = document.createElement('button');
   next.type = 'button';
   next.className = 'btn-primary firstwin-cta';
-  next.textContent = opts.primary?.label ?? 'Keep going';
+  next.textContent = opts.primary?.label ?? t('signup.keepGoing');
   next.addEventListener('click', () => { close(); opts.primary?.onClick(); });
   card.appendChild(next);
 
@@ -76,14 +77,13 @@ export function showFirstLineSuccess(opts: {
   if (isSupabaseConfigured && !getAuthUser()) {
     const why = document.createElement('p');
     why.className = 'firstwin-ask';
-    why.textContent = 'Right now this lives only on this phone. '
-      + 'A free account brings it back on any device.';
+    why.textContent = t('signup.why');
     card.appendChild(why);
 
     const account = document.createElement('button');
     account.type = 'button';
     account.className = 'btn-secondary firstwin-account';
-    account.textContent = 'Create a free account';
+    account.textContent = t('common.createAccount');
     account.addEventListener('click', () => { close(); openSignUpSheet('signup'); });
     card.appendChild(account);
   }
@@ -133,14 +133,12 @@ export function openSignUpSheet(
   // answering first); the line says what it buys.
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = mode === 'signin' ? 'Sign in' : 'Create a free account';
+  title.textContent = t(mode === 'signin' ? 'signup.signIn' : 'common.createAccount');
   sheet.appendChild(title);
 
   const lead = document.createElement('p');
   lead.className = 'signup-sheet-lead';
-  lead.textContent = opts.lead ?? (mode === 'signin'
-    ? 'Your lines and progress come back the moment you do.'
-    : 'Your lines and progress follow you to any phone you sign in on.');
+  lead.textContent = opts.lead ?? t(mode === 'signin' ? 'signup.lead.signin' : 'signup.lead.signup');
   sheet.appendChild(lead);
 
   sheet.appendChild(buildAuthForm({ initialMode: mode, blurb: '' }));
@@ -153,7 +151,7 @@ export function openSignUpSheet(
   const notNow = document.createElement('button');
   notNow.type = 'button';
   notNow.className = 'signup-sheet-dismiss';
-  notNow.textContent = 'Continue as a guest';
+  notNow.textContent = t('signup.guest');
   notNow.addEventListener('click', close);
   sheet.appendChild(notNow);
 
@@ -241,8 +239,7 @@ export function handleAuthUrlParam(): void {
 
   openSignUpSheet(asked, wantsCheckout
     ? {
-      lead: 'Your unlock is tied to your account, so it follows you to any '
-        + 'phone you sign in on — and comes back if you ever reinstall.',
+      lead: t('signup.unlockLead'),
       onSignedIn: openCheckout,
     }
     : {});

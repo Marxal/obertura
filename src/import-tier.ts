@@ -8,6 +8,7 @@
 // 100 / 500 / All ladder is unchanged.
 
 import { HARD_CAP, type CountChoice } from './import-core';
+import { formatNumber, t } from './i18n';
 
 // What a signed-out visitor may take in one import. Enough to see which openings
 // they actually play (which is the whole pitch), small enough that the full
@@ -63,10 +64,10 @@ export function countOptionsFor(
 ): CountOption[] {
   const opts: CountOption[] = [];
   // When the hard cap bit, "All" is the most recent HARD_CAP — spell it out.
-  const allLabel = truncated ? `All (${HARD_CAP.toLocaleString()})` : 'All';
+  const allLabel = truncated ? t('import.allCapped', { count: formatNumber(HARD_CAP) }) : t('import.all');
 
   if (guest) {
-    opts.push({ value: FREE_GUEST_IMPORT, label: `Last ${FREE_GUEST_IMPORT}` });
+    opts.push({ value: FREE_GUEST_IMPORT, label: t('import.last', { n: FREE_GUEST_IMPORT }) });
     // Only worth padlocking the bigger slices when the account genuinely holds
     // more than the cap — otherwise we'd advertise an upgrade that changes
     // nothing for this user. A rung is only padlocked when it is genuinely
@@ -74,7 +75,7 @@ export function countOptionsFor(
     if (total > FREE_GUEST_IMPORT) {
       for (const rung of LADDER) {
         if (rung > FREE_GUEST_IMPORT && total > rung) {
-          opts.push({ value: rung, label: `Last ${rung}`, locked: true });
+          opts.push({ value: rung, label: t('import.last', { n: rung }), locked: true });
         }
       }
       opts.push({ value: 'all', label: allLabel, locked: true });
@@ -83,7 +84,7 @@ export function countOptionsFor(
   }
 
   for (const rung of LADDER) {
-    if (total > rung) opts.push({ value: rung, label: `Last ${rung}` });
+    if (total > rung) opts.push({ value: rung, label: t('import.last', { n: rung }) });
   }
   opts.push({ value: 'all', label: allLabel });
   return opts;

@@ -20334,11 +20334,17 @@ html.picker-open body {
   font: inherit;
   font-size: 0.85rem;
   font-weight: 700;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   hyphens: auto;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+/* In English the three tabs are equal. Other languages have one long label among
+   short ones, so each tab takes the room its own word needs. */
+html:not([lang="en"]) .where-tab {
+  flex-basis: auto;
 }
 
 .where-tab--on {

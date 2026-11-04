@@ -3027,3 +3027,11 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - ✅ **Small English fixes on the way:** "1 games read" and "The other 1 are saved" read correctly now.
 - English compared with the last commit: 32 of 34 screens identical, and the other two differ only in the confetti.
 
+### Translation: the rest of first run (Phase 2, second round)
+
+- ✅ **The import sheet, starter pack picker, builder tour and sign-up sheet** use keys, as do the Chess.com and
+  Lichess error messages, which reach the screen word for word.
+- ✅ **The layout check also covers** starter packs, the colour picker, the builder tour and the import sheet.
+- English compared with the last commit: 41 of 44 screens identical. The other three differ only in confetti, and
+  in a button's rendering on the import sheet that looks the same side by side.
+

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // Lichess source for the shared import core (see import-core.ts).
 //
 // The free games-export API needs no token for PUBLIC games:
@@ -166,7 +167,7 @@ function sinceMs(months: Range): number {
 // the full body has landed.
 export const fetchLichess: SourceFetch = async (username, months, emit) => {
   const user = username.trim();
-  if (!user) throw new Error('Enter your Lichess username first.');
+  if (!user) throw new Error(t('import.enterUsername', { site: 'Lichess' }));
 
   const url = new URL(`${API_BASE}/${encodeURIComponent(user)}`);
   url.searchParams.set('since', String(sinceMs(months)));
@@ -179,9 +180,9 @@ export const fetchLichess: SourceFetch = async (username, months, emit) => {
   url.searchParams.set('clocks', 'true');
 
   const res = await fetch(url.toString(), { headers: { Accept: 'application/x-ndjson' } });
-  if (res.status === 404) throw new Error('Player not found — check the username.');
-  if (res.status === 429) throw new Error('Lichess rate limit hit — wait a moment and try again.');
-  if (!res.ok) throw new Error(`Lichess API error ${res.status} ${res.statusText}`);
+  if (res.status === 404) throw new Error(t('import.err.notFound'));
+  if (res.status === 429) throw new Error(t('import.err.rateLimit', { site: 'Lichess' }));
+  if (!res.ok) throw new Error(t('import.err.api', { site: 'Lichess', status: res.status, text: res.statusText }));
 
   const CHUNK = 50;
   let batch: NormalisedGame[] = [];
