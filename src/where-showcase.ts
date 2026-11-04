@@ -24,19 +24,24 @@ import type { Key } from 'chessground/types';
 import { registerBrushes } from './board-brushes';
 import { colourPip } from './card-position';
 import { Icons } from './icons';
+import { t, type MessageKey } from './i18n';
 
-const GAMES: { opening: string; colour: 'white' | 'black'; result: 'Won' | 'Lost' | 'Drew' }[] = [
-  { opening: 'Italian Game', colour: 'white', result: 'Won' },
-  { opening: 'Caro-Kann', colour: 'black', result: 'Lost' },
-  { opening: 'London System', colour: 'white', result: 'Drew' },
-  { opening: 'Scandinavian', colour: 'black', result: 'Won' },
+const GAMES: { opening: string; colour: 'white' | 'black'; result: 'won' | 'lost' | 'drew' }[] = [
+  { opening: 'Italian Game', colour: 'white', result: 'won' },
+  { opening: 'Caro-Kann', colour: 'black', result: 'lost' },
+  { opening: 'London System', colour: 'white', result: 'drew' },
+  { opening: 'Scandinavian', colour: 'black', result: 'won' },
 ];
 
-const OPENINGS: { name: string; colour: 'white' | 'black'; score: number; state: string }[] = [
-  { name: 'Italian Game', colour: 'white', score: 58, state: 'Line saved' },
-  { name: 'London System', colour: 'white', score: 61, state: 'Line saved' },
-  { name: 'Caro-Kann', colour: 'black', score: 44, state: 'No line yet' },
-  { name: 'Scandinavian', colour: 'black', score: 37, state: 'No line yet' },
+const RESULT_KEYS: Record<'won' | 'lost' | 'drew', MessageKey> = {
+  won: 'showcase.won', lost: 'showcase.lost', drew: 'showcase.drew',
+};
+
+const OPENINGS: { name: string; colour: 'white' | 'black'; score: number; saved: boolean }[] = [
+  { name: 'Italian Game', colour: 'white', score: 58, saved: true },
+  { name: 'London System', colour: 'white', score: 61, saved: true },
+  { name: 'Caro-Kann', colour: 'black', score: 44, saved: false },
+  { name: 'Scandinavian', colour: 'black', score: 37, saved: false },
 ];
 
 function gamesVisual(): HTMLElement {
@@ -50,8 +55,8 @@ function gamesVisual(): HTMLElement {
     name.className = 'where-sc-row-name';
     name.textContent = g.opening;
     const result = document.createElement('span');
-    result.className = `where-sc-result where-sc-result--${g.result.toLowerCase()}`;
-    result.textContent = g.result;
+    result.className = `where-sc-result where-sc-result--${g.result}`;
+    result.textContent = t(RESULT_KEYS[g.result]);
     row.append(colourPip(g.colour), name, result);
     list.appendChild(row);
   });
@@ -69,8 +74,8 @@ function openingsVisual(): HTMLElement {
     name.className = 'where-sc-row-name';
     name.textContent = o.name;
     const state = document.createElement('span');
-    state.className = 'where-sc-state' + (o.state === 'No line yet' ? ' where-sc-state--todo' : '');
-    state.textContent = o.state;
+    state.className = 'where-sc-state' + (o.saved ? '' : ' where-sc-state--todo');
+    state.textContent = t(o.saved ? 'showcase.lineSaved' : 'showcase.noLine');
     const bar = document.createElement('span');
     bar.className = 'where-sc-bar';
     const fill = document.createElement('span');
@@ -138,35 +143,35 @@ export function buildWhereShowcase(): { el: HTMLElement; redraw: () => void } {
   el.className = 'where-art';
   el.setAttribute('role', 'group');
   el.setAttribute('aria-roledescription', 'carousel');
-  el.setAttribute('aria-label', 'What Bito does with your games');
+  el.setAttribute('aria-label', t('showcase.label'));
 
   const scenes: { title: string; sub: string; visual: () => HTMLElement }[] = [
-    { title: 'Reads your games', sub: 'From Chess.com or Lichess', visual: gamesVisual },
-    { title: 'Shows the openings you play', sub: 'Your score in each, and what you have no line for', visual: openingsVisual },
+    { title: t('showcase.reads.title'), sub: t('showcase.reads.sub'), visual: gamesVisual },
+    { title: t('showcase.openings.title'), sub: t('showcase.openings.sub'), visual: openingsVisual },
     {
-      title: 'Fix your mistakes',
-      sub: 'Your own positions, until you find the better move',
+      title: t('showcase.mistakes.title'),
+      sub: t('showcase.mistakes.sub'),
       visual: () => boardVisual('r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3', 'black',
         [{ from: 'g8', to: 'f6', brush: 'bad' }, { from: 'g7', to: 'g6', brush: 'good' }],
-        [{ text: 'You played Nf6??', tone: 'bad' }, { text: 'Better: g6', tone: 'good' }]),
+        [{ text: t('showcase.youPlayed', { move: 'Nf6??' }), tone: 'bad' }, { text: t('showcase.better', { move: 'g6' }), tone: 'good' }]),
     },
     {
-      title: 'Which move',
-      sub: 'Two moves, one of them yours',
+      title: t('showcase.which.title'),
+      sub: t('showcase.which.sub'),
       visual: () => boardVisual('6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1', 'white',
         [{ from: 'd1', to: 'd8', brush: 'good' }, { from: 'h2', to: 'h3', brush: 'bad' }],
         [{ text: 'Rd8#', tone: 'good' }, { text: 'h3', tone: 'bad' }]),
     },
     {
-      title: 'Blunder detective',
-      sub: 'Find the blunder, yours or theirs',
+      title: t('showcase.detective.title'),
+      sub: t('showcase.detective.sub'),
       visual: () => boardVisual('r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3', 'white',
         [{ from: 'h5', to: 'e5', brush: 'bad' }],
         [{ text: '2.Qh5' }, { text: '2…Nc6' }, { text: '3.Qxe5+??', tone: 'bad' }]),
     },
     {
-      title: 'Time pressure',
-      sub: '20 seconds a position, 2 minutes',
+      title: t('showcase.pressure.title'),
+      sub: t('showcase.pressure.sub'),
       visual: () => boardVisual('rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2', 'black',
         [{ from: 'd8', to: 'h4', brush: 'good' }],
         [{ text: '0:18', tone: 'bad' }, { text: 'Qh4#', tone: 'good' }]),
@@ -179,7 +184,7 @@ export function buildWhereShowcase(): { el: HTMLElement; redraw: () => void } {
     const scene = document.createElement('div');
     scene.className = 'where-sc-scene';
     scene.setAttribute('role', 'group');
-    scene.setAttribute('aria-label', `${i + 1} of ${scenes.length}: ${s.title}`);
+    scene.setAttribute('aria-label', t('showcase.position', { at: i + 1, total: scenes.length, title: s.title }));
     const head = document.createElement('div');
     head.className = 'where-sc-head';
     const h = document.createElement('p');
@@ -219,9 +224,9 @@ export function buildWhereShowcase(): { el: HTMLElement; redraw: () => void } {
     return b;
   });
   controls.append(
-    arrow('Previous', Icons.chevronLeft(20), () => show(at - 1)),
+    arrow(t('common.previous'), Icons.chevronLeft(20), () => show(at - 1)),
     steps,
-    arrow('Next', Icons.chevronRight(20), () => show(at + 1)),
+    arrow(t('common.next'), Icons.chevronRight(20), () => show(at + 1)),
   );
   el.append(stage, controls);
 

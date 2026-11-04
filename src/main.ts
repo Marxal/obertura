@@ -3691,7 +3691,7 @@ function openFirstRunPacks(): void {
       addStarterLine(seed, colour, mode, () => { added++; onDone(); }, onCancel);
     },
     {
-      title: 'Pick your first opening',
+      title: t('firstRun.pickOpening'),
       onBulkAdded: () => {
         finishFirstRun();
         noteJustOnboarded();
@@ -3746,7 +3746,7 @@ function runFirstRunImport(platform: Platform, username: string): void {
     // The review step's only real question — the time format — now lives on the
     // recap, where its effect is visible. See ImportPanelOptions.skipReview.
     skipReview: true,
-    title: 'Import your games',
+    title: t('firstRun.importTitle'),
     // A COVER GOES UP SYNCHRONOUSLY, before the panel closes.
     //
     // onImported fires, then the panel closes itself — but building the recap
@@ -3822,7 +3822,7 @@ async function showFirstRunRecap(firstRun = true): Promise<void> {
   // must not stack a second screen.
   if (recapBuilding) return;
   recapBuilding = true;
-  if (!firstRun) showToast('Reading your games…');
+  if (!firstRun) showToast(t('firstRun.reading'));
   try {
     await buildAndShowRecap(firstRun);
   } finally {
@@ -3849,8 +3849,7 @@ async function buildAndShowRecap(firstRun: boolean): Promise<void> {
     hideRecapLoader();
     showWherePickerScreen({
       tab: 'manual',
-      notice: 'There aren’t enough games there yet to find your openings. Start '
-        + 'with a ready-made opening, or build your own line.',
+      notice: t('firstRun.tooFewGames'),
     });
     return;
   }
@@ -3939,23 +3938,23 @@ function previewRecapLine(opening: OpeningGroup, ctx: PreviewContext): void {
       {
         // Same words and same shape as the card's own toggle, so the two read
         // as one control seen from two places rather than two decisions.
-        label: ctx.selected ? '✓ Selected' : 'Select',
+        label: t(ctx.selected ? 'recap.card.selected' : 'recap.card.select'),
         active: ctx.selected,
         onClick: ctx.onToggle,
       },
       // NOT keepOpen: onDeepen reopens this popup on the longer line, and
       // leaving the old one mounted stacked a second overlay on top of the
       // first (caught in testing as a line that appeared to double in length).
-      ...(ctx.canDeepen ? [{ label: 'Add more moves', onClick: ctx.onDeepen }] : []),
+      ...(ctx.canDeepen ? [{ label: t('recap.preview.addMoves'), onClick: ctx.onDeepen }] : []),
     ],
     stats: [
-      { value: String(opening.games), label: opening.games === 1 ? 'game' : 'games' },
-      { value: `${opening.share}%`, label: 'of that colour' },
+      { value: String(opening.games), label: t('recap.preview.games', { n: opening.games }) },
+      { value: `${opening.share}%`, label: t('recap.preview.ofColour') },
       {
         value: decided > 0 ? `${Math.round((opening.wins / decided) * 100)}%` : '—',
-        label: 'wins',
+        label: t('recap.preview.wins'),
       },
-      { value: `${opening.wins}/${opening.draws}/${opening.losses}`, label: 'W/D/L' },
+      { value: `${opening.wins}/${opening.draws}/${opening.losses}`, label: t('recap.preview.wdl') },
     ],
   });
 }
@@ -3994,7 +3993,7 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
   showView('home');
 
   const pausedNote = paused > 0
-    ? `${saved - paused} are training now; ${paused} are saved paused in Openings → My lines.`
+    ? t('firstRun.pausedNote', { training: saved - paused, paused })
     : undefined;
 
   showFirstRunFinish({ lines: saved, note: pausedNote });
@@ -4005,16 +4004,13 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
 // locked door, so the next thing is more lines, which Get started leads with.
 function showFirstRunFinish(o: { lines: number; note?: string }): void {
   if (o.lines === 0) return;
-  const lineWord = o.lines === 1 ? '1 line' : `${o.lines} lines`;
-  const analysing = isAnalysisPending()
-    ? ' Your game analysis keeps running, and we’ll let you know when it’s ready.'
-    : '';
+  const analysing = isAnalysisPending() ? ` ${t('firstRun.analysisRunning')}` : '';
   showFirstLineSuccess({
-    title: 'You’re set',
-    lead: `${o.note ?? `${lineWord} saved.`}${analysing}`,
+    title: t('firstRun.set'),
+    lead: `${o.note ?? t('firstRun.linesSaved', { n: o.lines })}${analysing}`,
     primary: o.lines >= TRAINING_UNLOCK_LINES
-      ? { label: 'Start training', onClick: startFirstTraining }
-      : { label: 'Add more lines', onClick: () => showView('home') },
+      ? { label: t('firstRun.startTraining'), onClick: startFirstTraining }
+      : { label: t('firstRun.addMoreLines'), onClick: () => showView('home') },
   });
 }
 
@@ -4037,8 +4033,8 @@ function fixAnalysisMistakes(): void {
   void readAnalysisMistakes().then((refs) => {
     startMistakeSession({
       refs: refs.slice(0, ANALYSIS_SESSION_SPOTS),
-      modeLabel: 'Your mistakes',
-      contextLabel: 'From your games',
+      modeLabel: t('analysis.modeLabel'),
+      contextLabel: t('analysis.contextLabel'),
       onExit: () => showView('home'),
       onOpenGame: openGameFromSession,
     });
@@ -4061,13 +4057,13 @@ function initAnalysisNotice(): void {
   startAnalysisNotice({
     onReady: (count) => whenAnalysisCanSpeak(() => {
       if (currentView === 'home') repaintInBackground(); // the card goes up
-      showToast(`Game analysis ready: ${count} mistake${count === 1 ? '' : 's'}`, {
+      showToast(t('analysis.ready', { n: count }), {
         durationMs: 8000,
-        action: { label: 'Fix them', onClick: fixAnalysisMistakes },
+        action: { label: t('analysis.fixThem'), onClick: fixAnalysisMistakes },
       });
     }),
     onNothingFound: () => whenAnalysisCanSpeak(() => {
-      showToast('Game analysis finished: no clear mistakes in your games.');
+      showToast(t('analysis.nothing'));
     }),
   });
 }

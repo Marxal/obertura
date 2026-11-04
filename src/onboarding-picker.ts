@@ -35,6 +35,7 @@ import { Icons } from './icons';
 import { getAllLines } from './storage';
 import { isOnboardingComplete } from './prefs';
 import { pushBack } from './back-nav';
+import { t } from './i18n';
 
 export type OnboardingColour = 'white' | 'black';
 
@@ -80,7 +81,7 @@ export function showOnboardingPicker(deps: PickerDeps): () => void {
   const overlay = document.createElement('div');
   overlay.className = 'picker-overlay picker-overlay--slim';
   overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-label', 'Build your first opening line');
+  overlay.setAttribute('aria-label', t('picker.label'));
 
   let closed = false;
   const close = (): void => {
@@ -104,7 +105,7 @@ export function showOnboardingPicker(deps: PickerDeps): () => void {
   brandRow.href = BITO_CHESS_URL;
   brandRow.target = '_blank';
   brandRow.rel = 'noopener noreferrer';
-  brandRow.setAttribute('aria-label', 'Bito Chess — about the app');
+  brandRow.setAttribute('aria-label', t('where.aboutApp'));
   brandRow.appendChild(appMark());
   const brand = document.createElement('span');
   brand.className = 'picker-brand';
@@ -120,18 +121,18 @@ export function showOnboardingPicker(deps: PickerDeps): () => void {
 
   const lead = document.createElement('h1');
   lead.className = 'picker-lead';
-  lead.textContent = 'Let’s build your first line.';
+  lead.textContent = t('picker.title');
   stage.appendChild(lead);
 
   const sub = document.createElement('p');
   sub.className = 'picker-sub';
-  sub.textContent = 'Which colour are you preparing for?';
+  sub.textContent = t('picker.sub');
   stage.appendChild(sub);
 
   const start = document.createElement('button');
   start.type = 'button';
   start.className = 'btn-primary picker-start';
-  start.textContent = 'Start building';
+  start.textContent = t('picker.start');
   start.hidden = true;
   start.addEventListener('click', () => {
     if (!colour) return;
@@ -157,12 +158,12 @@ export function showOnboardingPicker(deps: PickerDeps): () => void {
     const foot = document.createElement('div');
     foot.className = 'picker-foot-signin';
     const text = document.createElement('span');
-    text.textContent = 'I already have an account,';
+    text.textContent = t('where.haveAccount');
     foot.appendChild(text);
     const link = document.createElement('button');
     link.type = 'button';
     link.className = 'picker-signin-link';
-    link.textContent = 'log in';
+    link.textContent = t('where.logIn');
     link.addEventListener('click', () => deps.onSignIn?.());
     foot.appendChild(link);
     overlay.appendChild(foot);
@@ -202,7 +203,7 @@ function colourChooser(onChange: (v: OnboardingColour) => void): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'picker-colours picker-colours--lead';
   wrap.setAttribute('role', 'group');
-  wrap.setAttribute('aria-label', 'Colour');
+  wrap.setAttribute('aria-label', t('picker.colour'));
 
   const buttons: HTMLButtonElement[] = [];
   const reflect = (active: OnboardingColour): void => {
@@ -228,7 +229,7 @@ function colourChooser(onChange: (v: OnboardingColour) => void): HTMLElement {
 
     const label = document.createElement('span');
     label.className = 'picker-colour-label';
-    label.textContent = value === 'white' ? 'White' : 'Black';
+    label.textContent = t(value === 'white' ? 'common.white' : 'common.black');
     btn.appendChild(label);
 
     btn.addEventListener('click', () => { reflect(value); onChange(value); });

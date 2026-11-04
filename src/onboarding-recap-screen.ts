@@ -37,6 +37,7 @@ import { buildPositionCard, fenFromUcis, colourPip } from './card-position';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
+import { t } from './i18n';
 import { TIME_CLASS_LABELS, type TimeClass } from './import-games';
 import { ownMoveCount, pickStarterOpenings, type OpeningGroup, type Recap } from './onboarding-recap';
 
@@ -143,7 +144,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
   const overlay = document.createElement('div');
   overlay.className = 'picker-overlay recap-overlay';
   overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-label', 'What we found in your games');
+  overlay.setAttribute('aria-label', t('recap.label'));
 
   let closed = false;
   const close = (): void => {
@@ -220,12 +221,12 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     // The title is the ACTION, not the report.
     const lead = document.createElement('h1');
     lead.className = 'recap-lead';
-    lead.textContent = 'Pick your lines';
+    lead.textContent = t('recap.title');
     stage.appendChild(lead);
 
     const sub = document.createElement('p');
     sub.className = 'recap-sub';
-    sub.textContent = 'These are the openings you play most. Tap one to add or remove it.';
+    sub.textContent = t('recap.sub');
     stage.appendChild(sub);
 
     // ── The two controls ──
@@ -234,11 +235,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     if (recap.openings.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'recap-note';
-      empty.textContent = timeClass
-        ? 'No clear openings in that time format — try another, or All.'
-        : 'Your games are spread across a lot of different openings, so there’s '
-          + 'no clear favourite to start from. You can build a line by hand '
-          + 'instead — your games are saved either way.';
+      empty.textContent = t(timeClass ? 'recap.empty.format' : 'recap.empty.spread');
       stage.appendChild(empty);
       buildFoot();
       return;
@@ -246,7 +243,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
 
     const heading = document.createElement('h2');
     heading.className = 'recap-heading';
-    heading.textContent = 'Picked for you';
+    heading.textContent = t('recap.picked');
     stage.appendChild(heading);
 
     // listOrder holds chosen lines at the front, as of when the list was built.
@@ -266,7 +263,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       more.type = 'button';
       more.className = 'recap-more';
       const next = Math.min(REVEAL_STEP, remaining);
-      more.textContent = `Show ${next} more opening${next === 1 ? '' : 's'}`;
+      more.textContent = t('recap.showMore', { n: next });
       more.addEventListener('click', () => { visibleCount = shown + REVEAL_STEP; paint(); });
       stage.appendChild(more);
     }
@@ -283,11 +280,9 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     note.appendChild(Icons.review(18));
     const text = document.createElement('p');
     const lead = document.createElement('strong');
-    lead.textContent = 'Game analysis has started. ';
+    lead.textContent = `${t('recap.analysis.lead')} `;
     text.appendChild(lead);
-    text.appendChild(document.createTextNode(
-      'Bito is looking for the mistakes in your games while the app is open. '
-      + 'We’ll let you know when they’re ready.'));
+    text.appendChild(document.createTextNode(t('recap.analysis.rest')));
     note.appendChild(text);
     return note;
   }
@@ -304,11 +299,11 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     text.className = 'recap-identity-text';
     const handle = document.createElement('span');
     handle.className = 'recap-identity-handle';
-    handle.textContent = deps.username ? `@${deps.username}` : 'Your games';
+    handle.textContent = deps.username ? `@${deps.username}` : t('recap.yourGames');
     text.appendChild(handle);
     const count = document.createElement('span');
     count.className = 'recap-identity-count';
-    count.textContent = `${recap.total} games read`;
+    count.textContent = t('recap.gamesRead', { n: recap.total });
     text.appendChild(count);
     row.appendChild(text);
     return row;
@@ -335,7 +330,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
 
       const label = document.createElement('span');
       label.className = 'recap-record-label';
-      label.textContent = colour === 'white' ? 'White' : 'Black';
+      label.textContent = t(colour === 'white' ? 'common.white' : 'common.black');
       row.appendChild(label);
 
       // The win/draw/loss split for that colour, summed from its openings.
@@ -384,7 +379,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       const row = document.createElement('div');
       row.className = 'recap-chips';
       row.setAttribute('role', 'group');
-      row.setAttribute('aria-label', 'Time format');
+      row.setAttribute('aria-label', t('recap.timeFormat'));
 
       const chip = (label: string, value: TimeClass | null, count: number): void => {
         const b = document.createElement('button');
@@ -402,7 +397,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
         row.appendChild(b);
       };
 
-      chip('All', null, recap.byTimeClass.reduce((n, b) => n + b.games, 0));
+      chip(t('recap.all'), null, recap.byTimeClass.reduce((n, b) => n + b.games, 0));
       for (const bucket of recap.byTimeClass) {
         chip(TIME_CLASS_LABELS[bucket.timeClass], bucket.timeClass, bucket.games);
       }
@@ -420,9 +415,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       const save = document.createElement('button');
       save.type = 'button';
       save.className = 'btn-primary recap-save';
-      save.textContent = n === 0
-        ? 'Pick at least one line'
-        : `Save ${n} line${n === 1 ? '' : 's'} →`;
+      save.textContent = n === 0 ? t('recap.pickOne') : t('recap.save', { n });
       save.disabled = n === 0;
       save.addEventListener('click', () => { close(); deps.onSave(selectedOpenings()); });
       foot.appendChild(save);
@@ -433,9 +426,8 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
         slots.className = 'recap-slots';
         const over = n - deps.freeLimit;
         slots.textContent = over > 0
-          ? `${deps.freeLimit} will train now. The other ${over} are saved paused — `
-            + 'switch them on whenever you like.'
-          : `Uses ${n} of your ${deps.freeLimit} free training slots.`;
+          ? t('recap.slots.over', { n: over, limit: deps.freeLimit })
+          : t('recap.slots.used', { n, limit: deps.freeLimit });
         foot.appendChild(slots);
       }
     }
@@ -443,7 +435,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     const skip = document.createElement('button');
     skip.type = 'button';
     skip.className = recap.openings.length > 0 ? 'recap-skip' : 'btn-primary recap-save';
-    skip.textContent = recap.openings.length > 0 ? 'Skip for now' : 'Continue';
+    skip.textContent = t(recap.openings.length > 0 ? 'recap.skipForNow' : 'common.continue');
     skip.addEventListener('click', () => {
       // One quiet word used to be all that stood between a first run and an
       // empty app. It now says what skipping costs, once, in the place the tap
@@ -459,21 +451,20 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     foot.replaceChildren();
     const note = document.createElement('p');
     note.className = 'recap-slots';
-    note.textContent = 'Opening training stays locked until you have 3 lines. You can '
-      + 'pick them later from Get started.';
+    note.textContent = t('recap.skipNote');
     foot.appendChild(note);
 
     const keep = document.createElement('button');
     keep.type = 'button';
     keep.className = 'btn-primary recap-save';
-    keep.textContent = 'Keep picking';
+    keep.textContent = t('recap.keepPicking');
     keep.addEventListener('click', () => { foot.replaceChildren(); buildFoot(); });
     foot.appendChild(keep);
 
     const skip = document.createElement('button');
     skip.type = 'button';
     skip.className = 'recap-skip';
-    skip.textContent = 'Skip openings';
+    skip.textContent = t('recap.skipOpenings');
     skip.addEventListener('click', () => { close(); deps.onSkip(); });
     foot.appendChild(skip);
   }
@@ -537,7 +528,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       // The miniature and "See the line" open the preview; the rest of the card
       // toggles the tick (UX-AUDIT 2.2.3).
       onMiniClick: () => openPreview(opening),
-      miniLabel: `Play through ${opening.name}`,
+      miniLabel: t('recap.card.playThrough', { opening: opening.name }),
     });
 
     titleRow.appendChild(colourPip(opening.colour));
@@ -548,15 +539,15 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
 
     const meta = document.createElement('p');
     meta.className = 'recap-card-meta';
-    meta.textContent = `${opening.games} game${opening.games === 1 ? '' : 's'}`
-      + ` · ${opening.share}% of your ${opening.colour === 'white' ? 'White' : 'Black'} games`;
+    meta.textContent = t(opening.colour === 'white' ? 'recap.card.metaWhite' : 'recap.card.metaBlack',
+      { n: opening.games, share: opening.share });
     content.appendChild(meta);
 
     const record = document.createElement('p');
     record.className = 'recap-card-record';
     record.appendChild(Icons.barChart(13));
     const text = document.createElement('span');
-    text.textContent = `${opening.wins}W · ${opening.draws}D · ${opening.losses}L`;
+    text.textContent = t('recap.card.record', { wins: opening.wins, draws: opening.draws, losses: opening.losses });
     record.appendChild(text);
     content.appendChild(record);
 
@@ -569,21 +560,21 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     const own = ownMoveCount(opening.ucis.length, opening.colour);
     const length = document.createElement('span');
     length.className = 'recap-card-length';
-    length.textContent = `${own} move${own === 1 ? '' : 's'}`;
+    length.textContent = t('recap.card.moves', { n: own });
     tools.appendChild(length);
     if (own < MAX_OWN_MOVES && !exhausted.has(key)) {
       const more = document.createElement('button');
       more.type = 'button';
       more.className = 'recap-card-more';
       more.textContent = '＋';
-      more.setAttribute('aria-label', `Add a move to ${opening.name}`);
+      more.setAttribute('aria-label', t('recap.card.addMove', { opening: opening.name }));
       more.addEventListener('click', (e) => { e.stopPropagation(); deepenLine(opening); });
       tools.appendChild(more);
     }
     const see = document.createElement('button');
     see.type = 'button';
     see.className = 'recap-card-see';
-    see.textContent = 'See line ›';
+    see.textContent = t('recap.card.seeLine');
     see.addEventListener('click', (e) => { e.stopPropagation(); openPreview(opening); });
     tools.appendChild(see);
     content.appendChild(tools);
@@ -596,7 +587,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     toggle.type = 'button';
     toggle.className = 'recap-toggle' + (on ? ' recap-toggle--on' : '');
     toggle.setAttribute('aria-pressed', String(on));
-    toggle.textContent = on ? '✓ Selected' : 'Select';
+    toggle.textContent = t(on ? 'recap.card.selected' : 'recap.card.select');
     content.appendChild(toggle);
 
     // THE CARD IS THE CHOICE. It used to open the preview, with a smaller pill on

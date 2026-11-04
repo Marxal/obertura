@@ -18,6 +18,7 @@ import { ownClocks } from './clock';
 import type { MoveNode } from './tree';
 import type { GameRetry } from './mistake-scan';
 import type { GameEndgame } from './endgame-scan';
+import { t } from './i18n';
 
 // Opening-map depth: how many plies the opponent-scouting / repertoire maps walk.
 // 60 plies = 30 full moves. Games now store their FULL move list (so the game
@@ -60,10 +61,10 @@ export type GameResult = 'win' | 'loss' | 'draw';
 
 // Human labels for the buckets, for the import readout / time-control chooser.
 export const TIME_CLASS_LABELS: Record<TimeClass, string> = {
-  bullet: 'Bullet',
-  blitz: 'Blitz',
-  rapid: 'Rapid',
-  daily: 'Classical / Daily',
+  bullet: t('time.bullet'),
+  blitz: t('time.blitz'),
+  rapid: t('time.rapid'),
+  daily: t('time.classicalDaily'),
 };
 
 // Time controls offered by default in the (upcoming) chooser: everything but

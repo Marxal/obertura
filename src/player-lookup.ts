@@ -9,6 +9,7 @@
 // front of the import, not a gate. Only a definite 404 ('missing') holds it back.
 
 import type { Platform } from './import-core';
+import { t } from './i18n';
 
 const TIMEOUT_MS = 6000;
 
@@ -58,8 +59,8 @@ async function lookupChesscom(name: string, signal?: AbortSignal): Promise<Playe
       record?: { win?: number; loss?: number; draw?: number };
     }>;
     for (const [key, label] of [
-      ['chess_bullet', 'Bullet'], ['chess_blitz', 'Blitz'],
-      ['chess_rapid', 'Rapid'], ['chess_daily', 'Daily'],
+      ['chess_bullet', t('time.bullet')], ['chess_blitz', t('time.blitz')],
+      ['chess_rapid', t('time.rapid')], ['chess_daily', t('time.daily')],
     ] as const) {
       const value = s[key]?.last?.rating;
       if (typeof value !== 'number') continue;
@@ -94,8 +95,8 @@ async function lookupLichess(name: string, signal?: AbortSignal): Promise<Player
   if (u.disabled) return { status: 'missing' };
   const perfs: Perf[] = [];
   for (const [key, label] of [
-    ['bullet', 'Bullet'], ['blitz', 'Blitz'], ['rapid', 'Rapid'],
-    ['classical', 'Classical'], ['correspondence', 'Correspondence'],
+    ['bullet', t('time.bullet')], ['blitz', t('time.blitz')], ['rapid', t('time.rapid')],
+    ['classical', t('time.classical')], ['correspondence', t('time.correspondence')],
   ] as const) {
     const perf = u.perfs?.[key];
     if (typeof perf?.rating === 'number' && (perf.games ?? 0) > 0) {

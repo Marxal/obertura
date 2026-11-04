@@ -1,8 +1,10 @@
 # Translating Bito Chess: the plan
 
-Status: **Phases 0 and 1 done (2026-11-04).** The system is in place and the English
-users see no change. Only the bottom menu and the Language row use it so far. Next is
-Phase 2. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
+Status: **Phases 0 and 1 done, Phase 2 under way (2026-11-04).** The system is in place
+and English users see no change. The bottom menu, the Language row, "Where do you play?",
+the recap of your games and the finish card use it so far. Still to do in Phase 2: the
+import panel, starter pack picker and sign-up card, then Home, training, the Pro popup
+and Settings. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
 
 Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
 and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
@@ -211,7 +213,7 @@ Each phase can stop safely, because of the English fallback.
 | Phase | Work | Done when |
 |---|---|---|
 | 0 ✅ | Declare a version, and re-run the string count | `v0.18` |
-| 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers first run, the five tabs and Settings; Phase 2 adds training and the Pro popup |
+| 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers first run through to the finish card, the five tabs and Settings; Phase 2 adds training and the Pro popup |
 | 2 | Move the core screens to keys: first-run, Home, training, Pro popup, Settings | Selftests pass, screens look identical in English |
 | 3 | Marçal approves voice and glossary | Glossary approved |
 | 4 | Translate the core screens into all three, build the review page | Layout check passes in all languages |

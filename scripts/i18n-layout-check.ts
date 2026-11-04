@@ -59,6 +59,34 @@ function seedRepertoires() {
   });
 }
 
+// What Chess.com's public API answers, so first run reaches its recap with no network.
+function seedChessComGames(): object[] {
+  const games: object[] = [];
+  (['white', 'black'] as const).forEach((colour) => {
+    LINES[colour].forEach((line, l) => {
+      const chess = new Chess();
+      for (const san of line.split(' ')) chess.move(san);
+      for (let i = 0; i < 5; i++) {
+        const won = i % 3 !== 2;
+        const me = { username: 'tester', rating: 1850, result: won ? 'win' : 'resigned' };
+        const them = { username: `rival${i}`, rating: 1840, result: won ? 'resigned' : 'win' };
+        const result = won === (colour === 'white') ? '1-0' : '0-1';
+        games.push({
+          url: `https://www.chess.com/game/live/${colour}${l}${i}`,
+          pgn: chess.pgn().replace('[Result "*"]', `[Result "${result}"]`).replace(/\*$/, result),
+          time_control: i % 2 ? '600' : '180',
+          time_class: i % 2 ? 'rapid' : 'blitz',
+          rules: 'chess',
+          end_time: 1790000000 + games.length * 3600,
+          white: colour === 'white' ? me : them,
+          black: colour === 'white' ? them : me,
+        });
+      }
+    });
+  });
+  return games;
+}
+
 // ── What runs inside the page ────────────────────────────────────────────────
 interface Problem { kind: string; where: string; text: string }
 
@@ -148,9 +176,15 @@ interface Result { screen: string; width: number; problems: Problem[]; untransla
 async function newContext(browser: Browser, width: number, seeded: boolean, lang: string) {
   const context = await browser.newContext({ viewport: { width, height: 800 }, hasTouch: true, isMobile: true, locale: 'en-GB' });
   // Nothing here should touch the network, least of all the live site.
-  await context.route('**/*', (route) => (
-    route.request().url().startsWith(`http://localhost:${PORT}/`) ? route.continue() : route.abort()
-  ));
+  await context.route('**/*', (route) => {
+    const url = route.request().url();
+    if (url.startsWith(`http://localhost:${PORT}/`)) return route.continue();
+    const answer = (body: object) => route.fulfill({ json: body, headers: { 'access-control-allow-origin': '*' } });
+    if (url.endsWith('/games/archives')) return answer({ archives: ['https://api.chess.com/pub/player/tester/games/2026/10'] });
+    if (url.endsWith('/games/2026/10')) return answer({ games: seedChessComGames() });
+    if (url.endsWith('/player/tester')) return answer({ username: 'tester', player_id: 1 });
+    return route.abort();
+  });
   const page = await context.newPage();
   await page.goto(`${BASE}?lang=${lang}`, { waitUntil: 'load' });
   if (seeded) {
@@ -187,6 +221,19 @@ async function walk(browser: Browser, lang: string, width: number): Promise<Resu
 
   const fresh = await newContext(browser, width, false, lang);
   await record(fresh.page, 'first-run', width, lang, out);
+  await fresh.page.click('.where-tab:nth-child(3)');
+  await record(fresh.page, 'first-run-elsewhere', width, lang, out);
+  await fresh.page.click('.where-tab:nth-child(1)');
+  await fresh.page.fill('.where-input', 'tester');
+  await fresh.page.click('.where-go');
+  await fresh.page.waitForSelector('.recap-stage', { timeout: 30000 });
+  await record(fresh.page, 'recap', width, lang, out);
+  await fresh.page.click('.recap-skip');
+  await record(fresh.page, 'recap-skip', width, lang, out);
+  await fresh.page.click('.recap-foot .btn-primary');
+  await fresh.page.click('.recap-save');
+  await fresh.page.waitForFunction(() => !document.querySelector('.recap-stage'));
+  await record(fresh.page, 'first-run-done', width, lang, out);
   await fresh.context.close();
 
   const { context, page } = await newContext(browser, width, true, lang);

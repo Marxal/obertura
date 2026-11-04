@@ -12,6 +12,7 @@
 // a calm static bar.
 
 import { pixelPawnSvg } from './pixel-pawn';
+import { t } from './i18n';
 
 // ── The feature ticker ────────────────────────────────────────────────────────
 //
@@ -42,20 +43,20 @@ import { pixelPawnSvg } from './pixel-pawn';
 //     is still being typed when its turn ends.
 //   • No apologies for the wait, no first person, no emoji.
 const APP_FACTS: string[] = [
-  'Bito Chess builds your opening repertoire, one line at a time.',
-  'It drills the moves you forget, and leaves alone the ones you know.',
-  'Lines come back for review right before you would forget them.',
-  'It reads your games to find the openings you actually play.',
-  'It spots the gaps — the replies you have no answer prepared for.',
-  'Your mistakes become training positions you can replay.',
-  'Play your openings against the engine, from any position.',
-  'A daily challenge mixes your lines, puzzles and past mistakes.',
-  'Puzzles are picked from the openings in your own repertoire.',
-  'Endgames you reached in real games become practice positions.',
-  'A built-in engine and analyser, no account needed.',
-  'Scout an opponent before you play them.',
-  'Everything works on your phone, and your data stays there.',
-  'Export a full backup, or your lines as PGN, whenever you like.',
+  t('facts.builds'),
+  t('facts.drills'),
+  t('facts.review'),
+  t('facts.reads'),
+  t('facts.gaps'),
+  t('facts.mistakes'),
+  t('facts.engine'),
+  t('facts.daily'),
+  t('facts.puzzles'),
+  t('facts.endgames'),
+  t('facts.analyser'),
+  t('facts.scout'),
+  t('facts.phone'),
+  t('facts.export'),
 ];
 
 const TYPE_CHAR_MS = 26;   // per code-point while typing — a calm typewriter
@@ -364,9 +365,7 @@ export function createImportLoader(): ImportLoader {
           added = true;
         }
         if (!added) return;
-        foundLabel.textContent = seen.size === 1
-          ? '1 opening found'
-          : `${seen.size} openings found`;
+        foundLabel.textContent = t('loader.openingsFound', { n: seen.size });
         if (found.hidden) {
           found.hidden = false;
           foundName.textContent = order[0];

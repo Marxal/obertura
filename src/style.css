@@ -20334,9 +20334,8 @@ html.picker-open body {
   font: inherit;
   font-size: 0.85rem;
   font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  hyphens: auto;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s, background 0.15s, border-color 0.15s;

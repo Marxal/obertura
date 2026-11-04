@@ -3018,3 +3018,12 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - Only the bottom menu uses keys so far. English compared with `v0.18`: identical at 412 px; at 360 px the bottom
   menu's labels moved by about a pixel. Not tried on a real phone.
 
+### Translation: the first-run screens (Phase 2, first round)
+
+- ✅ **"Where do you play?", the recap of your games, the desktop cards, the loading facts and the finish card**
+  now use keys: 119 new ones. Time-format names moved too, so every screen that shows them gets them.
+- ✅ **The layout check walks all of first run,** importing from a stand-in for Chess.com. It found "Elsewhere" cut
+  off in a longer language, so those tabs now wrap.
+- ✅ **Small English fixes on the way:** "1 games read" and "The other 1 are saved" read correctly now.
+- English compared with the last commit: 32 of 34 screens identical, and the other two differ only in the confetti.
+

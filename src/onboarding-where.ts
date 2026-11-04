@@ -51,6 +51,7 @@ import { userAvatar } from './avatar';
 import { lookupPlayer, type FoundPlayer } from './player-lookup';
 import { buildWhereShowcase } from './where-showcase';
 import { buildLanguagePicker, hasLanguageChoice } from './language-picker';
+import { formatNumber, t } from './i18n';
 
 // Where the brand mark points. The marketing page, not the app — same as the
 // colour picker's, and for the same reason: a stranger who landed on the app
@@ -90,13 +91,10 @@ export interface WherePickerDeps {
 const TABS: { value: Tab; label: string }[] = [
   { value: 'chesscom', label: 'Chess.com' },
   { value: 'lichess', label: 'Lichess' },
-  { value: 'manual', label: 'Elsewhere' },
+  { value: 'manual', label: t('where.elsewhere') },
 ];
 
-const PLACEHOLDERS: Record<Platform, string> = {
-  chesscom: 'Your Chess.com username',
-  lichess: 'Your Lichess username',
-};
+const SITE_NAMES: Record<Platform, string> = { chesscom: 'Chess.com', lichess: 'Lichess' };
 
 // Returns what closes it, for a caller whose reason to close arrives from outside
 // (an account's copy landing after a sign-in).
@@ -106,7 +104,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   const overlay = document.createElement('div');
   overlay.className = 'picker-overlay picker-overlay--slim';
   overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-label', 'Where do you play?');
+  overlay.setAttribute('aria-label', t('where.title'));
 
   const LOOKUP_PAUSE_MS = 450;
   let lookupTimer = 0;
@@ -133,7 +131,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   brandRow.href = BITO_CHESS_URL;
   brandRow.target = '_blank';
   brandRow.rel = 'noopener noreferrer';
-  brandRow.setAttribute('aria-label', 'Bito Chess — about the app');
+  brandRow.setAttribute('aria-label', t('where.aboutApp'));
   brandRow.appendChild(appMark());
   const brand = document.createElement('span');
   brand.className = 'picker-brand';
@@ -151,20 +149,19 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
 
   const lead = document.createElement('h1');
   lead.className = 'picker-lead';
-  lead.textContent = 'Where do you play?';
+  lead.textContent = t('where.title');
   stage.appendChild(lead);
 
   const sub = document.createElement('p');
   sub.className = 'picker-sub';
-  sub.textContent = 'Bito reads your games and turns them into training: the openings '
-    + 'you play and the mistakes you make.';
+  sub.textContent = t('where.sub');
   stage.appendChild(sub);
 
   // ── The segmented toggle ──
   const tabs = document.createElement('div');
   tabs.className = 'where-tabs';
   tabs.setAttribute('role', 'tablist');
-  tabs.setAttribute('aria-label', 'Where do you play?');
+  tabs.setAttribute('aria-label', t('where.title'));
 
   const tabButtons = new Map<Tab, HTMLButtonElement>();
   for (const entry of TABS) {
@@ -190,7 +187,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   input.autocomplete = 'username';
   input.autocapitalize = 'none';
   input.spellcheck = false;
-  input.setAttribute('aria-label', 'Your username');
+  input.setAttribute('aria-label', t('where.username'));
   panel.appendChild(input);
 
   // "Is this you?": the player behind what's been typed, before anything imports.
@@ -204,9 +201,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   // whole sentence. Hidden while a platform tab is selected.
   const manualNote = document.createElement('p');
   manualNote.className = 'where-manual-note';
-  manualNote.textContent = deps.notice
-    ?? 'Over the board, or new to openings? Start with a ready-made opening, or '
-      + 'build your own line.';
+  manualNote.textContent = deps.notice ?? t('where.manualNote');
   panel.appendChild(manualNote);
 
   const go = document.createElement('button');
@@ -217,7 +212,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   const buildOwn = document.createElement('button');
   buildOwn.type = 'button';
   buildOwn.className = 'btn-secondary where-go where-go--second';
-  buildOwn.textContent = 'Build my own line';
+  buildOwn.textContent = t('where.buildOwn');
   buildOwn.addEventListener('click', () => { close(); deps.onBuildOwn(); });
   panel.appendChild(buildOwn);
 
@@ -243,7 +238,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
     text.className = 'where-who-text';
     const ask = document.createElement('span');
     ask.className = 'where-who-ask';
-    ask.textContent = 'Is this you?';
+    ask.textContent = t('where.isThisYou');
     text.appendChild(ask);
     const name = document.createElement('span');
     name.className = 'where-who-name';
@@ -252,7 +247,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
     const facts: string[] = [];
     if (p.rating) facts.push(`${p.rating.label} ${p.rating.value}`);
     if (p.games !== undefined) {
-      facts.push(`${p.games.toLocaleString()} game${p.games === 1 ? '' : 's'}`);
+      facts.push(t('where.games', { n: p.games, count: formatNumber(p.games) }));
     }
     if (facts.length > 0) {
       const line = document.createElement('span');
@@ -276,16 +271,14 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
     lookupTimer = window.setTimeout(() => {
       const ctrl = new AbortController();
       lookupAbort = ctrl;
-      paintWho('Looking…', 'where-who--quiet');
+      paintWho(t('where.looking'), 'where-who--quiet');
       lookupPlayer(platform, name, ctrl.signal).then((res) => {
         if (ctrl.signal.aborted || closed) return;
         if (res.status === 'found') {
           paintWho(foundRow(res));
         } else if (res.status === 'missing') {
           missing = true;
-          paintWho(`No player called “${name}” on `
-            + `${platform === 'chesscom' ? 'Chess.com' : 'Lichess'}. Check the spelling.`,
-          'where-who--missing');
+          paintWho(t('where.missing', { name, site: SITE_NAMES[platform] }), 'where-who--missing');
         } else {
           paintWho(null);
         }
@@ -312,7 +305,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   // and a tap on it with nothing typed already puts the cursor in the field,
   // which is the answer to the only question a tap there can be asking.
   function reflectGo(): void {
-    go.textContent = tab === 'manual' ? 'Start with a ready-made opening →' : 'Import my games →';
+    go.textContent = t(tab === 'manual' ? 'where.startReady' : 'where.importGames');
   }
 
   function select(next: Tab): void {
@@ -327,7 +320,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
     manualNote.hidden = !manual;
     buildOwn.hidden = !manual;
     who.hidden = manual;
-    if (!manual) input.placeholder = PLACEHOLDERS[next];
+    if (!manual) input.placeholder = t('where.usernameOn', { site: SITE_NAMES[next] });
     reflectGo();
     // The same name on the other site is a different person.
     scheduleLookup();
@@ -356,12 +349,12 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
     const foot = document.createElement('div');
     foot.className = 'picker-foot-signin';
     const text = document.createElement('span');
-    text.textContent = 'I already have an account,';
+    text.textContent = t('where.haveAccount');
     foot.appendChild(text);
     const link = document.createElement('button');
     link.type = 'button';
     link.className = 'picker-signin-link';
-    link.textContent = 'log in';
+    link.textContent = t('where.logIn');
     link.addEventListener('click', () => deps.onSignIn?.());
     foot.appendChild(link);
     overlay.appendChild(foot);

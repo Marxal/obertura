@@ -22,11 +22,18 @@ export type Params = Record<string, string | number>;
 const english: Dictionary = en;
 let active: Dictionary = english;
 let plurals = new Intl.PluralRules('en');
+let numbers = new Intl.NumberFormat('en');
 
 /** Switch what t() reads from. `rulesFor` is the language whose plural rules apply. */
 export function useDictionary(dictionary: Dictionary, rulesFor: string): void {
   active = dictionary;
   plurals = new Intl.PluralRules(rulesFor);
+  numbers = new Intl.NumberFormat(rulesFor);
+}
+
+/** A large number the way the app's language writes it: 1,234 or 1.234. */
+export function formatNumber(n: number): string {
+  return numbers.format(n);
 }
 
 export const englishDictionary: Readonly<Dictionary> = english;
