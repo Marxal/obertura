@@ -26,7 +26,6 @@ import {
 import {
   startMistakeSession,
   CATEGORY_LABEL,
-  CATEGORY_PHRASE,
   CATEGORY_BADGE,
   type OpenGameCtx,
 } from './mistake-run';

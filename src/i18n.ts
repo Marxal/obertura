@@ -31,6 +31,20 @@ export function useDictionary(dictionary: Dictionary, rulesFor: string): void {
   numbers = new Intl.NumberFormat(rulesFor);
 }
 
+/**
+ * A sentence with something other than text in it, such as a chip inside a line.
+ * Returns the pieces in the language's own order, ready for `el.append(...)`:
+ * "You played {move} here" with `{ move: chip }` gives ['You played ', chip, ' here'].
+ */
+export function tParts<T>(key: MessageKey, parts: Record<string, T>, params?: Params): (string | T)[] {
+  return t(key, params).split(/(\{\w+\})/)
+    .map((piece) => {
+      const name = /^\{(\w+)\}$/.exec(piece)?.[1];
+      return name && Object.prototype.hasOwnProperty.call(parts, name) ? parts[name] : piece;
+    })
+    .filter((piece) => piece !== '');
+}
+
 /** A large number the way the app's language writes it: 1,234 or 1.234. */
 export function formatNumber(n: number): string {
   return numbers.format(n);

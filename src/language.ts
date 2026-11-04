@@ -49,6 +49,12 @@ function translateStaticPage(): void {
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n as MessageKey);
   });
+  // Icon buttons: the same words for the screen reader and the hover label.
+  document.querySelectorAll<HTMLElement>('[data-i18n-label]').forEach((el) => {
+    const label = t(el.dataset.i18nLabel as MessageKey);
+    el.setAttribute('aria-label', label);
+    if (el.hasAttribute('title')) el.title = label;
+  });
 }
 
 /** Runs once, before any other part of the app is loaded. Never rejects. */

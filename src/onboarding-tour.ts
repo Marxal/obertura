@@ -1049,7 +1049,7 @@ function buildSteps(
       // line.
       // stepAside first: saving takes the screen, and without it the walkthrough
       // would leave the panel tabs it locked on the way in still disabled.
-      mainAction: { label: t('tour.ready.save'), onClick: () => { stepAside(); deps.onSave(); } },
+      mainAction: { label: t('common.saveLine'), onClick: () => { stepAside(); deps.onSave(); } },
       // …and so does the real button under the spotlight. This step is live, so
       // the header's own Save ("Add 6 moves") is tappable — and tapping it saved
       // the line, started the trainer, and left this bubble sitting on top of it,
@@ -1088,7 +1088,7 @@ export function showSaveStep(o: { onSave: () => void; onKeepEditing?: () => void
       pad: 8,
       actions: [
         { label: t('recap.preview.addMoves'), variant: 'quiet', onClick: o.onKeepEditing },
-        { label: t('tour.ready.save'), variant: 'primary', onClick: o.onSave },
+        { label: t('common.saveLine'), variant: 'primary', onClick: o.onSave },
       ],
     },
   ]);

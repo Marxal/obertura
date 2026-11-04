@@ -45,6 +45,7 @@ import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-a
 import { isAnalysisPending } from './game-analysis';
 import type { SpotRef } from './mistake-scan';
 import type { BrilliantRef } from './brilliant';
+import { t } from './i18n';
 
 export interface HomeDeps {
   /** Drill these mistake spots, wearing the exercise's own name and colour. */
@@ -157,15 +158,15 @@ function buildHomePreviews(data: HomeData, noGamesBlock: boolean): HTMLElement |
 
   // Open Ruy Lopez, the Tarrasch trap: 11...Qd7?? (+3.3).
   if (noGamesBlock) {
-    card('games', 'Learn from your last games',
-      data.games.length > 0 ? 'Your games are being read' : 'Comes with your games',
+    card('games', t('home.games.title'),
+      t(data.games.length > 0 ? 'home.soon.reading' : 'home.soon.games'),
       'r4rk1/2pqbppp/p1n1b3/1p1pP3/3Nn3/1BP5/PP3PPP/RNBQR1K1 w - - 5 12', 'black', 'd8d7');
   }
   // Najdorf, English Attack, after 8.f3 (White about +0.6).
-  card('reply', 'Add a missing reply', 'Comes with your first lines',
+  card('reply', t('reply.missing.title'), t('home.soon.lines'),
     'rn1qkb1r/1p3ppp/p2pbn2/4p3/4P3/1NN1BP2/PPP3PP/R2QKB1R b KQkq - 0 8', 'black', 'b8c6');
   // King's Indian, Mar del Plata, after 9...Ne7 (White about +0.6).
-  card('forgotten', 'Your most forgotten moves', 'Comes with your first training',
+  card('forgotten', t('home.forgotten.title'), t('home.soon.training'),
     'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 1 9', 'white');
   return wrap;
 }
@@ -226,11 +227,11 @@ export function buildScanBanner(): HTMLElement | null {
   const write = (st: AutoScanState): void => {
     const left = Math.max(0, st.total - st.done);
     const progress = left > 0
-      ? `Game analysis: ${left} game${left === 1 ? '' : 's'} to go, ${timeLeftLabel(st, left)}.`
-      : 'Game analysis is running.';
+      ? t('home.analysis.left', { n: left, time: timeLeftLabel(st, left) })
+      : t('home.analysis.running');
     // The promise only while it's still owed (game-analysis.ts).
     text.textContent = isAnalysisPending()
-      ? `${progress} We’ll let you know when it’s ready.`
+      ? `${progress} ${t('home.analysis.promise')}`
       : progress;
   };
   const paint = (st: AutoScanState): void => {
@@ -274,8 +275,8 @@ function timeLeftLabel(st: AutoScanState, left: number): string {
     ? (now - paceFrom.at) / read
     : TYPICAL_MS_PER_GAME;
   const minutes = Math.round((left * perGame) / 60_000);
-  if (minutes < 1) return 'under a minute';
-  if (minutes < 60) return `about ${minutes} min`;
+  if (minutes < 1) return t('home.analysis.underMinute');
+  if (minutes < 60) return t('home.analysis.minutes', { minutes });
   const hours = Math.round(minutes / 60);
-  return `about ${hours} hour${hours === 1 ? '' : 's'}`;
+  return t('home.analysis.hours', { n: hours });
 }

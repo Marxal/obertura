@@ -1,7 +1,7 @@
 // Pure checks of the translation layer: t(), its English fallback, the fake
 // language and the choice of language. No DOM, no storage.
 
-import { englishDictionary, t, useDictionary, type Dictionary } from './i18n';
+import { englishDictionary, t, tParts, useDictionary, type Dictionary } from './i18n';
 import { pickLanguage, RELEASED_LANGUAGES, type Language } from './language-choice';
 import { pseudoDictionary, pseudoText } from './locales/pseudo';
 
@@ -42,6 +42,10 @@ export function runI18nSelfTest(): TestResult[] {
   check('values fill in, and a missing value stays visible',
     t('nav.train', { name: 'Marçal', n: 2 }) === 'Hola Marçal, 2 i {missing}', t('nav.train', { name: 'Marçal', n: 2 }));
   useDictionary(englishDictionary as Dictionary, 'en');
+
+  const pieces = tParts('where.missing', { name: 7 }, { site: 'Lichess' });
+  check('a sentence can hold something that isn\'t text',
+    pieces.length === 3 && pieces[1] === 7 && pieces[2] === '” on Lichess. Check the spelling.', JSON.stringify(pieces));
 
   // ── The dictionary itself ──────────────────────────────────────────────────
   const empty = Object.entries(englishDictionary).filter(([, message]) => (

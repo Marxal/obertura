@@ -2,6 +2,7 @@
 // Only the icons the app actually uses — no npm overhead.
 
 import type { MoveClass } from './winprob';
+import { t } from './i18n';
 
 function svg(paths: string, size = 16): SVGSVGElement {
   const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -176,15 +177,15 @@ export const CLASS_COLOR: Record<MoveClass, string> = {
 };
 
 export const CLASS_LABEL: Record<MoveClass, string> = {
-  brilliant: 'Brilliant',
-  great: 'Great move',
-  best: 'Best move',
-  excellent: 'Excellent',
-  good: 'Good',
-  book: 'Book move',
-  inaccuracy: 'Inaccuracy',
-  mistake: 'Mistake',
-  blunder: 'Blunder',
+  brilliant: t('class.brilliant'),
+  great: t('class.great'),
+  best: t('class.best'),
+  excellent: t('class.excellent'),
+  good: t('class.good'),
+  book: t('class.book'),
+  inaccuracy: t('class.inaccuracy'),
+  mistake: t('class.mistake'),
+  blunder: t('class.blunder'),
 };
 
 const BADGE_FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';

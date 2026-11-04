@@ -47,6 +47,7 @@ import { isEntitled } from './entitlement';
 import { isBuilderTourComplete } from './onboarding-tour';
 import { TRAINING_UNLOCK_LINES } from './training-goal';
 import { hasEnoughGames } from './onboarding-recap';
+import { t } from './i18n';
 
 // The three-line goal lives in training-goal.ts — a leaf module, so the daily
 // challenge can have the number without dragging this file's browser
@@ -160,8 +161,8 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   if (canInstallApp()) {
     steps.push({
       icon: Icons.download(18),
-      title: 'Install the app',
-      body: 'Put Bito Chess on your home screen.',
+      title: t('steps.install.title'),
+      body: t('steps.install.body'),
       done: false,
       onClick: deps.onInstallApp,
     });
@@ -186,11 +187,10 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   if (isSupabaseConfigured) {
     steps.push({
       icon: Icons.userCircle(18),
-      title: getAuthUser() ? 'Account created' : 'Create a free account',
+      title: getAuthUser() ? t('steps.account.done') : t('common.createAccount'),
       body: getAuthUser()
-        ? 'Your lines and progress follow you to any phone you sign in on.'
-        : 'Right now your repertoire lives only on this phone. An account keeps '
-          + 'a copy and brings it back anywhere you sign in.',
+        ? t('signup.lead.signup')
+        : t('steps.account.body'),
       done: !!getAuthUser(),
       onClick: deps.onSignIn,
     });
@@ -211,9 +211,8 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   if (unlocked) {
     steps.push({
       icon: Icons.download(18),
-      title: 'Add openings you play',
-      body: 'Read your games from Chess.com or Lichess, and turn the openings you '
-        + 'play most into lines. The mistakes in them become exercises.',
+      title: t('steps.games.title'),
+      body: t('steps.games.body'),
       done: hasGames,
       onClick: deps.onImportGames,
     });
@@ -226,11 +225,10 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   const walked = isBuilderTourComplete();
   steps.push({
     icon: Icons.play(18),
-    title: 'Build a line by hand',
+    title: t('steps.build.title'),
     body: walked
-      ? 'Play the moves yourself, then save them as a line.'
-      : 'A guided tour of the builder — the board, the panels, and how a '
-        + 'line gets saved. About a minute.',
+      ? t('steps.build.walked')
+      : t('steps.build.tour'),
     done: false,
     onClick: walked ? deps.onBuildLine : deps.onWalkthrough,
   });
@@ -250,12 +248,12 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
 
   const title = document.createElement('span');
   title.className = 'first-steps-title';
-  title.textContent = 'Get started';
+  title.textContent = t('steps.title');
   head.appendChild(title);
 
   const tally = document.createElement('span');
   tally.className = 'first-steps-tally';
-  tally.textContent = `${doneCount} of ${total} done`;
+  tally.textContent = t('steps.tally', { done: doneCount, total });
   head.appendChild(tally);
 
   // Deliberately tiny, and only in the second phase — in the first there is
@@ -265,8 +263,8 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     const hide = document.createElement('button');
     hide.type = 'button';
     hide.className = 'first-steps-hide';
-    hide.setAttribute('aria-label', 'Hide until next time');
-    hide.title = 'Hide for now';
+    hide.setAttribute('aria-label', t('steps.hideLabel'));
+    hide.title = t('steps.hide');
     hide.appendChild(Icons.close(15));
     hide.addEventListener('click', () => { hideFirstSteps(); deps.onHide(); });
     head.appendChild(hide);
@@ -282,7 +280,7 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   goalHead.className = 'first-steps-goal-head';
   const goalTitle = document.createElement('span');
   goalTitle.className = 'first-steps-goal-title';
-  goalTitle.textContent = unlocked ? 'Your training is ready' : 'Save your first lines';
+  goalTitle.textContent = t(unlocked ? 'steps.goal.ready' : 'steps.goal.save');
   goalHead.appendChild(goalTitle);
   const goalCount = document.createElement('span');
   goalCount.className = 'first-steps-goal-count';
@@ -313,25 +311,23 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   const goalNote = document.createElement('p');
   goalNote.className = 'first-steps-goal-note';
   goalNote.textContent = unlocked
-    ? `${lines} lines saved. Your first session is ready when you are.`
+    ? t('steps.note.ready', { n: lines })
     : lines === 0
-      ? `Add ${TRAINING_UNLOCK_LINES} lines to start training.`
-      : left === 1
-        ? 'Add 1 more line to start training.'
-        : `Add ${left} more lines to start training.`;
+      ? t('steps.note.first', { n: TRAINING_UNLOCK_LINES })
+      : t('steps.note.more', { n: left });
   goal.appendChild(goalNote);
 
   const routes = document.createElement('div');
   routes.className = 'first-steps-routes';
   if (unlocked) {
-    routes.appendChild(routeButton('Start training', Icons.zap(18), deps.onStartTraining));
+    routes.appendChild(routeButton(t('firstRun.startTraining'), Icons.zap(18), deps.onStartTraining));
   } else {
     // The two fastest routes to a line. Their own openings come first when
     // there's any way to reach them, because that's where the app is at its best.
     routes.appendChild(canPickFromGames
-      ? routeButton('Pick from my games', Icons.download(18), deps.onPickFromGames)
-      : routeButton('Import my games', Icons.download(18), deps.onImportGames));
-    routes.appendChild(routeButton('Starter packs', Icons.build(18), deps.onPickStarterPack));
+      ? routeButton(t('steps.route.pick'), Icons.download(18), deps.onPickFromGames)
+      : routeButton(t('tour.lines.import'), Icons.download(18), deps.onImportGames));
+    routes.appendChild(routeButton(t('starter.title'), Icons.build(18), deps.onPickStarterPack));
   }
   goal.appendChild(routes);
 
@@ -357,7 +353,7 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     pro.className = 'first-steps-pro';
     pro.appendChild(Icons.sparkles(16));
     const proLabel = document.createElement('span');
-    proLabel.textContent = 'Get Full Access';
+    proLabel.textContent = t('pro.get');
     pro.appendChild(proLabel);
     pro.addEventListener('click', deps.onGoPro);
     card.appendChild(pro);

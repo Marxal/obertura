@@ -5887,7 +5887,7 @@ function buildSideNav(): void {
   signIn.type = 'button';
   signIn.id = 'side-signin';
   signIn.className = 'side-signin';
-  signIn.textContent = 'Sign in';
+  signIn.textContent = t('signup.signIn');
   signIn.hidden = true;
   signIn.addEventListener('click', () => openSignUpSheet('signin'));
   nav.appendChild(signIn);

@@ -3035,3 +3035,21 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - English compared with the last commit: 41 of 44 screens identical. The other three differ only in confetti, and
   in a button's rendering on the import sheet that looks the same side by side.
 
+### Translation: the Pro popup (Phase 2, third round)
+
+- ✅ **The Pro popup, its limit messages and the checkout messages** use keys. What the free plan has per point is now
+  looked up by a name for the point rather than by its English sentence.
+- ✅ **A live bug fixed:** a toast could only use half the screen, so "Your lines are only on this phone." was a tall
+  blob with its button cut off, in English too. Long toasts now use the screen's width.
+- English compared with the last commit: the toast above changes on purpose. Everything else looks the same, with
+  only confetti and faint rendering differences on three screens.
+
+### Translation: Home (Phase 2, fourth round)
+
+- ✅ **Home's cards, Get started, the Daily challenge and its preferences, the top bar and the shared line figures**
+  use keys. Move-quality names and due dates moved too, so every screen that shows them gets them.
+- ✅ **`tParts()`:** a sentence with a chip inside it stays one sentence. "You played {move} here and blundered." is
+  now a whole sentence per mistake type, rather than a phrase added to a shared start.
+- The automatic check only reaches Home's Get started and Daily challenge. The missing reply, forgotten moves and
+  last games cards need real training data, so they need checking on a real account.
+

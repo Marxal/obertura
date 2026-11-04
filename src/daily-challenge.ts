@@ -24,6 +24,7 @@ import { currentStreak } from './streak';
 import { recordDailyTask, accuracyOf, getDailyLog, localDayKey, type TaskOutcome } from './daily-recap';
 import { TRAINING_UNLOCK_LINES } from './training-goal';
 import { Icons } from './icons';
+import { t } from './i18n';
 import {
   DEFAULT_ROUND_MINUTES, ROUND_MINUTE_STEPS, MAX_ROUND_MINUTES,
 } from './time-pressure';
@@ -552,16 +553,16 @@ export interface DailyChallengeDeps {
 
 // Each task's card face: an icon and a label that folds in the configured count.
 const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number) => string }> = {
-  lines:     { icon: () => Icons.tree(16),        label: (n) => `${n} line${n === 1 ? '' : 's'} to remember` },
-  positions: { icon: () => Icons.target(16),      label: (n) => `${n} position${n === 1 ? '' : 's'} to refresh` },
-  puzzles:   { icon: () => Icons.puzzlePiece(16), label: (n) => `${n} puzzle${n === 1 ? '' : 's'} to solve` },
-  endgames:  { icon: () => Icons.flag(16),        label: (n) => `${n} endgame puzzle${n === 1 ? '' : 's'}` },
-  mistakes:  { icon: () => Icons.reset(16),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
-  detective: { icon: () => Icons.scout(16),       label: (n) => `${n} blunder${n === 1 ? '' : 's'} to catch` },
-  whichMove: { icon: () => Icons.merge(16),       label: (n) => `${n} move${n === 1 ? '' : 's'} to pick` },
+  lines:     { icon: () => Icons.tree(16),        label: (n) => t('daily.task.lines', { n }) },
+  positions: { icon: () => Icons.target(16),      label: (n) => t('daily.task.positions', { n }) },
+  puzzles:   { icon: () => Icons.puzzlePiece(16), label: (n) => t('daily.task.puzzles', { n }) },
+  endgames:  { icon: () => Icons.flag(16),        label: (n) => t('daily.task.endgames', { n }) },
+  mistakes:  { icon: () => Icons.reset(16),       label: (n) => t('daily.task.mistakes', { n }) },
+  detective: { icon: () => Icons.scout(16),       label: (n) => t('daily.task.detective', { n }) },
+  whichMove: { icon: () => Icons.merge(16),       label: (n) => t('daily.task.whichMove', { n }) },
   // The odd one out: its number is minutes, so its label says so. "2 minutes
   // under pressure" reads as a length; "2 timed rounds" would be a lie.
-  timePressure: { icon: () => Icons.clock(16),    label: (n) => `${n} minute${n === 1 ? '' : 's'} under pressure` },
+  timePressure: { icon: () => Icons.clock(16),    label: (n) => t('daily.task.timePressure', { n }) },
 };
 
 // The gear, top-right of the card beside the streak. Which tasks the challenge includes and how
@@ -573,7 +574,7 @@ function buildPrefsButton(onOpen: () => void): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'daily-card-prefs';
-  btn.setAttribute('aria-label', 'Daily challenge preferences');
+  btn.setAttribute('aria-label', t('daily.prefsLabel'));
   btn.appendChild(Icons.settings(16));
   btn.addEventListener('click', (e) => { e.stopPropagation(); onOpen(); });
   return btn;
@@ -640,7 +641,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   title.className = 'daily-card-title';
   title.appendChild(Icons.sparkles(14));
   const titleText = document.createElement('span');
-  titleText.textContent = 'Daily challenge';
+  titleText.textContent = t('daily.title');
   title.appendChild(titleText);
   head.appendChild(title);
   head.appendChild(buildHeadEnd(buildStreakPill(), deps.onOpenPrefs));
@@ -656,7 +657,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
       card.classList.add('daily-card--tap');
       card.setAttribute('role', 'button');
       card.tabIndex = 0;
-      card.setAttribute('aria-label', 'Daily challenge done — see today’s results');
+      card.setAttribute('aria-label', t('daily.doneLabel'));
       card.addEventListener('click', open);
       card.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -677,7 +678,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
     text.className = 'daily-card-done-text';
     const title = document.createElement('span');
     title.className = 'daily-card-done-title';
-    title.textContent = 'Done for today';
+    title.textContent = t('daily.done');
     text.appendChild(title);
     // Read straight from the log, same way getDaily() reads today's task
     // state — a taste of the popup's numbers without waiting for it to open.
@@ -688,7 +689,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
       const total = todayRow.right + todayRow.wrong;
       const stat = document.createElement('span');
       stat.className = 'daily-card-done-stat';
-      stat.textContent = `${accuracyOf(todayRow.right, todayRow.wrong)}% correct · ${todayRow.right} of ${total} moves`;
+      stat.textContent = t('daily.stat', { pct: accuracyOf(todayRow.right, todayRow.wrong), right: todayRow.right, total });
       text.appendChild(stat);
     }
     msg.appendChild(text);
@@ -730,7 +731,7 @@ function buildStartButton(resuming: boolean, onClick: () => void): HTMLButtonEle
   btn.className = 'daily-card-start';
   btn.appendChild(Icons.play(18));
   const label = document.createElement('span');
-  label.textContent = resuming ? 'Continue' : 'Start daily challenge';
+  label.textContent = t(resuming ? 'common.continue' : 'daily.start');
   btn.appendChild(label);
   btn.addEventListener('click', onClick);
   return btn;
@@ -741,7 +742,7 @@ function buildStartButton(resuming: boolean, onClick: () => void): HTMLButtonEle
 // instead of saved lines.
 function buildProgressBar(doneCount: number, total: number): HTMLElement {
   return buildBar('daily-card-progress', doneCount, total,
-    `${doneCount} of ${total} today’s tasks done`);
+    t('daily.progress', { done: doneCount, total }));
 }
 
 // ── The locked card ──────────────────────────────────────────────────────────
@@ -776,7 +777,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
   head.className = 'daily-card-head';
   const title = document.createElement('span');
   title.className = 'daily-card-title';
-  title.textContent = 'Daily challenge';
+  title.textContent = t('daily.title');
   head.appendChild(title);
 
   const lock = document.createElement('span');
@@ -790,9 +791,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
 
   const blurb = document.createElement('p');
   blurb.className = 'daily-locked-blurb';
-  blurb.textContent =
-    'A few minutes a day, picked for you — this is the habit the whole app is '
-    + 'built around, and it starts as soon as you have something to train.';
+  blurb.textContent = t('daily.blurb');
   card.appendChild(blurb);
 
   card.appendChild(buildGoalBar(saved));
@@ -808,10 +807,8 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
   const note = document.createElement('div');
   note.className = 'daily-card-note';
   note.textContent = saved === 0
-    ? `Save ${TRAINING_UNLOCK_LINES} lines and your first challenge starts right away.`
-    : left === 1
-      ? 'One more line and this starts.'
-      : `${left} more lines and this starts.`;
+    ? t('daily.note.first', { n: TRAINING_UNLOCK_LINES })
+    : t('daily.note.more', { n: left });
   card.appendChild(note);
 
   // Only where nothing else on screen offers the route — see DailyChallengeDeps.
@@ -819,7 +816,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
     const cta = document.createElement('button');
     cta.type = 'button';
     cta.className = 'btn-secondary daily-locked-cta';
-    cta.textContent = saved === 0 ? 'Build your first line' : 'Build another line';
+    cta.textContent = t(saved === 0 ? 'daily.cta.first' : 'daily.cta.another');
     cta.addEventListener('click', deps.onBuildLine);
     card.appendChild(cta);
   }
@@ -856,7 +853,7 @@ function buildBar(extraClass: string, value: number, max: number, label: string)
 // so the two never disagree about how far along you are.
 function buildGoalBar(saved: number): HTMLElement {
   return buildBar('daily-goal--lines', saved, TRAINING_UNLOCK_LINES,
-    `${saved} of ${TRAINING_UNLOCK_LINES} lines saved`);
+    t('daily.goal', { saved, total: TRAINING_UNLOCK_LINES }));
 }
 
 // A preview row: the real icon and label, dimmed, and inert. Not a <button> —
@@ -895,7 +892,7 @@ function buildTask(o: { icon: SVGElement; label: string; done: boolean; onClick:
 
   if (o.done) {
     btn.disabled = true;
-    btn.setAttribute('aria-label', `${o.label} — done`);
+    btn.setAttribute('aria-label', t('daily.taskDone', { task: o.label }));
   } else {
     btn.addEventListener('click', o.onClick);
   }
@@ -922,7 +919,7 @@ function buildStreakPill(): HTMLElement | null {
   label.className = 'streak-pill-label';
   label.textContent = String(streak);
   pill.appendChild(label);
-  const said = `${streak}-day streak`;
+  const said = t('daily.streak', { n: streak });
   pill.setAttribute('role', 'img');
   pill.setAttribute('aria-label', said);
   pill.title = said;

@@ -271,6 +271,16 @@ async function walk(browser: Browser, lang: string, width: number): Promise<Resu
   }
   await context.close();
 
+  // The Pro popup, and what declining it says to a guest.
+  const offer = await newContext(browser, width, true, lang);
+  await offer.page.click('#nav-settings');
+  await offer.page.click('.settings-gopro-btn');
+  await offer.page.waitForSelector('.pro-sheet');
+  await record(offer.page, 'pro-popup', width, lang, out);
+  await offer.page.click('.pro-later');
+  await record(offer.page, 'pro-declined', width, lang, out);
+  await offer.context.close();
+
   // The import sheet, from a profile that already has lines but no games.
   const later = await newContext(browser, width, true, lang);
   await later.page.click('#bottom-nav [data-view="games"]');

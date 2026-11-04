@@ -29,13 +29,14 @@ import { buildContextStrip, buildResultLine } from './spot-context';
 import { CATEGORY_ACCENT } from './exercise-identity';
 import type { HomeData, HomeDeps } from './home-screen';
 import { Icons, classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
-import { CATEGORY_BADGE, CATEGORY_LABEL, CATEGORY_PHRASE } from './mistake-run';
+import { CATEGORY_BADGE, CATEGORY_LABEL, CATEGORY_STORY } from './mistake-run';
 import { recordSpotResult, type MistakeCategory, type SpotRef } from './mistake-scan';
 import { CATEGORIES, CATEGORY_ICON } from './mistakes-screen';
 import { formatMove } from './notation';
 import { guardBoardTouches } from './reply-board-touch';
 import { playFeedback } from './sound';
 import { restSpot } from './spot-rest';
+import { t, tParts } from './i18n';
 
 /** What "Drill" deals. Five positions, like every other mistake run in the app. */
 const DRILL_SIZE = 5;
@@ -53,7 +54,7 @@ function slideAccent(s: Slide): string {
 }
 
 function slideLabel(s: Slide): string {
-  return s.kind === 'brilliant' ? 'Your brilliant moves' : CATEGORY_LABEL[s.cat];
+  return s.kind === 'brilliant' ? t('home.games.brilliant') : CATEGORY_LABEL[s.cat];
 }
 
 function actionButton(
@@ -99,8 +100,8 @@ export function buildGamesBlock(data: HomeData, deps: HomeDeps, startAt = 0): HT
   head.className = 'fmove-block-head';
   const label = document.createElement('h2');
   label.className = 'fmove-block-title';
-  label.textContent = 'Learn from your last games';
-  head.append(label, actionButton('Another position', 'btn-quiet nr-another', () => another(active), Icons.shuffle(15)));
+  label.textContent = t('home.games.title');
+  head.append(label, actionButton(t('common.anotherPosition'), 'btn-quiet nr-another', () => another(active), Icons.shuffle(15)));
   section.appendChild(head);
 
   const tabs = document.createElement('div');
@@ -267,7 +268,7 @@ function mistakeQuestion(slide: Extract<Slide, { kind: 'mistake' }>, deps: HomeD
       const chip = document.createElement('span');
       chip.className = `mr-played mr-played--${badge.cls}`;
       chip.textContent = `${formatMove(spot.playedSan)} ${badge.sym}`;
-      intro.append('You played ', chip, ` here and ${CATEGORY_PHRASE[spot.category]}.`);
+      intro.append(...tParts(CATEGORY_STORY[spot.category], { move: chip }));
       return intro;
     },
     bestUci: best?.uci ?? '',
@@ -277,8 +278,8 @@ function mistakeQuestion(slide: Extract<Slide, { kind: 'mistake' }>, deps: HomeD
       return alt ? { uci: alt.uci, kind: 'alt' } : null;
     },
     praise: (kind) => (kind === 'best'
-      ? 'The engine’s move ✓'
-      : `Good move ✓ Even stronger: ${best ? formatMove(best.san) : ''}`),
+      ? t('home.games.engineMove')
+      : t('home.games.evenStronger', { move: best ? formatMove(best.san) : '' })),
     record: (clean) => {
       void recordSpotResult(game.id, spot.id, clean);
       restSpot(spot.id);
@@ -304,14 +305,14 @@ function brilliantQuestion(slide: Extract<Slide, { kind: 'brilliant' }>, deps: H
       const chip = document.createElement('span');
       chip.className = `mr-played mr-played--${spot.cls}`;
       chip.textContent = CLASS_LABEL[spot.cls];
-      intro.append('You played a ', chip, ' move here.');
+      intro.append(...tParts('home.games.playedClass', { move: chip }));
       return intro;
     },
     bestUci: spot.playedUci,
     judge: uci4 => (spot.playedUci.slice(0, 4) === uci4
       ? { uci: spot.playedUci, kind: 'best' }
       : null),
-    praise: () => 'That’s the one ✓',
+    praise: () => t('home.games.thatsTheOne'),
     record: (clean) => {
       if (clean) recordBrilliantSolved(spot.id);
       else recordBrilliantSeen(spot.id);
@@ -399,7 +400,7 @@ function drawCard(
     statusEl.classList.toggle('nr-note--bad', tone === 'bad');
   };
 
-  const hintButton = actionButton('Hint', 'btn-secondary nr-action', () => {
+  const hintButton = actionButton(t('common.hint'), 'btn-secondary nr-action', () => {
     clean = false;
     hintStage += 1;
     if (hintStage >= 2) hintButton.hidden = true;
@@ -407,7 +408,7 @@ function drawCard(
   }, Icons.bulb(16));
   row.append(
     hintButton,
-    actionButton('Drill', 'btn-secondary nr-action', q.drill, Icons.target(16)),
+    actionButton(t('home.games.drill'), 'btn-secondary nr-action', q.drill, Icons.target(16)),
   );
 
   // Which game this is. Behind Show more on a phone, under the buttons on a desktop,
@@ -420,7 +421,7 @@ function drawCard(
   moreButton.className = 'nr-more mrc-more';
   const paintMore = (): void => {
     moreButton.replaceChildren(
-      factsEl.hidden ? 'Show more' : 'Show less',
+      t(factsEl.hidden ? 'common.showMore' : 'common.showLess'),
       factsEl.hidden ? Icons.chevronDown(15) : Icons.chevronUp(15),
     );
     moreButton.setAttribute('aria-expanded', String(!factsEl.hidden));
@@ -438,7 +439,7 @@ function drawCard(
       flash.className = 'pt-error-flash';
       boardEl.appendChild(flash);
       flash.addEventListener('animationend', () => flash.remove(), { once: true });
-      say('Not quite, try again', 'bad');
+      say(t('common.notQuite'), 'bad');
       cg.set({ fen: chess.fen(), turnColor: q.game.colour, movable: { color: q.game.colour, dests: legal() } });
       paintShapes();
       return;
@@ -467,7 +468,7 @@ function drawCard(
     if (clean) burstConfetti(boardEl);
     say(q.praise(verdict.kind), 'good');
     row.replaceChildren(actionButton(
-      callbacks.hasOthers() ? 'Next position' : 'Done',
+      t(callbacks.hasOthers() ? 'common.nextPosition' : 'common.done'),
       'btn-primary nr-action',
       callbacks.next,
     ));

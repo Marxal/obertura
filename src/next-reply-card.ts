@@ -73,6 +73,7 @@ import { buildSuggest, evalText } from './reply-suggest';
 import type { ImportedGame } from './import-core';
 import type { GrowTarget } from './grow-line';
 import type { StatsAt } from './rare-branch';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -99,9 +100,9 @@ export interface NextReplyDeps {
 export type ReplyBoardKind = 'reply' | 'extend';
 
 const BOARD: Record<ReplyBoardKind, { title: string; done: string | null }> = {
-  reply: { title: 'Add a missing reply', done: 'That’s all for now.' },
+  reply: { title: t('reply.missing.title'), done: t('reply.missing.done') },
   // Nothing to say when it runs out: the block just leaves until you master another.
-  extend: { title: 'Extend a line you know', done: null },
+  extend: { title: t('reply.extend.title'), done: null },
 };
 
 // ── Getting the box on screen ────────────────────────────────────────────────
@@ -275,13 +276,13 @@ function showQueue(
       meter?.refresh();
       showToast(
         saved?.paused
-          ? `Line saved, paused: all ${FREE_TRAINING_LINES} free training slots are in use.`
-          : 'Line saved',
+          ? t('reply.savedPaused', { limit: FREE_TRAINING_LINES })
+          : t('reply.saved'),
         {
           variant: 'success',
           ...(saved ? {
             action: {
-              label: 'Undo',
+              label: t('common.undo'),
               onClick: () => {
                 void undoReply(saved).then(() => {
                   if (!host.isConnected) return;
@@ -536,7 +537,7 @@ function renderCard(
 
   const section = panel(title);
   section.querySelector('.fmove-block-head')!.appendChild(
-    button('Another position', 'btn-quiet nr-another', () => actions.skip(card), Icons.shuffle(15)),
+    button(t('common.anotherPosition'), 'btn-quiet nr-another', () => actions.skip(card), Icons.shuffle(15)),
   );
   if (meter) section.appendChild(meter.el);
 
@@ -572,7 +573,7 @@ function renderCard(
   autoInput.checked = auto;
   const autoTrack = document.createElement('span');
   autoTrack.className = 'nr-auto-track';
-  autoLabel.append(autoInput, autoTrack, 'Auto-reply');
+  autoLabel.append(autoInput, autoTrack, t('reply.autoReply'));
   const moreButton = document.createElement('button');
   moreButton.type = 'button';
   moreButton.className = 'nr-more';
@@ -634,7 +635,7 @@ function renderCard(
     },
   });
   suggest.button.classList.add('nr-small');
-  const builderButton = button('Open in builder', 'btn-secondary nr-action nr-half', () => {
+  const builderButton = button(t('reply.openBuilder'), 'btn-secondary nr-action nr-half', () => {
     if (card.grow && card.grow.moves.length > 0 && path.length === base) deps.onGrow(card.grow);
     else deps.onOpenBuilder(path.map(p => p.uci), card.colour, card.opponentName);
   }, Icons.pencil(16));
@@ -684,7 +685,7 @@ function renderCard(
     const before = fenBefore(index);
     if (isMine(index)) {
       const numbers = answerStats(before, uci, card.colour, stats());
-      return numbers ? summaryRow(Icons.book(15), `${numbers.playedPct}% of players choose it`) : null;
+      return numbers ? summaryRow(Icons.book(15), t('reply.fact.players', { pct: numbers.playedPct })) : null;
     }
     const games = facedAt(index);
     if (games.length > 0) {
@@ -704,10 +705,10 @@ function renderCard(
     }
     const scout = ctx.load.scouts[card.colour].get(positionKey(before))
       ?.find(s => s.uci === uci && s.games >= MIN_SCOUT_GAMES);
-    if (scout) return summaryRow(Icons.scout(15), `${scout.name} plays this`);
+    if (scout) return summaryRow(Icons.scout(15), t('reply.fact.scout', { name: scout.name }));
     const numbers = answerStats(before, uci, card.colour, stats());
-    if (numbers) return summaryRow(Icons.book(15), `${numbers.playedPct}% of opponents play it`);
-    if (bases.get(index) === 'engine') return summaryRow(Icons.cpu(15), 'The engine’s choice');
+    if (numbers) return summaryRow(Icons.book(15), t('reply.fact.opponents', { pct: numbers.playedPct }));
+    if (bases.get(index) === 'engine') return summaryRow(Icons.cpu(15), t('reply.fact.engine'));
     return null;
   }
 
@@ -739,7 +740,7 @@ function renderCard(
   }
 
   function stopNote(): HTMLElement | null {
-    return at === path.length && engineThinking ? summaryRow(Icons.cpu(15), 'Thinking…') : null;
+    return at === path.length && engineThinking ? summaryRow(Icons.cpu(15), t('reply.fact.thinking')) : null;
   }
 
   function movesFacts(index: number, rows: HTMLElement[]): void {
@@ -750,25 +751,25 @@ function renderCard(
     if (!numbers && games.length === 0) return;
     if (isMine(index)) {
       if (!numbers) return;
-      rows.push(factHeading(`Your ${moveLabel(index, san)}`));
-      rows.push(meterRow('Players choose it', numbers.playedPct));
-      rows.push(resultRow('It scores', numbers));
+      rows.push(factHeading(t('reply.fact.yourMove', { move: moveLabel(index, san) })));
+      rows.push(meterRow(t('reply.fact.playersChoose'), numbers.playedPct));
+      rows.push(resultRow(t('reply.fact.itScores'), numbers));
       return;
     }
-    rows.push(factHeading(`Their ${moveLabel(index, san)}`));
+    rows.push(factHeading(t('reply.fact.theirMove', { move: moveLabel(index, san) })));
     if (numbers) {
-      rows.push(meterRow('Opponents play it', numbers.playedPct));
-      rows.push(resultRow('You score', numbers));
+      rows.push(meterRow(t('reply.fact.opponentsPlay'), numbers.playedPct));
+      rows.push(resultRow(t('reply.fact.youScore'), numbers));
     }
     if (games.length > 0) {
       const f = summariseFaced(games);
-      rows.push(resultRow('Your games', {
+      rows.push(resultRow(t('recap.yourGames'), {
         wins: f.wins,
         draws: f.draws,
         losses: f.losses,
         games: f.games,
         scorePct: Math.round((100 * f.points) / f.games),
-      }, `${points(f.points)} of ${f.games}`));
+      }, t('reply.fact.pointsOf', { points: points(f.points), games: f.games })));
     }
   }
 
@@ -789,13 +790,13 @@ function renderCard(
 
     // How you've been doing on the mastered line this card would extend.
     if (card.line) {
-      rows.unshift(factHeading('This line'), buildStatRow(lineFigures(card.line)));
+      rows.unshift(factHeading(t('reply.fact.thisLine')), buildStatRow(lineFigures(card.line)));
     }
 
     const fen = fenBefore(at);
-    rows.push(factHeading('This position'));
+    rows.push(factHeading(t('reply.fact.thisPosition')));
     const asked = evals.get(fen);
-    rows.push(valueRow('Evaluation', asked ?? '…'));
+    rows.push(valueRow(t('reply.fact.evaluation'), asked ?? '…'));
     detailsEl.replaceChildren(factList(rows));
     if (asked === undefined) void askEval(fen);
   }
@@ -819,7 +820,7 @@ function renderCard(
   function paintInfo(): void {
     const name = nameForPath(path.slice(0, at).map(p => p.fen));
     // Right under the board, because that's where you're about to play it.
-    openingEl.textContent = choosing ? 'Play their reply, or pick one' : name ?? '';
+    openingEl.textContent = choosing ? t('reply.choosing') : name ?? '';
     openingEl.hidden = !choosing && !name;
 
     const note = stopNote();
@@ -828,7 +829,7 @@ function renderCard(
     summaryEl.hidden = !note && !summary;
 
     moreButton.replaceChildren(
-      detailsOpen ? 'Show less' : 'Show more',
+      t(detailsOpen ? 'common.showLess' : 'common.showMore'),
       detailsOpen ? Icons.chevronUp(15) : Icons.chevronDown(15),
     );
     moreButton.setAttribute('aria-expanded', String(detailsOpen));
@@ -849,7 +850,7 @@ function renderCard(
         return;
       }
       if (outcome.status === 'gone') {
-        showToast('This position is no longer in your lines.');
+        showToast(t('reply.gone'));
         actions.drop(card);
         return;
       }
@@ -863,8 +864,8 @@ function renderCard(
     });
   }
 
-  const saveButton = button('Save line', 'btn-primary nr-action nr-half', saveLine, Icons.save(16));
-  const undoButton = button('Undo', 'btn-secondary nr-action nr-small', undoMove, Icons.reply(15));
+  const saveButton = button(t('common.saveLine'), 'btn-primary nr-action nr-half', saveLine, Icons.save(16));
+  const undoButton = button(t('common.undo'), 'btn-secondary nr-action nr-small', undoMove, Icons.reply(15));
   const changeButton = button('', 'btn-secondary nr-action nr-small', () => {
     if (choosing) cancelChoosing();
     else changeReply();
@@ -886,9 +887,9 @@ function renderCard(
     undoButton.disabled = saving || (auto ? lastMine() < 0 : path.length === base);
     changeButton.replaceChildren(
       ...(choosing ? [] : [Icons.shuffle(15)]),
-      choosing ? 'Cancel' : 'Change',
+      t(choosing ? 'common.cancel' : 'reply.change'),
     );
-    changeButton.setAttribute('aria-label', choosing ? 'Keep the usual reply' : 'Change their reply');
+    changeButton.setAttribute('aria-label', t(choosing ? 'reply.keepUsual' : 'reply.changeLabel'));
     changeButton.disabled = saving || (!choosing && !canChange());
     // Nothing to suggest on a position you can't play. Not while waiting for a reply,
     // though: that's a moment, and greying it every move would flicker.
@@ -905,20 +906,20 @@ function renderCard(
     }
     const added = yourMoves();
     const text = asking
-      ? `${added} moves added`
-      : stop === 'joined' ? 'Joins a line you already have'
-        : stop === 'no-reply' ? 'No reply found'
-          : chess.isCheckmate() ? 'Checkmate' : 'The game ends here';
+      ? t('reply.pause.added', { n: added })
+      : stop === 'joined' ? t('reply.pause.joined')
+        : stop === 'no-reply' ? t('reply.pause.noReply')
+          : t(chess.isCheckmate() ? 'reply.pause.mate' : 'reply.pause.ends');
     const message = paragraph('nr-pause-text', text);
     const row = document.createElement('div');
     row.className = 'nr-pause-actions';
     if (lastMine() >= 0) {
-      const save = button('Save line', 'btn-primary nr-action', saveLine, Icons.save(16));
+      const save = button(t('common.saveLine'), 'btn-primary nr-action', saveLine, Icons.save(16));
       save.disabled = saving;
       row.appendChild(save);
     }
     if (stop !== 'over') {
-      const carryOn = button('Continue', 'btn-secondary nr-action', carryOnFromPause, Icons.chevronRight(16));
+      const carryOn = button(t('common.continue'), 'btn-secondary nr-action', carryOnFromPause, Icons.chevronRight(16));
       carryOn.disabled = saving;
       row.appendChild(carryOn);
     }

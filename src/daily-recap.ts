@@ -15,6 +15,7 @@
 // No DOM here — the maths is pure and covered by daily-recap.selftest.ts.
 
 import type { DailyTaskId } from './daily-challenge';
+import { t } from './i18n';
 
 const LOG_KEY = 'obertura.dailyChallenge.log';
 const MAX_DAYS = 180;
@@ -257,8 +258,8 @@ export function formatDayLabel(day: string, now: Date = new Date()): string {
   const date = new Date(y, m - 1, d);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diff = Math.round((today.getTime() - date.getTime()) / 86_400_000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
+  if (diff === 0) return t('date.today');
+  if (diff === 1) return t('date.yesterday');
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
 }
 
@@ -312,11 +313,11 @@ export function buildRecap(input: RecapInput): Recap {
 // worth saying — a personal best beats a small improvement, which beats a
 // steady day.
 export function recapMessage(r: Recap): string {
-  if (r.streakIsBest && r.streak >= 3) return `${r.streak} days in a row — your longest run yet.`;
-  if (r.delta === null) return 'First one logged. Tomorrow has something to beat.';
-  if (r.delta >= 10) return 'A big step up on last time. That is progress you can feel.';
-  if (r.delta > 0) return 'Sharper than last time. The lines are settling in.';
-  if (r.delta === 0) return 'Holding steady — consistency is what makes it stick.';
-  if (r.delta >= -10) return 'A shade behind last time. Repetition is doing its work.';
-  return 'A tougher set today. Missed moves come back sooner — that is the point.';
+  if (r.streakIsBest && r.streak >= 3) return t('daily.recap.streak', { n: r.streak });
+  if (r.delta === null) return t('daily.recap.first');
+  if (r.delta >= 10) return t('daily.recap.bigUp');
+  if (r.delta > 0) return t('daily.recap.up');
+  if (r.delta === 0) return t('daily.recap.same');
+  if (r.delta >= -10) return t('daily.recap.down');
+  return t('daily.recap.bigDown');
 }

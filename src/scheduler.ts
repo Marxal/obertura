@@ -1,6 +1,7 @@
 import type { Line, LinePriority } from './types';
 import type { MoveNode } from './tree';
 import { byNewestFirst } from './lines-view';
+import { t } from './i18n';
 
 // ── The spaced-repetition brain ─────────────────────────────────────────────────
 //
@@ -372,9 +373,9 @@ export function weakestLines(lines: Line[]): Line[] {
 
 // A human label for a move/line's next due date, for small UI readouts.
 export function describeDue(due: Date | null, now: Date = new Date()): string {
-  if (due === null) return 'New';
+  if (due === null) return t('due.new');
   const days = Math.round((new Date(due).getTime() - now.getTime()) / DAY_MS);
-  if (days <= 0) return 'Due now';
-  if (days === 1) return 'Due tomorrow';
-  return `Due in ${days} days`;
+  if (days <= 0) return t('due.now');
+  if (days === 1) return t('due.tomorrow');
+  return t('due.inDays', { n: days });
 }

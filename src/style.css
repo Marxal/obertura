@@ -13135,15 +13135,21 @@ html:has(> body > .edit-overlay) > body {
 /* ── Toast (transient confirmation) ─────────────────────────────────────────── */
 .toast {
   position: fixed;
-  left: 50%;
+  /* Centred with margins rather than left: 50%, which limits the box to half the
+     screen, so a long sentence wrapped into a tall blob. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);
-  transform: translate(-50%, 1.5rem);
+  transform: translateY(1.5rem);
   z-index: 200;
   max-width: calc(100% - 2rem);
   padding: 0.6rem 1rem;
   background: var(--text);
   color: var(--bg-card);
-  border-radius: 999px;
+  /* A pill on one line, and a rounded box when a sentence needs two. */
+  border-radius: 1.6rem;
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.875rem;
   font-weight: 600;
@@ -13155,7 +13161,7 @@ html:has(> body > .edit-overlay) > body {
 
 .toast--show {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
 }
 
 /* Success variant — a brighter card with a sage check badge, for the moments

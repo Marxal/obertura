@@ -27,6 +27,7 @@
 
 import { pushBack } from './back-nav';
 import { showToast } from './toast';
+import { t } from './i18n';
 
 export interface ProSheetOptions {
   // Optional context line above the title, for when the offer was *run into*
@@ -59,9 +60,9 @@ export interface ProSheetOptions {
   // worst moment this sheet can produce.
   onSignIn?: () => void;
   // What the free plan has, per point, shown beside it ("free: 10") so the
-  // offer reads as before → after (UX-AUDIT C6). Keyed by the point's text;
-  // the caller owns the numbers so this module stays free of entitlement.ts.
-  freeValues?: Partial<Record<string, string>>;
+  // offer reads as before → after (UX-AUDIT C6). The caller owns the numbers so
+  // this module stays free of entitlement.ts.
+  freeValues?: Partial<Record<ProPoint, string>>;
   // Optional, and passed only when nobody is signed in: "Create a free account".
   //
   // THIS IS NOT A WAY PAST THE CAP, and the copy must never imply it is — a free
@@ -75,14 +76,16 @@ export interface ProSheetOptions {
 }
 
 // The promises, in the landing page's order and wording.
-export const POINTS = [
-  'Your games, mistakes and progress on every device',
-  'Train unlimited lines at once',
-  'Unlimited repertoires',
-  'Opponent scouting',
-  'Support an independent app',
-  'Founding member: pay once, keep it for life',
-] as const;
+const POINTS = {
+  devices: 'pro.point.devices',
+  lines: 'pro.point.lines',
+  repertoires: 'pro.point.repertoires',
+  scouting: 'pro.point.scouting',
+  support: 'pro.point.support',
+  founding: 'pro.point.founding',
+} as const;
+
+export type ProPoint = keyof typeof POINTS;
 
 function tick(): SVGSVGElement {
   const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -106,7 +109,7 @@ export function openProSheet(opts: ProSheetOptions): void {
   overlay.className = 'edit-overlay edit-overlay--pro';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-label', 'Full Access');
+  overlay.setAttribute('aria-label', t('pro.fullAccess'));
   // ONE primary action. This sheet used to offer up to five ways out — buy,
   // create a free account, sign in, continue as a guest, the backdrop — and
   // with that many none of them led (UX-AUDIT C6). Now: Unlock, a quiet
@@ -127,7 +130,7 @@ export function openProSheet(opts: ProSheetOptions): void {
   // ("Your whole repertoire. One payment.") saying the same thing twice.
   const title = document.createElement('h3');
   title.className = 'pro-title';
-  title.textContent = 'Want everything, unlimited?';
+  title.textContent = t('pro.title');
   sheet.appendChild(title);
 
   // ── The price card ──────────────────────────────────────────────────────────
@@ -141,22 +144,22 @@ export function openProSheet(opts: ProSheetOptions): void {
   const priceText = document.createTextNode(opts.price);
   price.appendChild(priceText);
   const once = document.createElement('span');
-  once.textContent = 'one payment';
+  once.textContent = t('pro.onePayment');
   price.appendChild(once);
   card.appendChild(price);
 
   const list = document.createElement('ul');
   list.className = 'pro-points';
-  for (const point of POINTS) {
+  for (const point of Object.keys(POINTS) as ProPoint[]) {
     const li = document.createElement('li');
     li.appendChild(tick());
     const span = document.createElement('span');
-    span.textContent = point;
+    span.textContent = t(POINTS[point]);
     const free = opts.freeValues?.[point];
     if (free) {
       const was = document.createElement('small');
       was.className = 'pro-point-free';
-      was.textContent = `free: ${free}`;
+      was.textContent = t('pro.freeValue', { value: free });
       span.appendChild(was);
     }
     li.appendChild(span);
@@ -183,7 +186,7 @@ export function openProSheet(opts: ProSheetOptions): void {
   const buy = document.createElement('button');
   buy.type = 'button';
   buy.className = 'btn-primary pro-buy';
-  buy.textContent = 'Unlock Full Access →';
+  buy.textContent = t('pro.buy');
   buy.addEventListener('click', () => { close(); opts.onBuy(); });
   sheet.appendChild(buy);
 
@@ -192,19 +195,17 @@ export function openProSheet(opts: ProSheetOptions): void {
   // "A Bito Chess account", not "an account" — at this point in the flow the
   // reader is one tap from Stripe's own screen and has no reason to know which of
   // the two they are being asked to create.
-  note.textContent =
-    'Secure checkout via Stripe. A Bito Chess account is required so your '
-    + 'purchase can follow you across devices.';
+  note.textContent = t('pro.note');
   sheet.appendChild(note);
 
   if (opts.onSignIn) {
     const restore = document.createElement('p');
     restore.className = 'pro-restore';
-    restore.appendChild(document.createTextNode('Already bought Full Access? '));
+    restore.appendChild(document.createTextNode(`${t('pro.alreadyBought')} `));
     const link = document.createElement('button');
     link.type = 'button';
     link.className = 'pro-restore-link';
-    link.textContent = 'Sign in';
+    link.textContent = t('signup.signIn');
     link.addEventListener('click', () => { close(); opts.onSignIn?.(); });
     restore.appendChild(link);
     sheet.appendChild(restore);
@@ -217,15 +218,15 @@ export function openProSheet(opts: ProSheetOptions): void {
   // declining. Telling a member with an account they are continuing "as a
   // guest" would be plainly wrong, so the label follows onCreateAccount, which
   // the caller passes only when nobody is signed in (see its note above).
-  later.textContent = 'Not now';
+  later.textContent = t('pro.notNow');
   later.addEventListener('click', () => {
     close();
     // The free account, offered once the money question is out of the way. A
     // guest who has hit a cap has something worth keeping, and nothing has yet
     // told them it lives on this phone alone.
     if (opts.onCreateAccount) {
-      showToast('Your lines are only on this phone.', {
-        action: { label: 'Keep them safe', onClick: () => opts.onCreateAccount?.() },
+      showToast(t('pro.onlyHere'), {
+        action: { label: t('pro.keepSafe'), onClick: () => opts.onCreateAccount?.() },
       });
     }
   });

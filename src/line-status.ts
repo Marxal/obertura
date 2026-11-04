@@ -17,6 +17,7 @@ import {
   lineBucket, nextDue, describeDue, userMoveNodes, isReviewDue,
 } from './scheduler';
 import { lineTrainingCount } from './stats';
+import { t } from './i18n';
 
 export type StatusTone = 'due' | 'learning' | 'solid' | 'new' | 'off';
 
@@ -33,20 +34,20 @@ export interface LineStatus {
  * kind of small lie that costs trust in the whole screen.
  */
 export function lineStatus(line: Line, now: Date = new Date()): LineStatus {
-  if (!line.inTraining) return { tone: 'off', text: 'Paused' };
+  if (!line.inTraining) return { tone: 'off', text: t('status.paused') };
 
   const moves = userMoveNodes(line.tree, line.colour);
-  if (moves.length === 0) return { tone: 'new', text: 'No moves of yours yet' };
+  if (moves.length === 0) return { tone: 'new', text: t('status.noMoves') };
 
   // Never drilled at all reads as "Not started", not as "Due now". Both are
   // true — an untrained move IS due — but one of them says something.
-  if (moves.every(n => !n.review)) return { tone: 'new', text: 'Not started' };
+  if (moves.every(n => !n.review)) return { tone: 'new', text: t('status.notStarted') };
 
   const due = moves.filter(n => isReviewDue(n.review, now)).length;
   if (due > 0) {
     return {
       tone: 'due',
-      text: `Due now · ${due} of ${moves.length} ${moves.length === 1 ? 'move' : 'moves'}`,
+      text: t('status.due', { due, n: moves.length }),
     };
   }
 
@@ -115,11 +116,11 @@ export function lineFigures(line: Line, times?: number): LineFigure[] {
   return [
     {
       value: recallPct === null ? '—' : `${recallPct}%`,
-      label: 'recall',
+      label: t('stat.recall'),
       tone: recallPct === null ? undefined
         : recallPct < 50 ? 'low' : recallPct < 80 ? 'mid' : 'ok',
     },
-    { value: String(shownRuns), label: shownRuns === 1 ? 'run' : 'runs' },
+    { value: String(shownRuns), label: t('stat.run', { n: shownRuns }) },
     // How many of this line's moves are correct RIGHT NOW, out of what's
     // actually been ASKED — the same denominator recall% is a percentage of,
     // so the two figures can't disagree. Against the whole line instead, a
@@ -127,21 +128,21 @@ export function lineFigures(line: Line, times?: number): LineFigure[] {
     // line") would count its brand-new, never-tested moves as wrong rather
     // than simply not-yet-asked — "23 runs, but 4/8 correct" for a line with
     // 4 solid old moves and 4 untested new ones is confusing, not informative.
-    { value: `${solid}/${drilled}`, label: 'correct' },
+    { value: `${solid}/${drilled}`, label: t('stat.correct') },
     {
       value: String(misses),
-      label: misses === 1 ? 'miss' : 'misses',
+      label: t('stat.miss', { n: misses }),
       tone: misses > 0 ? 'low' : undefined,
     },
   ];
 }
 
 /** "3 runs · 86% recall" — the same figures as one quiet line, or null. */
-export function lineTrainingText(line: Line, t: LineTraining = lineTraining(line)): string | null {
-  if (t.runs === 0 && t.drilled === 0) return null;
+export function lineTrainingText(line: Line, training: LineTraining = lineTraining(line)): string | null {
+  if (training.runs === 0 && training.drilled === 0) return null;
   const bits: string[] = [];
-  if (t.runs > 0) bits.push(`${t.runs} ${t.runs === 1 ? 'run' : 'runs'}`);
-  if (t.recallPct !== null) bits.push(`${t.recallPct}% recall`);
+  if (training.runs > 0) bits.push(t('stat.runs', { n: training.runs }));
+  if (training.recallPct !== null) bits.push(t('stat.recallPct', { pct: training.recallPct }));
   return bits.length ? bits.join(' · ') : null;
 }
 

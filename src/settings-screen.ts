@@ -167,7 +167,7 @@ function buildGoProCta(): HTMLElement {
   btn.className = 'first-steps-pro settings-gopro-btn';
   btn.appendChild(Icons.sparkles(16));
   const label = document.createElement('span');
-  label.textContent = 'Get Full Access';
+  label.textContent = t('pro.get');
   btn.appendChild(label);
   btn.addEventListener('click', () => showGoProDialog());
   wrap.appendChild(btn);

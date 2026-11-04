@@ -34,6 +34,7 @@ import { needsWorkMoves, type NeedsWorkMove } from './stats';
 import { saveLine } from './storage';
 import type { MoveNode } from './tree';
 import type { Line } from './types';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const HOW_MANY = 50;
@@ -79,11 +80,11 @@ export function buildForgottenMovesBlock(lines: Line[], deps: HomeDeps, startAt 
   head.className = 'fmove-block-head';
   const title = document.createElement('h2');
   title.className = 'fmove-block-title';
-  title.textContent = 'Your most forgotten moves';
+  title.textContent = t('home.forgotten.title');
   head.appendChild(title);
   let at = 0;
   let stopCard: (() => void) | null = null;
-  const another = button('Another position', Icons.shuffle(16), () => deal(at + 1), 'btn-quiet');
+  const another = button(t('common.anotherPosition'), Icons.shuffle(16), () => deal(at + 1), 'btn-quiet');
   another.classList.remove('nr-action');
   another.classList.add('nr-another');
   another.hidden = moves.length < 2;
@@ -145,16 +146,16 @@ function drawCard(
   const stats = buildStatRow([
     {
       value: pct === null ? '—' : `${pct}%`,
-      label: 'recall',
+      label: t('stat.recall'),
       tone: pct === null ? undefined : pct < 50 ? 'low' : pct < 80 ? 'mid' : 'ok',
     },
-    { value: String(m.lapses), label: m.lapses === 1 ? 'miss' : 'misses', tone: 'low' },
-    { value: String(m.attempts), label: 'asked' },
-    { value: String(m.reps), label: 'in a row', tone: m.reps > 0 ? 'ok' : 'low' },
+    { value: String(m.lapses), label: t('stat.miss', { n: m.lapses }), tone: 'low' },
+    { value: String(m.attempts), label: t('stat.asked') },
+    { value: String(m.reps), label: t('stat.inARow'), tone: m.reps > 0 ? 'ok' : 'low' },
   ]);
   const foot = document.createElement('p');
   foot.className = 'peek-foot fm-foot';
-  foot.textContent = [m.openingName ?? m.lineName, m.due ? describeDue(m.due) : 'not scheduled yet'].join(' · ');
+  foot.textContent = [m.openingName ?? m.lineName, m.due ? describeDue(m.due) : t('home.forgotten.notScheduled')].join(' · ');
 
   body.append(boardEl, intro, status, noteEl, row, more, stats, foot);
   host.replaceChildren(body);
@@ -208,42 +209,42 @@ function drawCard(
     offered = true;
     showBtn.hidden = true;
     if (hasOthers) {
-      const on = button('Next position', Icons.chevronRight(16), next, 'btn-primary');
+      const on = button(t('common.nextPosition'), Icons.chevronRight(16), next, 'btn-primary');
       row.prepend(on);
     }
   };
 
-  const showBtn = button('Show the move', Icons.eye(16), () => {
+  const showBtn = button(t('home.forgotten.show'), Icons.eye(16), () => {
     cg.setAutoShapes([{
       orig: m.uci.slice(0, 2) as Key,
       dest: m.uci.slice(2, 4) as Key,
       brush: 'accent',
     }]);
-    say(`The move: ${formatMove(m.san)}`, 'good');
+    say(t('home.forgotten.theMove', { move: formatMove(m.san) }), 'good');
     showNote();
     offerNext();
   });
   row.append(
     showBtn,
-    button('Fix it', Icons.target(16), () => deps.onFixMove(
+    button(t('home.forgotten.fix'), Icons.target(16), () => deps.onFixMove(
       { preFen: m.preFen, san: m.san, colour: m.colour, lapses: m.lapses }, lines)),
   );
 
   if (line) {
     more.append(
-      button('Drill line', Icons.zap(16), () => deps.onDrillLine(line)),
-      button('Edit line', Icons.pencil(16), () => deps.onOpenLine(line, m.preFen)),
+      button(t('home.forgotten.drill'), Icons.zap(16), () => deps.onDrillLine(line)),
+      button(t('home.forgotten.edit'), Icons.pencil(16), () => deps.onOpenLine(line, m.preFen)),
     );
     const node = nodeOf(line, m);
     if (node) {
-      const noteBtn = button(node.note ? 'Edit note' : 'Add a note', Icons.note(16), () => {
+      const noteBtn = button(t(node.note ? 'home.note.edit' : 'home.note.add'), Icons.note(16), () => {
         void openMoveNoteSheet({
           node,
-          title: `Note for ${formatMove(m.san)}`,
-          placeholder: 'Reminder or plan for this move…',
+          title: t('home.note.for', { move: formatMove(m.san) }),
+          placeholder: t('home.note.placeholder'),
           onSave: () => {
             void saveLine(line);
-            noteBtn.lastChild!.textContent = node.note ? 'Edit note' : 'Add a note';
+            noteBtn.lastChild!.textContent = t(node.note ? 'home.note.edit' : 'home.note.add');
             if (done) showNote();
           },
         });
@@ -259,7 +260,7 @@ function drawCard(
       flash.className = 'pt-error-flash';
       boardEl.appendChild(flash);
       flash.addEventListener('animationend', () => flash.remove(), { once: true });
-      say('Not quite, try again', 'bad');
+      say(t('common.notQuite'), 'bad');
       cg.set({ fen: chess.fen(), turnColor: m.colour, movable: { color: m.colour, dests: dests() } });
       return;
     }
@@ -272,7 +273,7 @@ function drawCard(
     } catch {
       /* The move was legal to get here; the board already shows it. */
     }
-    say(`That’s it: ${formatMove(m.san)}`, 'good');
+    say(t('home.forgotten.thatsIt', { move: formatMove(m.san) }), 'good');
     showNote();
     offerNext();
   }
@@ -282,7 +283,7 @@ function drawCard(
     canCommit: () => hasOthers,
     onSwipe: next,
     under: () => buildUnderCard(wrap, section, boardEl,
-      { fen: coming.preFen, colour: coming.colour, ucis: [] }, 'Your most forgotten moves'),
+      { fen: coming.preFen, colour: coming.colour, ucis: [] }, t('home.forgotten.title')),
   });
 
   return () => {

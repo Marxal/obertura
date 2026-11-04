@@ -61,6 +61,7 @@ import { celebratePawn, burstConfetti } from './confetti';
 import { pushBack } from './back-nav';
 import { showToast } from './toast';
 import { trackOncePerLaunch } from './metrics';
+import { t } from './i18n';
 
 // The Worker endpoint that creates the Stripe session. An absolute path, so it
 // resolves against the origin whatever base the app was built with.
@@ -97,7 +98,7 @@ export function openCheckout(): void {
     // GitHub Pages build is fully entitled anyway (entitlement.ts), so this is
     // unreachable from its UI — but never send someone to a checkout that cannot
     // possibly credit them.
-    showToast('Buying isn’t available in this build.');
+    showToast(t('checkout.unavailable'));
     return;
   }
 
@@ -109,8 +110,7 @@ export function openCheckout(): void {
       // "Bito Chess account", spelled out: the next screen after this one is
       // Stripe's, and nobody should have to work out which of the two accounts
       // they are being asked for.
-      lead: 'Your unlock is tied to your Bito Chess account, so it follows you '
-        + 'to any phone you sign in on — and comes back if you ever reinstall.',
+      lead: t('checkout.lead'),
       onSignedIn: () => {
         if (getAuthUser()) void goToCheckout();
       },
@@ -132,13 +132,13 @@ async function goToCheckout(): Promise<void> {
     if (!price?.id) {
       // No price id means pricing.ts never reached the Worker. Sending a
       // hard-coded guess would be worse than saying so.
-      showToast('Couldn’t reach the checkout. Check your connection and try again.');
+      showToast(t('checkout.unreachable'));
       return;
     }
 
     const token = await accessToken();
     if (!token) {
-      showToast('Sign in again to buy — your session has expired.');
+      showToast(t('checkout.expired'));
       return;
     }
 
@@ -160,9 +160,7 @@ async function goToCheckout(): Promise<void> {
         signal: controller.signal,
       });
       if (!res.ok) {
-        showToast(res.status === 401
-          ? 'Sign in again to buy — your session has expired.'
-          : 'Couldn’t start the checkout. Try again in a moment.');
+        showToast(t(res.status === 401 ? 'checkout.expired' : 'checkout.failed'));
         return;
       }
       payload = await res.json();
@@ -172,13 +170,13 @@ async function goToCheckout(): Promise<void> {
 
     const candidate = (payload as { url?: unknown })?.url;
     if (typeof candidate !== 'string' || !isStripeCheckoutUrl(candidate)) {
-      showToast('Couldn’t start the checkout. Try again in a moment.');
+      showToast(t('checkout.failed'));
       return;
     }
     url = candidate;
   } catch {
     // Offline, aborted, or malformed JSON. Nothing has been charged.
-    showToast('Couldn’t start the checkout. Try again in a moment.');
+    showToast(t('checkout.failed'));
     return;
   }
 
@@ -273,14 +271,14 @@ export async function checkForPurchase(): Promise<boolean> {
   if (isEntitled()) return true;
 
   if (!getAuthUser()) {
-    showToast('Sign in first — your unlock is on your account.');
+    showToast(t('checkout.signInFirst'));
     return false;
   }
 
   await refreshEntitlement();
   if (isEntitled()) { celebrate(); return true; }
 
-  showToast('No purchase found on this account yet.');
+  showToast(t('checkout.noPurchase'));
   return false;
 }
 
@@ -348,19 +346,18 @@ function celebrate(): void {
 
   const title = document.createElement('div');
   title.className = 'dc-pop-title';
-  title.textContent = 'You’re in';
+  title.textContent = t('checkout.done.title');
   pop.appendChild(title);
 
   const msg = document.createElement('p');
   msg.className = 'dc-pop-msg';
-  msg.textContent = 'Full Access is on your account. Train as many lines as you '
-    + 'like — and the coaching from your own games is open too. Thank you. Genuinely.';
+  msg.textContent = t('checkout.done.body');
   pop.appendChild(msg);
 
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-primary dc-pop-btn';
-  btn.textContent = 'Let’s go';
+  btn.textContent = t('checkout.done.go');
   btn.addEventListener('click', close);
   pop.appendChild(btn);
 

@@ -42,23 +42,24 @@ import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { buildStoryContent, placeEngineLine, clearEngineLine } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
+import { t, tParts, type MessageKey } from './i18n';
 
 // Presentation names for the four categories — shared with the pane's cards.
 export const CATEGORY_LABEL: Record<MistakeCategory, string> = {
-  'opening-blunder': 'Opening blunders',
-  'punish-opening': 'Punish the opening',
-  'missed-win': 'Missed wins',
-  'blunder': 'Blunders',
+  'opening-blunder': t('mistake.label.openingBlunder'),
+  'punish-opening': t('mistake.label.punish'),
+  'missed-win': t('mistake.label.missedWin'),
+  'blunder': t('mistake.label.blunder'),
 };
 
 // The story line per category — short on purpose, so "You played ♛xe8 here
 // and …" stays on one line on a phone. Shared with the pane's latest-mistakes
-// carousel so the board cards read exactly like the drill.
-export const CATEGORY_PHRASE: Record<MistakeCategory, string> = {
-  'opening-blunder': 'blundered the opening',
-  'punish-opening': 'let them off the hook',
-  'missed-win': 'threw the win away',
-  'blunder': 'blundered',
+// carousel so the board cards read exactly like the drill. {move} is the chip.
+export const CATEGORY_STORY: Record<MistakeCategory, MessageKey> = {
+  'opening-blunder': 'mistake.story.openingBlunder',
+  'punish-opening': 'mistake.story.punish',
+  'missed-win': 'mistake.story.missedWin',
+  'blunder': 'mistake.story.blunder',
 };
 
 // How the played move reads on its red chip: the review palette's class (chip
@@ -440,12 +441,10 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     const { spot } = current;
     const badge = CATEGORY_BADGE[spot.category];
     introEl.replaceChildren();
-    introEl.appendChild(document.createTextNode('You played '));
     const chip = document.createElement('span');
     chip.className = `mr-played mr-played--${badge.cls}`;
     chip.textContent = `${formatMove(spot.playedSan)} ${badge.sym}`;
-    introEl.appendChild(chip);
-    introEl.appendChild(document.createTextNode(` here and ${CATEGORY_PHRASE[spot.category]}.`));
+    introEl.append(...tParts(CATEGORY_STORY[spot.category], { move: chip }));
   }
 
   function useHint(): void {

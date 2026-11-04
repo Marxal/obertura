@@ -32,6 +32,7 @@ import {
 import { row, segmented, toggle } from './settings-controls';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
+import { t } from './i18n';
 
 // ── Daily challenge ──────────────────────────────────────────────────────────
 // Turn the whole daily challenge on/off, pick which parts it includes, how many
@@ -41,14 +42,14 @@ import { Icons } from './icons';
 // see on Train. (Not literally shared with TASK_META, which folds the count into
 // its label — "3 lines to remember" is a card face, not a settings label.)
 const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
-  lines: 'Lines to remember',
-  positions: 'Positions to refresh',
-  puzzles: 'Puzzles to solve',
-  endgames: 'Endgame puzzles',
-  mistakes: 'Mistakes to fix',
-  detective: 'Blunders to catch',
-  whichMove: 'Moves to pick',
-  timePressure: 'Time pressure',
+  lines: t('daily.pref.lines'),
+  positions: t('daily.pref.positions'),
+  puzzles: t('daily.pref.puzzles'),
+  endgames: t('daily.pref.endgames'),
+  mistakes: t('daily.pref.mistakes'),
+  detective: t('daily.pref.detective'),
+  whichMove: t('daily.pref.whichMove'),
+  timePressure: t('showcase.pressure.title'),
 };
 
 /**
@@ -70,7 +71,7 @@ export function renderDailyPrefs(host: HTMLElement, onChange?: () => void): void
     const again = (): void => { rebuild(); onChange?.(); };
 
     host.appendChild(row(
-      'Show daily challenge',
+      t('daily.pref.show'),
       toggle(config.enabled, (on) => {
         write({ ...getDailyConfig(), enabled: on });
         again();
@@ -81,14 +82,13 @@ export function renderDailyPrefs(host: HTMLElement, onChange?: () => void): void
     if (!config.enabled) return;
 
     host.appendChild(row(
-      'Shuffle each day',
+      t('daily.pref.shuffle'),
       toggle(config.randomOrder, (on) => {
         write({ ...getDailyConfig(), randomOrder: on });
         again();
       }),
       {
-        sub: 'A different order every day, picked for you. It settles once per day, '
-          + 'so the challenge never rearranges itself while you are working through it.',
+        sub: t('daily.pref.shuffleSub'),
       },
     ));
 
@@ -107,7 +107,7 @@ export function renderDailyPrefs(host: HTMLElement, onChange?: () => void): void
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'daily-order-reset';
-      reset.textContent = 'Reset to the default order';
+      reset.textContent = t('daily.pref.reset');
       reset.addEventListener('click', () => {
         write({ ...getDailyConfig(), order: [...DEFAULT_DAILY_ORDER] });
         again();
@@ -138,7 +138,7 @@ export function openDailyPrefsSheet(onChange?: () => void): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = 'Daily challenge';
+  h.textContent = t('daily.title');
   sheet.appendChild(h);
 
   const body = document.createElement('div');
@@ -161,7 +161,7 @@ export function openDailyPrefsSheet(onChange?: () => void): void {
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'dialog-btn btn-primary';
-  done.textContent = 'Done';
+  done.textContent = t('common.done');
   done.addEventListener('click', close);
   btnRow.appendChild(done);
   sheet.appendChild(btnRow);
@@ -250,8 +250,8 @@ function moveButtons(
     return btn;
   };
 
-  wrap.appendChild(mk(-1, 'Move up', Icons.chevronUp(16)));
-  wrap.appendChild(mk(1, 'Move down', Icons.chevronDown(16)));
+  wrap.appendChild(mk(-1, t('daily.pref.up'), Icons.chevronUp(16)));
+  wrap.appendChild(mk(1, t('daily.pref.down'), Icons.chevronDown(16)));
   return wrap;
 }
 
@@ -264,8 +264,8 @@ function moveButtons(
 // "Off is a count of zero" rule — only the numbers and the units differ.
 function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
   const { steps, customStart } = dailyCountChoices(id);
-  const options = steps.map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }));
-  options.push({ value: 'custom', label: 'Custom' });
+  const options = steps.map(n => ({ value: String(n), label: n === 0 ? t('daily.pref.off') : String(n) }));
+  options.push({ value: 'custom', label: t('daily.pref.custom') });
 
   const isCustom = isCustomDailyCount(id, count);
   const seg = segmented<string>(
@@ -321,8 +321,8 @@ function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void):
   const suffix = document.createElement('span');
   suffix.className = 'daily-custom-suffix';
   suffix.textContent = minutes
-    ? `minutes a round (max ${customMax})`
-    : `per day (max ${customMax})`;
+    ? t('daily.pref.minutes', { max: customMax })
+    : t('daily.pref.perDay', { max: customMax });
   wrap.appendChild(suffix);
 
   return wrap;

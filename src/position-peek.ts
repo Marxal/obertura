@@ -12,6 +12,7 @@ import type { Key } from 'chessground/types';
 import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { t } from './i18n';
 
 export interface PeekAction {
   icon: SVGElement;
@@ -115,7 +116,7 @@ export function openPositionPeek(opts: PositionPeekOptions): void {
   btnRow.className = 'peek-actions';
 
   if (opts.hintUci) {
-    btnRow.appendChild(peekActionBtn(Icons.bulb(18), 'Hint', () => arrow(opts.hintUci!)));
+    btnRow.appendChild(peekActionBtn(Icons.bulb(18), t('common.hint'), () => arrow(opts.hintUci!)));
   }
   for (const action of opts.actions ?? []) {
     const btn = peekActionBtn(action.icon, action.label, () =>

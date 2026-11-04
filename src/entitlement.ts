@@ -39,7 +39,8 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
 import { getAllLines } from './storage';
 import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './entitlement-cache';
-import { openProSheet, POINTS } from './pro-sheet';
+import { openProSheet } from './pro-sheet';
+import { t } from './i18n';
 import { formatPrice, primePricing, PRICING_CHANGE_EVENT } from './pricing';
 import { showToast } from './toast';
 import { trackOncePerLaunch } from './metrics';
@@ -216,8 +217,8 @@ export async function requestTrainingSlots(count: number): Promise<boolean> {
   trackOncePerLaunch('training_cap_hit');
   openUpgradeDialog(
     free === 0
-      ? `You’ve got ${FREE_TRAINING_LINES} lines in training`
-      : `That’s ${count} lines, and you have ${free} free ${free === 1 ? 'slot' : 'slots'} left`,
+      ? t('pro.cap.training', { limit: FREE_TRAINING_LINES })
+      : t('pro.cap.request', { n: free, count }),
   );
   return false;
 }
@@ -227,7 +228,7 @@ export async function requestRepertoireSlot(existing: number): Promise<boolean> 
   if (isEntitled()) return true;
   if (existing < FREE_REPERTOIRES) return true;
   trackOncePerLaunch('repertoire_cap_hit');
-  openUpgradeDialog(`Free accounts keep ${FREE_REPERTOIRES} repertoires`);
+  openUpgradeDialog(t('pro.cap.repertoires', { limit: FREE_REPERTOIRES }));
   return false;
 }
 
@@ -247,7 +248,7 @@ export async function requestLineSaveRoom(newLines = 1): Promise<boolean> {
   const count = await countSavedLines();
   if (count + newLines <= FREE_SAVED_LINES) return true;
   trackOncePerLaunch('lines_cap_hit');
-  openUpgradeDialog(`Free accounts store ${FREE_SAVED_LINES} lines`);
+  openUpgradeDialog(t('pro.cap.saved', { limit: FREE_SAVED_LINES }));
   return false;
 }
 
@@ -260,8 +261,7 @@ export function showTrainingCapDialog(): void {
   trackOncePerLaunch('training_cap_hit');
   // Says what happened and what the free way out is, not just a count: pausing
   // a line frees a slot at once (UX-AUDIT C6).
-  openUpgradeDialog(`All ${FREE_TRAINING_LINES} free training slots are in use. `
-    + 'Pause a line in Openings → My lines to make room, or train without a limit.');
+  openUpgradeDialog(t('pro.cap.slots', { limit: FREE_TRAINING_LINES }));
 }
 
 // The same offer, asked for rather than run into: the Get-started panel's "Go
@@ -294,10 +294,10 @@ function openUpgradeDialog(eyebrow?: string): void {
     price: formatPrice(),
     // Before → after, against what this person has today (UX-AUDIT C6).
     freeValues: {
-      [POINTS[0]]: 'this phone only',
-      [POINTS[1]]: String(FREE_TRAINING_LINES),
-      [POINTS[2]]: String(FREE_REPERTOIRES),
-      [POINTS[3]]: String(FREE_SCOUT_OPPONENTS),
+      devices: t('pro.free.phoneOnly'),
+      lines: String(FREE_TRAINING_LINES),
+      repertoires: String(FREE_REPERTOIRES),
+      scouting: String(FREE_SCOUT_OPPONENTS),
     },
     onPriceChange: (update) => {
       const listener = (): void => update(formatPrice());
@@ -313,8 +313,7 @@ function openUpgradeDialog(eyebrow?: string): void {
     onSignIn: isSupabaseConfigured && !getAuthUser()
       ? () => {
           void import('./onboarding-signup').then(m => m.openSignUpSheet('signin', {
-            lead: 'Full Access lives on your account, so signing in brings it '
-              + 'back — on this phone and any other.',
+            lead: t('pro.lead.signin'),
           }));
         }
       : undefined,
@@ -325,9 +324,7 @@ function openUpgradeDialog(eyebrow?: string): void {
     onCreateAccount: isSupabaseConfigured && !getAuthUser()
       ? () => {
           void import('./onboarding-signup').then(m => m.openSignUpSheet('signup', {
-            lead: 'Everything you have built so far lives on this phone alone. '
-              + 'A free account keeps a copy, so it comes back on any device '
-              + 'you sign in on.',
+            lead: t('pro.lead.signup'),
           }));
         }
       : undefined,
@@ -376,7 +373,7 @@ export function buildCapNotice(
   btn.className = 'entitlement-cap-link';
   btn.appendChild(Icons.sparkles(15));
   const label = document.createElement('span');
-  label.textContent = opts.label ?? 'Unlock Full Access';
+  label.textContent = opts.label ?? t('pro.unlock');
   btn.appendChild(label);
   btn.addEventListener('click', () => (opts.onOpen ?? showTrainingCapDialog)());
   note.appendChild(btn);
@@ -390,8 +387,8 @@ export function buildCapNotice(
 export function showBulkCapToast(enrolled: number, total: number): void {
   showToast(
     enrolled > 0
-      ? `${enrolled} of ${total} lines in training. The rest are in Openings → My lines, paused.`
-      : `Already training ${FREE_TRAINING_LINES} lines. These are in Openings → My lines, paused.`,
+      ? t('pro.bulk.some', { enrolled, total })
+      : t('pro.bulk.none', { limit: FREE_TRAINING_LINES }),
   );
 }
 
@@ -455,5 +452,5 @@ export function initEntitlement(): void {
 
 // The Account card's plan pill.
 export function entitlementLabel(): string {
-  return isEntitled() ? 'Full Access' : `Free — ${FREE_TRAINING_LINES} lines in training`;
+  return isEntitled() ? t('pro.fullAccess') : t('pro.planFree', { limit: FREE_TRAINING_LINES });
 }
