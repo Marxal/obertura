@@ -12,6 +12,8 @@
     "restore": "node scripts/restore.mjs",
     "probe-sync-limit": "node scripts/probe-sync-limit.mjs",
     "preview": "vite preview",
+    "i18n:scan": "node scripts/i18n-scan.mjs",
+    "i18n:layout": "node --experimental-strip-types --import ./scripts/register-ts.mjs scripts/i18n-layout-check.ts",
     "generate-icons": "node scripts/generate-icons.mjs",
     "build-openings": "node scripts/build-openings.mjs",
     "build-explorer-stats": "node scripts/build-explorer-stats.mjs",

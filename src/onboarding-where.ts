@@ -50,6 +50,7 @@ import type { Platform } from './import-games';
 import { userAvatar } from './avatar';
 import { lookupPlayer, type FoundPlayer } from './player-lookup';
 import { buildWhereShowcase } from './where-showcase';
+import { buildLanguagePicker, hasLanguageChoice } from './language-picker';
 
 // Where the brand mark points. The marketing page, not the app — same as the
 // colour picker's, and for the same reason: a stranger who landed on the app
@@ -140,6 +141,8 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   brand.setAttribute('aria-label', 'Bito Chess');
   brandRow.appendChild(brand);
   bar.appendChild(brandRow);
+  // Many Catalans have their phone set to Spanish, so this can't wait for Settings.
+  if (hasLanguageChoice()) bar.appendChild(buildLanguagePicker());
   overlay.appendChild(bar);
 
   // ── The one question ──

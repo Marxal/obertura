@@ -101,6 +101,12 @@ seeded lines are enrolled without setting anything.
 - **Don't edit source while a script runs against the dev server:** Vite reloads the page
   and the run lands on Home, which looks like an app bug.
 
+## Languages
+
+`?lang=xx` runs the fake language for that tab, and `?lang=` ends it. `npm run i18n:layout` walks
+first run, the five tabs and Settings against English, on what `npm run build` last produced. It needs
+`npm i --no-save playwright`.
+
 ## Keeping this file honest
 
 Every fact above is a fact about code that moves. If a step here fails, check the

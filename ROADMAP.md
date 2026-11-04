@@ -2999,3 +2999,22 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   six tiles. The three drawn step cards are gone, and "Bring in your games" folded into the turning points
   tile, since the form above already asks for the games. On a phone the tiles are a sideways carousel.
 - ✅ **The form is the same width as the hero board** and lines up under it.
+
+### Translation: the system (Phases 0 and 1)
+
+- ✅ **`v0.18` is the restore point** before the largest change the app has had.
+- ✅ **`t()`,** with keys checked at build time, plurals through `Intl.PluralRules`, and English as the fallback
+  key by key. `src/boot.ts` is the new entry point, so a language is loaded before any screen is built.
+- ✅ **A language choice:** a saved choice, then the browser's languages, then English. A saved choice follows
+  the account as one short existing-style key (about 25 bytes per account, and it doesn't grow). The Settings
+  row and first-run picker stay hidden until a second language is released.
+- ✅ **Phones in Spain's Spanish start in Catalan for now,** because Catalans come first and many have their phone in
+  Spanish. Other Spanish gets Spanish once released. Catalan goes to Catalan, Swedish to Swedish, and anything else
+  to English. A saved choice always wins. It's easy to remove, and does nothing until Catalan is released.
+- ✅ **A fake language:** `?lang=xx`, accented and about 40% longer, in brackets.
+- ✅ **`npm run i18n:layout`** checks first run, the five tabs and Settings at 360 and 412 px against English.
+  It found the bottom menu's labels being cut off. They now wrap instead.
+- ✅ **`npm run i18n:scan`** counts what's left: 2,316 different strings.
+- Only the bottom menu uses keys so far. English compared with `v0.18`: identical at 412 px; at 360 px the bottom
+  menu's labels moved by about a pixel. Not tried on a real phone.
+

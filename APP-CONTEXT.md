@@ -126,7 +126,8 @@ changes, `farewell/index.html`'s copy needs updating by hand to match.
 there is no service worker yet, so re-fetching the shell is what stops it going
 stale against Vite's hashed assets. It applies the saved theme and board colour
 **before first paint** in an inline script (mirroring `theme.ts` /
-`appearance.ts`), shows `#app-splash` (the app icon), and loads `src/main.ts`.
+`appearance.ts`), shows `#app-splash` (the app icon), and loads `src/boot.ts`, which
+sets up the language (`language.ts`) and only then imports `src/main.ts`.
 
 `main.ts` then, in order:
 
@@ -2256,6 +2257,12 @@ Every non-selftest module in `src/`, exactly once.
 | Module | |
 |---|---|
 | `onboarding-where.ts` | the first-run front door — "Where do you play?" |
+| `boot.ts` | the entry point: language first, then `main.ts` |
+| `i18n.ts` | `t()`, plurals and the English fallback; `locales/en.json` is the source (`TRANSLATION-PLAN.md`) |
+| `language-choice.ts` | which language to run in, as a pure decision |
+| `language.ts` | loading the language at startup, `?lang=` previews, saving a choice |
+| `language-picker.ts` | the Language control, hidden until a second language is released |
+| `locales/pseudo.ts` | the fake language `xx`, for finding untranslated text and overflow |
 | `onboarding-recap.ts` | the recap's arithmetic — openings, trunks, picks (engine-free) |
 | `onboarding-recap-screen.ts` | the payoff screen — pick your lines |
 | `onboarding-picker.ts` | the colour picker, now only behind "Build my own line" |

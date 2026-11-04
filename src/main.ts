@@ -3,10 +3,7 @@ import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
-import 'chessground/assets/chessground.base.css';
-import 'chessground/assets/chessground.cburnett.css';
-import './style.css';
-import './desktop.css';
+import { t } from './i18n';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode, hasMove, currentLineNodes } from './tree';
 import {
   openBook, closeBook, activeBook, notePending, pendingCount, pendingOwnCount, hasPending,
@@ -5845,11 +5842,11 @@ function applyNavSignIn(): void {
 // #bottom-nav's static markup in index.html, built here (rather than
 // hardcoded HTML) so it can reuse Icons.
 const SIDE_NAV_ITEMS: ReadonlyArray<{ view: ViewName; label: string; icon: () => SVGSVGElement }> = [
-  { view: 'home', label: 'Home', icon: () => Icons.sprout(22) },
-  { view: 'train', label: 'Train', icon: () => Icons.zap(22) },
-  { view: 'explore', label: 'Openings', icon: () => Icons.pawn(22) },
-  { view: 'games', label: 'My games', icon: () => Icons.build(22) },
-  { view: 'progress', label: 'Statistics', icon: () => Icons.barChart(22) },
+  { view: 'home', label: t('nav.home'), icon: () => Icons.sprout(22) },
+  { view: 'train', label: t('nav.train'), icon: () => Icons.zap(22) },
+  { view: 'explore', label: t('nav.openings'), icon: () => Icons.pawn(22) },
+  { view: 'games', label: t('nav.games'), icon: () => Icons.build(22) },
+  { view: 'progress', label: t('nav.statistics'), icon: () => Icons.barChart(22) },
 ];
 
 // The sidebar carries the app's identity at desktop width, so the header can

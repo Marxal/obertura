@@ -1300,14 +1300,13 @@ header h1.header-title--screen {
 }
 
 .tab-item span {
-  line-height: 1;
-  white-space: nowrap;
-  /* Five tabs, 75px each on a 375px phone. It was briefly six (Home landed
-     before My Lines and Explore merged) and every label still fit; the clip
-     stays as the cheap guard it always was. */
+  /* Five tabs, 75px each on a 375px phone. English fits on one line. A longer word
+     in another language wraps and hyphenates rather than being cut off. */
+  line-height: 1.1;
+  text-align: center;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 @media (max-width: 380px) {

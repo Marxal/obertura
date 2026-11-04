@@ -1,8 +1,11 @@
 # Translating Bito Chess: the plan
 
-Status: **not started.** Written 2026-11-03 so a later session can begin from here.
-Counts come from a scan of the code on that date. Re-run the scan before starting,
-because the app changes quickly.
+Status: **Phases 0 and 1 done (2026-11-04).** The system is in place and the English
+users see no change. Only the bottom menu and the Language row use it so far. Next is
+Phase 2. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
+
+Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
+and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
 
 ## The decisions
 
@@ -25,11 +28,11 @@ isn't the personal one.
 
 | Piece | Size | Notes |
 |---|---|---|
-| App text | about 1,960 strings, 11,100 words, in 227 files | Automatic count, probably a bit high |
-| Text with inserted values | 426 | Must become whole sentences with placeholders |
-| Hand-written plurals | 99 | `n === 1 ? '' : 's'` and similar |
-| Starter pack notes | about 6,700 words | `src/starter-packs.json`, shown during training |
-| Traps and endgames | about 1,250 words | `src/traps.json`, `src/endgames.json` |
+| App text | 3,190 strings, 2,316 different, 13,700 words, in 144 files | `npm run i18n:scan`, 2026-11-04. Replaces a rougher count of 1,960; repeats like "Cancel" need one translation |
+| Text with inserted values | 520 | Must become whole sentences with placeholders |
+| Hand-written plurals | 113 | `n === 1 ? '' : 's'` and similar |
+| Starter pack notes | about 7,400 words | `src/starter-packs.json`, shown during training |
+| Traps and endgames | about 1,150 words | `src/traps.json`, `src/endgames.json` |
 | Landing page copy | about 4,900 words | `docs/LANDING-COPY.md` is the source |
 | Privacy and terms | about 4,600 words | Includes some markup in the count |
 | Opening names | 10,765 names in 407 families | Top 100 families cover 93% |
@@ -45,12 +48,18 @@ Cf3 / Sf3 problem. The optional letter notation stays in English letters.
 **In the app**
 
 1. A choice the person made wins (`obertura.language`).
-2. Otherwise, the first match in the browser's language list among `en`, `ca`, `es`
-   and `sv`.
-3. Otherwise, English.
+2. Otherwise, the phone decides: Catalan goes to Catalan, Swedish to Swedish, and any
+   other language to English. It takes the first match in the browser's language list
+   among the released languages.
+3. **For now, Spanish phones from Spain start in Catalan.** We're going after the
+   Catalan audience first, and many Catalans have their phone in Spanish. Other Spanish,
+   such as Mexico's, gets Spanish once it's released and English until then. The rule is
+   `BROWSER_REDIRECTS` in `src/language-choice.ts`: delete it when Spain should get
+   Spanish. It looks only at the phone's main language, and does nothing until Catalan
+   is released.
 
-- Settings has a Language row, and first-run shows a small picker, because many
-  Catalans have their phone set to Spanish.
+- Settings has a Language row, and first-run shows a small picker, so anyone sent to the
+  wrong language can change it straight away. Their choice is saved and always wins.
 - A choice follows the account, which the `obertura.` key prefix already does. A
   detected language is never stored, so it can't follow someone to another phone.
 - Set `<html lang>` to the active language. Hyphenation and screen readers need it.
@@ -63,9 +72,13 @@ Cf3 / Sf3 problem. The optional letter notation stays in English letters.
 
 - Each language has its own address: `/`, `/ca/`, `/es/`, `/sv/`, with `hreflang`
   links between them and a visible switcher.
-- **No automatic redirect.** Google advises against redirecting between language
-  versions and recommends separate URLs. Show a one-tap suggestion instead
-  ("Disponible en català"), and remember the answer.
+- **`/` redirects by language, using the same rule as the app** (including Spain's
+  Spanish to Catalan for now). Marçal decided this on 2026-11-04, replacing a one-tap suggestion.
+  Google advises against redirecting between language versions, so keep the risk small:
+  only `/` redirects, never `/ca/`, `/es/` or `/sv/`, so every version stays reachable
+  at its own address. Anyone with a saved choice isn't redirected, and picking English
+  in the switcher saves that choice. Check in Search Console afterwards that all
+  versions get indexed.
 - A choice made on the landing page carries into the app, since `/` and `/app/` are
   the same site and share `localStorage`.
 
@@ -77,7 +90,8 @@ Cf3 / Sf3 problem. The optional letter notation stays in English letters.
   `Intl.PluralRules`, which is built into browsers. All four languages need only
   `one` and `other`, but use the real rule anyway.
 - **Load one language only:** English is bundled, and the others load with a dynamic
-  import before the first paint. Boot waits for it, so `t()` can stay synchronous.
+  import. `src/boot.ts` is the entry point: it loads the language, then `main.ts`, so
+  `t()` can stay synchronous and work in module-level constants.
   Each dictionary should be about 100 KB raw. Check that after the first batch.
 - **Fallback per key:** a missing key shows English and never the key name.
 - **Change tracking:** `src/locales/status.json` records, per language and key, a
@@ -87,12 +101,13 @@ Cf3 / Sf3 problem. The optional letter notation stays in English letters.
 - **Whole sentences only:** never join translated fragments. Word order differs.
 - **Things that compare text must stop:** `freeValues` in `src/pro-sheet.ts` is keyed
   by the English sentence, so it needs real keys. Search for others like it.
-- **Dates and numbers:** go through `Intl` with the active language. The app has 17
+- **Dates and numbers:** go through `Intl` with the active language. The app has 19
   `toLocale`/`Intl` uses to check.
+- **Text in `index.html`:** marked `data-i18n="key"`, filled in by `language.ts`.
 
 ## Layouts: how they stay unbroken
 
-The risk is real. `style.css` has 125 no-wrap rules and 71 that cut text with "…",
+The risk is real. The CSS has 130 no-wrap rules and 72 that cut text with "…",
 but only 7 wrap rules, and cut-off text fails silently. Spanish and Catalan usually
 run longer than English, and Swedish has long compound words. Test rather than
 assume.
@@ -195,20 +210,25 @@ Each phase can stop safely, because of the English fallback.
 
 | Phase | Work | Done when |
 |---|---|---|
-| 0 | Declare a version, and re-run the string count | Tag exists |
-| 1 | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users |
+| 0 ✅ | Declare a version, and re-run the string count | `v0.18` |
+| 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers first run, the five tabs and Settings; Phase 2 adds training and the Pro popup |
 | 2 | Move the core screens to keys: first-run, Home, training, Pro popup, Settings | Selftests pass, screens look identical in English |
 | 3 | Marçal approves voice and glossary | Glossary approved |
 | 4 | Translate the core screens into all three, build the review page | Layout check passes in all languages |
-| 5 | Marçal reviews Catalan and Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
+| 5 | Marçal reviews Catalan first, then Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
 | 6 | The remaining screens, one or two rounds at a time | No untranslated text in the fake language |
 | 7 | Starter pack notes, traps, endgames | Reviewed by sampling |
 | 8 | Landing, privacy, terms, emails, checkout | Each language's full path works, landing to purchase |
-| 9 | Release Catalan and Spanish, then Swedish once reviewed | |
+| 9 | Release Catalan, then Spanish, then Swedish, each once reviewed. Phones in Spain's Spanish get Catalan from the first release. They can only switch to Spanish once it's released, so ideally release the two together | |
 | 10 | Opening names | |
 
-Moving 227 files to keys is the largest single change the app has had, so do it in
+Moving 144 files to keys is the largest single change the app has had, so do it in
 small rounds and don't mix it with features.
+
+Not built yet, because nothing needs them before Phase 4: `status.json` change tracking,
+length limits in the dictionary, and the first three locale files. The Language row and
+the first-run picker exist but stay hidden until a second language is in
+`RELEASED_LANGUAGES` (`src/language-choice.ts`), or under a `?lang=` preview.
 
 ## Rules once it's in (add these to `CLAUDE.md`)
 

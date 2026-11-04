@@ -73,6 +73,8 @@ import { noteScansReset } from './scan-sync';
 import { clearEndgameProgress } from './endgame-progress';
 import { clearMistakeDrills } from './mistake-scan';
 import { renderBackupSection, exportBackupNow } from './backup';
+import { t } from './i18n';
+import { buildLanguagePicker, hasLanguageChoice } from './language-picker';
 import { Icons } from './icons';
 import { isCustomTrainOrder, resetTrainOrder } from './train-order';
 import { showToast } from './toast';
@@ -592,6 +594,8 @@ export function buildThemeRow(): HTMLElement {
 
 function buildAppearanceGroup(): HTMLElement {
   const sec = group('Appearance', Icons.eye(16));
+
+  if (hasLanguageChoice()) sec.appendChild(row(t('settings.language'), buildLanguagePicker()));
 
   sec.appendChild(buildThemeRow());
 

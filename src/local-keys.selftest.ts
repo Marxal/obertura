@@ -25,6 +25,10 @@ export function runLocalKeysSelfTest(): TestResult[] {
     out.push({ name, pass, detail });
   };
 
+  // ── Language: a choice follows the account, a preview doesn't. ────────────
+  check('a language choice travels with the account', backupLocalKey('obertura.language'), '');
+  check('a language preview stays on this device', !backupLocalKey('bito-language-preview'), '');
+
   // ── The credential. The reason this file exists. ──────────────────────────
   check(
     'the Supabase session never leaves the device',

@@ -1,0 +1,9 @@
+{
+  "nav.home": "Home",
+  "nav.train": "Train",
+  "nav.openings": "Openings",
+  "nav.games": "My games",
+  "nav.statistics": "Statistics",
+  "settings.language": "Language",
+  "settings.language.automatic": "Same as this device"
+}
