@@ -25,6 +25,7 @@ import { Icons } from './icons';
 import { openMoveNoteSheet } from './note-sheet';
 import { formatMove } from './notation';
 import { buildStatRow } from './position-peek';
+import { buildUnderCard } from './next-reply-card';
 import { attachCardSwipe } from './reply-card-swipe';
 import { guardBoardTouches } from './reply-board-touch';
 import { describeDue, mainlineNodes } from './scheduler';
@@ -67,8 +68,12 @@ export function buildForgottenMovesBlock(lines: Line[], deps: HomeDeps, startAt 
   const moves = needsWorkMoves(lines, HOW_MANY);
   if (moves.length === 0) return null;
 
+  // The wrapper is what the next position shows through while a card is dragged away.
+  const wrap = document.createElement('div');
+  wrap.className = 'nr-swipe-host';
   const section = document.createElement('section');
   section.className = 'fmove-block home-panel nr-panel fm-panel';
+  wrap.appendChild(section);
 
   const head = document.createElement('div');
   head.className = 'fmove-block-head';
@@ -90,18 +95,21 @@ export function buildForgottenMovesBlock(lines: Line[], deps: HomeDeps, startAt 
   function deal(next: number): void {
     at = (next + moves.length) % moves.length;
     stopCard?.();
-    stopCard = drawCard(host, section, moves[at], lines, deps, moves.length > 1, () => deal(at + 1));
+    stopCard = drawCard(wrap, host, section, moves[at], moves[(at + 1) % moves.length], lines, deps,
+      moves.length > 1, () => deal(at + 1));
   }
   deal(startAt);
 
   destroyCurrent = () => stopCard?.();
-  return section;
+  return wrap;
 }
 
 function drawCard(
+  wrap: HTMLElement,
   host: HTMLElement,
   section: HTMLElement,
   m: NeedsWorkMove,
+  coming: NeedsWorkMove,
   lines: Line[],
   deps: HomeDeps,
   hasOthers: boolean,
@@ -192,8 +200,12 @@ function drawCard(
     noteEl.hidden = !note;
   };
 
-  // The answer is out, so the way on takes its button's place.
+  // The answer is out, so the way on takes its button's place. Once: showing the move
+  // and then playing it both come through here.
+  let offered = false;
   const offerNext = (): void => {
+    if (offered) return;
+    offered = true;
     showBtn.hidden = true;
     if (hasOthers) {
       const on = button('Next position', Icons.chevronRight(16), next, 'btn-primary');
@@ -269,6 +281,8 @@ function drawCard(
     canSwipe: () => !cg.state.selected && !cg.state.draggable.current,
     canCommit: () => hasOthers,
     onSwipe: next,
+    under: () => buildUnderCard(wrap, section, boardEl,
+      { fen: coming.preFen, colour: coming.colour, ucis: [] }, 'Your most forgotten moves'),
   });
 
   return () => {

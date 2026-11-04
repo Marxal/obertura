@@ -36,6 +36,16 @@ const WARN_SVG =
 //   barEl       — the horizontal eval bar + score.
 //   controlsEl  — the recommended moves (+ optional engine toggle).
 // Clicking a recommended move calls onPlayMove(uci) so it's played on the board.
+/** How much of the eval bar is White's, from White's centipawns. */
+export function evalBarFill(cp: number): number {
+  if (cp >= 9999) return 100;
+  if (cp <= -9999) return 0;
+  // winChance ∈ (-1, 1): +1 = white winning, -1 = black winning.
+  const winChance = 2 / (1 + Math.exp(-0.00368208 * cp)) - 1;
+  const clamped = Math.max(-1, Math.min(1, winChance));
+  return 50 + 50 * clamped;
+}
+
 export class EvalPanel {
   private barEl: HTMLElement;
   private controlsEl: HTMLElement;
@@ -272,12 +282,7 @@ export class EvalPanel {
   // practical chance of winning rather than raw material. A +0.8 edge lands
   // near 57%, not a near-win. Mate scores are pinned to the extremes.
   private cpToFill(cp: number): number {
-    if (cp >= 9999) return 100;
-    if (cp <= -9999) return 0;
-    // winChance ∈ (-1, 1): +1 = white winning, -1 = black winning.
-    const winChance = 2 / (1 + Math.exp(-0.00368208 * cp)) - 1;
-    const clamped = Math.max(-1, Math.min(1, winChance));
-    return 50 + 50 * clamped;
+    return evalBarFill(cp);
   }
 
   private badgeText(result: EvalResult): string {

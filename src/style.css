@@ -8175,6 +8175,11 @@ html:has(> body > .edit-overlay) > body {
   position: relative;
 }
 
+.nr-swipe-host { position: relative; }
+
+/* A row of five actions on a phone squeezes its labels, not its icons. */
+.fm-actions .nr-action svg { flex: none; }
+
 .nr-under {
   position: absolute;
   inset: 0;
@@ -18435,6 +18440,10 @@ html:has(> body > .edit-overlay) > body {
 /* The verdict on the left, the engine's line on demand on the right, and the line
    itself under both, by the board, on one row that scrolls sideways. */
 .fs-verdict {
+  /* The panel opens inside it, and a scrolling column would otherwise squeeze this
+     row to its old height and let the panel lie over whatever comes next. */
+  flex-shrink: 0;
+  height: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -18479,6 +18488,7 @@ html:has(> body > .edit-overlay) > body {
 }
 .fs-engine-panel[hidden] { display: none; }
 .fs-engine-block { min-width: 0; }
+.fs-engine-bar { width: auto; }
 .fs-engine-head {
   font-size: 0.74rem;
   font-weight: 700;

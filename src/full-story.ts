@@ -24,6 +24,7 @@ import { formatMove } from './notation';
 import { showCp } from './eval-chip';
 import { formatClock, parseTimeControl, ownClockIndex } from './clock';
 import { analysePosition, sanLineToUci, type MoveEval } from './engine';
+import { evalBarFill } from './eval-panel';
 import { buildLineStrip } from './reply-line-strip';
 import { fenAfter } from './which-move';
 import {
@@ -208,6 +209,55 @@ export interface EngineLineOptions {
   onPreview: (ucis: string[]) => void;
 }
 
+/**
+ * The eval bar from the builder's engine dock, for whatever the panel has on the board.
+ * It opens on the engine's own figure for the position. Stepping through a line asks
+ * local Stockfish about each new position, briefly, once, and a newer step wins.
+ */
+function buildPanelEvalBar(best: MoveEval): {
+  el: HTMLElement;
+  show: (fen: string, panel: HTMLElement) => void;
+} {
+  const el = document.createElement('div');
+  el.className = 'eval-bar-wrap fs-engine-bar';
+  el.setAttribute('aria-hidden', 'true');
+  const track = document.createElement('div');
+  track.className = 'eval-bar';
+  const fill = document.createElement('div');
+  fill.className = 'eval-bar-fill';
+  track.appendChild(fill);
+  const score = document.createElement('span');
+  score.className = 'eval-score';
+  el.append(track, score);
+
+  const paint = (m: MoveEval): void => {
+    const cp = m.mate !== undefined ? (m.mate > 0 ? 9999 : -9999) : (m.cp ?? 0);
+    fill.style.width = `${evalBarFill(cp)}%`;
+    score.textContent = m.mate !== undefined
+      ? `${m.mate > 0 ? '' : '-'}M${Math.abs(m.mate)}`
+      : `${cp >= 0 ? '+' : ''}${(cp / 100).toFixed(1)}`;
+  };
+  paint(best);
+
+  const known = new Map<string, MoveEval>();
+  let turn = 0;
+  return {
+    el,
+    show(fen, panel) {
+      const mine = ++turn;
+      const held = known.get(fen);
+      if (held) { paint(held); return; }
+      void analysePosition(fen, 12, import.meta.env.BASE_URL, { multiPv: 1, movetimeMs: 500 })
+        .then((moves) => {
+          if (!moves[0]) return;
+          known.set(fen, moves[0]);
+          if (mine === turn && panel.isConnected) paint(moves[0]);
+        })
+        .catch(() => { /* the bar keeps its last figure */ });
+    },
+  };
+}
+
 const PLY_AFTER = (fen: string): number => {
   const parts = fen.split(' ');
   return (Number(parts[5] || 1) - 1) * 2 + (parts[1] === 'b' ? 1 : 0);
@@ -232,6 +282,13 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
   panel.hidden = true;
   const startPly = PLY_AFTER(o.preFen);
   const rows: { clear: () => void }[] = [];
+  const bar = buildPanelEvalBar(o.best);
+  panel.appendChild(bar.el);
+  // Every position the panel puts on the board, with its evaluation following.
+  const show = (ucis: string[]): void => {
+    o.onPreview(ucis);
+    bar.show(ucis.reduce((fen, uci) => fenAfter(fen, uci), o.preFen), panel);
+  };
 
   const lineBlock = (
     heading: string, sans: string[], ucis: string[], prefix: string[], firstPly: number, at: number,
@@ -244,7 +301,7 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
     const strip = buildLineStrip((i) => {
       for (const r of rows) r.clear();
       strip.update(sans, i, Infinity, firstPly);
-      o.onPreview([...prefix, ...ucis.slice(0, i)]);
+      show([...prefix, ...ucis.slice(0, i)]);
     });
     strip.update(sans, at, Infinity, firstPly);
     rows.push({ clear: () => strip.update(sans, 0, Infinity, firstPly) });
@@ -273,7 +330,7 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
       chip.textContent = formatMove(m.san);
       chip.addEventListener('click', () => {
         for (const r of rows) r.clear();
-        o.onPreview([m.uci]);
+        show([m.uci]);
       });
       block.appendChild(chip);
     }

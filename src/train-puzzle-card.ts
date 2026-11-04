@@ -15,6 +15,7 @@ import { HINT_COLOR, registerBrushes } from './board-brushes';
 import { burstConfetti } from './confetti';
 import { Icons } from './icons';
 import { fetchNextPuzzle, puzzleSetup, type Difficulty, type Puzzle } from './puzzles';
+import { buildUnderCard } from './next-reply-card';
 import { attachCardSwipe } from './reply-card-swipe';
 import { guardBoardTouches } from './reply-board-touch';
 import { playFeedback } from './sound';
@@ -56,8 +57,11 @@ export async function buildPuzzleBlock(o: PuzzleCardOptions): Promise<HTMLElemen
   const first = await fetchOne();
   if (!first) return null;
 
+  const wrap = document.createElement('div');
+  wrap.className = 'nr-swipe-host';
   const section = document.createElement('section');
   section.className = 'fmove-block home-panel nr-panel tp-panel';
+  wrap.appendChild(section);
   const head = document.createElement('div');
   head.className = 'fmove-block-head';
   const title = document.createElement('h2');
@@ -70,7 +74,7 @@ export async function buildPuzzleBlock(o: PuzzleCardOptions): Promise<HTMLElemen
   let stop: (() => void) | null = null;
   const show = (p: Puzzle): void => {
     stop?.();
-    stop = drawPuzzle(host, section, p, () => { waiting.delete(key); }, () => void another());
+    stop = drawPuzzle(wrap, host, section, o.title, p, () => { waiting.delete(key); }, () => void another());
   };
   async function another(): Promise<void> {
     waiting.delete(key);
@@ -79,11 +83,11 @@ export async function buildPuzzleBlock(o: PuzzleCardOptions): Promise<HTMLElemen
   }
   show(first);
   destroyCurrent = () => stop?.();
-  return section;
+  return wrap;
 }
 
 function drawPuzzle(
-  host: HTMLElement, section: HTMLElement, puzzle: Puzzle, onSolved: () => void, next: () => void,
+  wrap: HTMLElement, host: HTMLElement, section: HTMLElement, title: string, puzzle: Puzzle, onSolved: () => void, next: () => void,
 ): () => void {
   const setup = puzzleSetup(puzzle);
   if (!setup) { window.setTimeout(next, 0); return () => {}; }
@@ -208,6 +212,8 @@ function drawPuzzle(
     canSwipe: () => !cg.state.selected && !cg.state.draggable.current,
     canCommit: () => true,
     onSwipe: next,
+    // The next puzzle isn't fetched until it's asked for, so an empty board stands in.
+    under: () => buildUnderCard(wrap, section, boardEl, { fen: '8/8/8/8/8/8/8/8 w - - 0 1', colour: 'white', ucis: [] }, title),
   });
 
   return () => {

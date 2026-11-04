@@ -351,7 +351,7 @@
     gap: var(--space-md);
   }
   .home-next-host:not(:empty) ~ .home-previews .home-preview--reply,
-  .home-body:has(> .fm-panel) .home-preview--forgotten { display: none; }
+  .home-body:has(.fm-panel) .home-preview--forgotten { display: none; }
   .home-preview {
     display: flex;
     flex-direction: column;

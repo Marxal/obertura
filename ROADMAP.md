@@ -2983,3 +2983,10 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   have missed something), a mistake from your games, a puzzle, an endgame puzzle. The last two are unrated
   and fetch one Lichess puzzle each, kept until solved. Only the showing section has a board.
 
+### Small fixes after the fifth pass
+
+- ✅ **Your most forgotten moves:** one Next position after showing and then playing the move, and the next
+  position shows behind the card while dragging. Train's puzzle boards show an empty board there.
+- ✅ **Icons in that block's buttons** no longer shrink on a narrow phone.
+- ✅ **The Engine panel** has the eval bar, following the position on the board.
+

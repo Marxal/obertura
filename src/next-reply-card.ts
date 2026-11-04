@@ -348,11 +348,11 @@ interface DrawnCard {
  * Its board sits exactly where this one's is, so when the top card has gone and the real
  * one is drawn, nothing moves. It's a picture: no moves, buttons or facts.
  */
-function buildUnderCard(
+export function buildUnderCard(
   host: HTMLElement,
   section: HTMLElement,
   boardEl: HTMLElement,
-  coming: NextReplyCard,
+  coming: Pick<NextReplyCard, 'fen' | 'colour' | 'ucis'>,
   title: string,
 ): UnderCard {
   const under = panel(title);
