@@ -2906,3 +2906,80 @@ the four numbers that matter: visitors, scanned games, used the app, registered.
 - Steps the current version doesn't count yet are striped and say so, instead of showing 0.
 - Split into `admin-stats.mjs` (reads), `admin-model.mjs` (numbers) and `admin-page.mjs` (page).
 
+## A real desktop layout (v0.17)
+
+The desktop was the phone's layout spread across a big window. It now has its own rules,
+in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart from Packs.
+
+- ✅ **The bug behind the missing buttons.** On a desktop, Analyse game, Next position and See
+  results were hidden behind the story cards in Which move, because the panel's rows grew over
+  each other. The panel's height is now fixed, the story scrolls, and the actions stay on screen.
+- ✅ **Sidebar sections.** Train, Openings and Statistics open and close in the sidebar. The page
+  shows one section at a time. Train is now the phone's panel: Start card, then its sections.
+- ✅ **One board size** across exercises, builder and analyser, and one page width.
+- ✅ **Home:** the day on the left, boards on the right, with each board beside its actions. Get
+  started lost its paragraphs. Sign in moved to the sidebar, and the header left Home.
+- ✅ **Statistics:** one section at a time. Your games leads with the record.
+- ✅ **First run:** form beside a board on "Where do you play?". Two-across cards on the recap.
+- ✅ **Tour:** bubbles sit beside what they describe and point at it.
+- ✅ **Coverage** no longer overflows sideways. Tooltips on icon buttons, a focus ring and hover states.
+- ✅ **Lichess studies left Packs,** with their catalogue, index and script. A pasted study link
+  in the builder's Import menu still works.
+- ✅ A self-test that went stale with the date now reads today's clock.
+- Checked with a real Chess.com import of 500 games, at 1024, 1280, 1366, 1440, 1920 and 2560 wide.
+  Not checked: signed-in account screens, Pro, or the Lichess import, because Lichess refuses
+  headless browsers.
+- Found, not changed: `openLibrary` and `openBoardExplorer` have no callers, so those two old
+  overlays can't be reached. Their code and desktop styles are candidates for removal.
+
+### Second desktop pass, from the owner's review
+
+- ✅ **"Where do you play?"** swaps the board for a loop of what the import is for: your games are
+  read, your mistakes are found, you train them. A real position, the Tarrasch trap.
+- ✅ **Home** puts the daily card across the top, which removes the hole beneath it. Boards sit two
+  across. A new user sees dimmed previews of what is coming.
+- ✅ **Relearn forgotten moves and lines** get arrows and the same big board as the other blocks.
+- ✅ **The tour's first bubble** is titled "Play your first move" and says it is waiting for one.
+  This is on a phone too, the one phone change in this pass.
+- ✅ **The game importer** is a two-sided dialog instead of a stretched phone page.
+- ✅ **Bigger boards** in the cards on My lines, Coverage, Discover and My games.
+- ✅ **Found on the way:** with the engine on, the step buttons fell off the bottom of a laptop screen.
+  The engine's bar now sits above the panel. The game's move list no longer clips at the phone's height.
+
+### Third pass, from the owner's review
+
+- ✅ **"Your most forgotten moves"** replaces the strip of small cards on Home, phone and desktop: a
+  live board where you play your answer, the popup's four figures, and Show the move, Fix it, Drill
+  line, Edit line and Add a note. Swiping deals another. A move played here is feedback only and
+  doesn't touch the schedule.
+- ✅ **Forgotten lines** stay a strip at the foot on a phone, and are gone on a desktop.
+- ✅ **Desktop Home blocks** are all one shape: board left, controls right.
+- ✅ **"Where do you play?"** has six cards with real boards and cburnett pieces, with autoplay, arrows
+  and a pause on hover. Openings and the exercises are now covered, with deliberately simple positions.
+- ✅ **The first training run ends on Home,** not Train.
+- ✅ **The tour's Explore bubble** points at the panel on a desktop.
+- Swiping the new card has not been tried on a real phone.
+
+### Fourth pass, from the owner's review
+
+- ✅ **"Where do you play?" follows the window.** Resizing either way no longer breaks the cards.
+- ✅ **Desktop Home shows its details.** Add a missing reply has no Show more. Learn from your last games
+  shows opponent, when, time control, ratings and opening under its buttons, and a phone gets them
+  behind Show more.
+- ✅ **After answering an exercise from your games,** phone and desktop: Won/Lost/Drawn as a pill; a short
+  verdict beside a small "Engine's line" button, with the line in one sideways row by the board; the
+  clock as a bar with what the move cost, visible on a phone without scrolling; opening, move number and
+  "Also good" among the tiles; and the margin above "This opening" fixed.
+- Not checked with a real clock trail: the imported test games were correspondence, so the bar was
+  tested on made-up clock data.
+
+### Fifth pass: engine panel and Train boards
+
+- ✅ **The Engine panel** in the exercises from your games: the engine's line with back/forward and the
+  move on the board lit (the row from Add a missing reply), Also good, and why your move doesn't work,
+  from local Stockfish on first open.
+- ✅ **Learn from your last games,** once answered, shows the result and the clock bar with its tag.
+- ✅ **A live board under every Train section:** forgotten moves (or a puzzle from your openings until you
+  have missed something), a mistake from your games, a puzzle, an endgame puzzle. The last two are unrated
+  and fetch one Lichess puzzle each, kept until solved. Only the showing section has a board.
+

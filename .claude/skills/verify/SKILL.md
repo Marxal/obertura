@@ -92,6 +92,15 @@ seeded lines are enrolled without setting anything.
 - Opening a saved line: My Lines → tap `.pcard-title` → builder with
   `#builder-engine` (engine dock toggle) and `#eval-bar-top` (docked eval bar).
 
+- **Desktop (≥960px) has no bottom nav:** `#side-nav .side-item[data-view=…]`, then
+  `#side-sub-train|explore|progress .side-sub-item[data-sub=…]`. Clicking the row of the
+  screen you are already on toggles its section, so it can hide the sub-items. Scope
+  `data-sub` by list: `openings` exists under both Train and Openings.
+- **Lichess's game export answers 404 to headless browsers and scripts.** It is the
+  client, not the account or the app. Use a public Chess.com account for a real import.
+- **Don't edit source while a script runs against the dev server:** Vite reloads the page
+  and the run lands on Home, which looks like an app bug.
+
 ## Keeping this file honest
 
 Every fact above is a fact about code that moves. If a step here fails, check the

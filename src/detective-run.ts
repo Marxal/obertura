@@ -39,7 +39,7 @@ import { evalPairRow } from './eval-chip';
 import { getGame } from './storage';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
-import { buildStoryContent } from './full-story';
+import { buildStoryContent, placeEngineLine, clearEngineLine } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 import { DETECTIVE_ACCENT } from './exercise-identity';
 import type { DetectiveRef } from './detective';
@@ -311,7 +311,11 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   bottomEl.appendChild(navEl);
   bottomEl.appendChild(pipsEl);
   bottomEl.appendChild(accuseBtn);
-  bottomEl.appendChild(statusEl);
+  // The verdict's row, which the engine's line joins once the case is closed.
+  const statusRow = document.createElement('div');
+  statusRow.className = 'mr-status-row';
+  statusRow.appendChild(statusEl);
+  bottomEl.appendChild(statusRow);
   bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(revealBtn);
   bottomEl.appendChild(factsEl);
@@ -442,6 +446,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     factsEl.hidden = true;
     factsEl.replaceChildren();
     storyEl.replaceChildren();
+    clearEngineLine(statusRow);
     briefEl.replaceChildren(briefText, briefInfoBtn);
     revealBtn.hidden = false;
     revealBtn.textContent = 'Show solution';
@@ -835,9 +840,15 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     // guessing at theirs is not something this app is going to do.
     factsEl.appendChild(buildContextStrip(game, spot.blunderPly));
     factsEl.hidden = false;
+    placeEngineLine(statusRow, {
+      preFen: spot.preFen,
+      best,
+      also: spot.best.slice(1, 3),
+      played: { san: spot.playedSan, uci: spot.playedUci },
+      onPreview: previewLine,
+    });
     storyEl.replaceChildren(buildStoryContent(game, spot.blunderPly, {
-      continuation: { preFen: spot.preFen, best },
-      onPreviewLine: previewLine,
+      inRun: true,
       onOpenGame: opts.onOpenGame ? openOpeningGame : undefined,
     }));
 
@@ -874,6 +885,19 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   function previewLine(ucis: string[]): void {
     if (isCleaned) return;
     const { spot, game } = current;
+    if (ucis.length === 0) {
+      // Back to where the question was asked.
+      chess.load(spot.preFen);
+      cg.set({
+        fen: spot.preFen,
+        orientation: game.colour,
+        lastMove: undefined,
+        turnColor: cgTurn(),
+        movable: { color: undefined, dests: new Map() },
+      });
+      cg.setAutoShapes([]);
+      return;
+    }
     const line = previewLineFrom(spot.preFen, ucis);
     if (!line) return;
     chess.load(line.fen);

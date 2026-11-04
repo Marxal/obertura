@@ -41,7 +41,7 @@ import { getGame } from './storage';
 import { fillEvalContent } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
-import { buildStoryContent } from './full-story';
+import { buildStoryContent, placeEngineLine } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 import { WHICH_MOVE_ACCENT } from './exercise-identity';
 import type { SpotRef } from './mistake-scan';
@@ -480,9 +480,17 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
 
     renderPlayedLine(right);
     contextEl.replaceChildren(buildContextStrip(current.game, spot.ply));
+    if (spot.best[0]) {
+      placeEngineLine(statusEl, {
+        preFen: spot.preFen,
+        best: spot.best[0],
+        also: spot.best.slice(1, 3),
+        played: { san: spot.playedSan, uci: spot.playedUci },
+        onPreview: previewLine,
+      });
+    }
     storyEl.replaceChildren(buildStoryContent(current.game, spot.ply, {
-      continuation: spot.best[0] ? { preFen: spot.preFen, best: spot.best[0] } : undefined,
-      onPreviewLine: previewLine,
+      inRun: true,
       onOpenGame: opts.onOpenGame ? openOpeningGame : undefined,
     }));
     renderSessionBar();
@@ -519,6 +527,19 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   function previewLine(ucis: string[]): void {
     if (isCleaned) return;
     const { spot, game } = current;
+    if (ucis.length === 0) {
+      // Back to where the question was asked.
+      chess.load(spot.preFen);
+      cg.set({
+        fen: spot.preFen,
+        orientation: game.colour,
+        lastMove: undefined,
+        turnColor: cgTurn(),
+        movable: { color: undefined, dests: new Map() },
+      });
+      cg.setAutoShapes([]);
+      return;
+    }
     const line = previewLineFrom(spot.preFen, ucis);
     if (!line) return;
     chess.load(line.fen);

@@ -40,7 +40,7 @@ import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
-import { buildStoryContent } from './full-story';
+import { buildStoryContent, placeEngineLine, clearEngineLine } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 
 // Presentation names for the four categories — shared with the pane's cards.
@@ -410,6 +410,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     factsEl.hidden = true;
     factsEl.replaceChildren();
     storyEl.replaceChildren();
+    clearEngineLine(statusRow);
     renderSessionBar();
 
     const { game, spot } = current;
@@ -538,10 +539,10 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
     playFeedback('correct');
     if (kind === 'best') {
-      setStatus(clean ? 'The engine’s move ✓' : 'Found it — the engine’s move ✓',
+      setStatus(clean ? 'Found it ✓' : 'Got there ✓',
         clean ? 'pt-status--success' : 'pt-status--reveal');
     } else {
-      setStatus(`Good move ✓ — even stronger: ${formatMove(best.san)}`,
+      setStatus(`Good ✓ Stronger: ${formatMove(best.san)}`,
         clean ? 'pt-status--success' : 'pt-status--reveal');
     }
     if (clean) burstConfetti(boardWrap);
@@ -570,9 +571,15 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     // The clock and the repertoire, under the comparison (spot-context.ts).
     factsEl.appendChild(buildContextStrip(game, spot.ply));
     factsEl.hidden = false;
+    placeEngineLine(statusRow, {
+      preFen: spot.preFen,
+      best,
+      also: spot.best.slice(1, 3),
+      played: { san: spot.playedSan, uci: spot.playedUci },
+      onPreview: previewLine,
+    });
     storyEl.replaceChildren(buildStoryContent(game, spot.ply, {
-      continuation: { preFen: spot.preFen, best },
-      onPreviewLine: previewLine,
+      inRun: true,
       onOpenGame: opts.onOpenGame ? openOpeningGame : undefined,
     }));
 
@@ -610,6 +617,19 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   function previewLine(ucis: string[]): void {
     if (isCleaned) return;
     const { spot, game } = current;
+    if (ucis.length === 0) {
+      // Back to where the question was asked.
+      chess.load(spot.preFen);
+      cg.set({
+        fen: spot.preFen,
+        orientation: game.colour,
+        lastMove: undefined,
+        turnColor: cgTurn(),
+        movable: { color: undefined, dests: new Map() },
+      });
+      cg.setAutoShapes([]);
+      return;
+    }
     const line = previewLineFrom(spot.preFen, ucis);
     if (!line) return;
     chess.load(line.fen);

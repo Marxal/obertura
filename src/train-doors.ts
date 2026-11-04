@@ -40,19 +40,22 @@
 // different things (a tile started a run, a bubble switched the list). On a
 // phone they are now ONE pinned switch (main.ts, renderTrainRoom) that shrinks
 // as you scroll and can be reordered by long-press (train-order.ts), and the
-// door stays in its panel as the domain's Start card — the "hero". A desktop
-// still shows the tiles and every box. Inside a box the cards sit in headed
+// door stays in its panel as the domain's Start card — the "hero". Inside a box the cards sit in headed
 // SECTIONS (boxSection), the catalogue accordions became rows that open a
 // bottom sheet (buildSheetRow), and every card wears its domain's colour. The
 // layout came out of a clickable preview of three directions.
+//
+// AND A FIFTH (v0.17). The desktop's tiles and all-four-boxes went too: a wide
+// window showing every exercise at once was the same wall with more room. A
+// desktop now shows one panel, the phone's, and picks it from the sidebar's Train
+// section (side-nav-groups.ts).
 //
 // The screens keep rendering into one host each and re-rendering themselves
 // alone — no session machinery moved, and it did not have to: every drill in
 // this app is a `position: fixed` overlay on <body>, so a screen's host was only
 // ever the thing to redraw on the way back. A host holds that domain's door AND
-// its box; the host is one of four panels. On a phone the door stays
-// there as the Start card; on a desktop main.ts lifts it into the grid of tiles
-// (renderTrainRoom's placeDoor).
+// its box; the host is one of four panels, and the door stays there as the Start
+// card.
 
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
@@ -91,9 +94,9 @@ export type DomainId = keyof typeof DOMAIN_ACCENT;
  * A screen appends its own cards and accordions to the returned element.
  */
 export function buildBox(domain: DomainId, title: string, info?: HTMLElement): HTMLElement {
-  // The (i) explains every exercise in the box, so it rides on the box title on
-  // a desktop and on the FIRST section head on a phone, where the title is
-  // hidden (the switch already says which domain this is). boxSection moves it.
+  // The (i) explains every exercise in the box, so it rides on the FIRST section
+  // head, the box title being hidden (the switch or the sidebar already says which
+  // domain this is). boxSection copies it there.
   const box = document.createElement('section');
   box.className = 'train-box';
   box.dataset.domain = domain;
@@ -128,8 +131,7 @@ export function boxBody(box: HTMLElement): HTMLElement {
 /**
  * A headed group of cards inside a box — "Play your lines", "Against the
  * clock". Returns the list to append the cards to. The first section of a box
- * takes the box's (i) beside its heading; on a desktop, where the box title
- * shows, that copy is hidden and the title's own (i) is the one you see.
+ * takes the box's (i) beside its heading.
  */
 export function boxSection(box: HTMLElement, heading: string): HTMLElement {
   const b = box as BoxElement;

@@ -56,8 +56,7 @@ import {
 } from './scout';
 import { loadTraps, trapCard } from './traps-screen';
 import { trapsForPairs, type TrapPack } from './traps';
-import { loadPacks, type Pack, type PackLine, type LineSeed } from './onboarding-starter';
-import { buildStudySection } from './study-browser';
+import { loadPacks, type Pack, type PackLine } from './onboarding-starter';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar, type ColourFilter, type FilterSelection } from './filters';
@@ -108,9 +107,8 @@ export interface ExploreDeps {
   ) => void;
   // Open the builder's My lines → My opponents on this opponent (the "board browser").
   onScoutInBuilder: (opponentId: string) => void;
-  // Save imported study chapters straight to My Lines (the Packs tab's Lichess
-  // study browser). Resolves with how many were actually saved.
-  onSaveLines: (seeds: LineSeed[], colour: 'white' | 'black') => Promise<number>;
+  // Tells the sidebar's Openings section which tab is showing.
+  onTabShown?: (tab: ExploreTab) => void;
   // A coverage gap's "prepare an answer": the same seeded build as
   // onPrepareReply, but the opponent name is optional — a gap from your own
   // games or from the opening database has nobody to tag it to.
@@ -259,8 +257,20 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 // free tier, and it was the only tab here not about YOUR repertoire — so it sits
 // at the foot of Discover instead, which is already the "read some games, find
 // the openings in them" tab. Discover reads yours; scouting reads theirs.
-type ExploreTab = 'mylines' | 'coverage' | 'openings' | 'packs';
+export type ExploreTab = 'mylines' | 'coverage' | 'openings' | 'packs';
 let exploreTab: ExploreTab | null = null;
+
+// What the desktop page is called, since its sidebar stands in for the tab strip.
+const EXPLORE_TITLES: Record<ExploreTab, string> = {
+  mylines: 'My lines', coverage: 'Coverage', openings: 'Discover', packs: 'Packs',
+};
+
+// Repaints the tab set by openExploreTab, when the screen is up. False when it
+// isn't, and the caller renders the screen instead.
+let repaintExploreTab: (() => boolean) | null = null;
+export function showLiveExploreTab(): boolean {
+  return repaintExploreTab?.() ?? false;
+}
 
 // The Coverage tab's live handle, so switching away (or re-rendering the screen)
 // stops a pass still running from painting into a node that has gone.
@@ -290,8 +300,8 @@ function exploreTabsSection(
   wrap.className = 'lines-try';
 
   // Built on first visit, then reused: both bodies are heavy enough (the traps
-  // relevance analysis and the lazily-fetched study catalogue on one side, a
-  // full analyseGames pass on the other) that they shouldn't pay their cost when
+  // relevance analysis on one side, a full analyseGames pass on the other) that
+  // they shouldn't pay their cost when
   // Explore opens onto a tab and never leaves it. Coverage is deliberately NOT
   // memoised — it owns a live pass, so it is built and disposed per visit.
   let packsTab: HTMLElement | null = null;
@@ -303,6 +313,9 @@ function exploreTabsSection(
     exploreTab = lines.length > 0 ? 'mylines' : games.length > 0 ? 'openings' : 'packs';
   }
 
+  const title = document.createElement('h1');
+  title.className = 'desk-title';
+  wrap.appendChild(title);
   const tabs = document.createElement('div');
   tabs.className = 'lines-tabs';
   const content = document.createElement('div');
@@ -325,6 +338,8 @@ function exploreTabsSection(
     disposeCoverageTab();
     content.innerHTML = '';
     content.appendChild(tabEl(exploreTab!));
+    title.textContent = EXPLORE_TITLES[exploreTab!];
+    exploreDeps?.onTabShown?.(exploreTab!);
     tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(btn => {
       const active = btn.dataset.tab === exploreTab;
       btn.classList.toggle('active', active);
@@ -366,6 +381,12 @@ function exploreTabsSection(
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();
+  repaintExploreTab = () => {
+    if (!wrap.isConnected) return false;
+    render();
+    container.scrollTop = 0;
+    return true;
+  };
   watchSwitchScroll(tabs, 'lines-tabs--compact');
   return wrap;
 }
@@ -781,15 +802,13 @@ function normalizePackLevel(level: string): string {
   return level === 'Easy to learn' ? 'Beginner' : level;
 }
 
-// The Packs tab body, three scannable layers:
+// The Packs tab body, two scannable layers:
 //   1. Curated starter packs — one COLLAPSED accordion card per pack (title,
 //      colour, level · style · line count at a glance; the line cards only
 //      render when a pack is opened, so the tab reads as a short list instead
 //      of a wall of every line in every pack).
 //   2. Traps — one accordion card holding the flat, relevance-sorted pool
 //      (traps in the families you play float to the top).
-//   3. Lichess studies — the offline study catalogue: search + picks for your
-//      repertoire, imported live as tagged lines (study-browser.ts).
 // Packs and traps sit behind the All / White / Black + tag filter bar. Tags
 // are skill level (Beginner / Intermediate / Advanced) plus a "Traps"
 // content-type tag, OR-matched like every other tag filter in the app.
@@ -881,19 +900,6 @@ function buildPacksTab(
   wrap.appendChild(filter.element);
   wrap.appendChild(list);
   renderList(filter.selection);
-
-  // Lichess studies — its own titled section under the curated material. Not
-  // part of the colour/level filter: studies are per-opening, not per-colour.
-  const studiesTitle = document.createElement('div');
-  studiesTitle.className = 'section-title packs-studies-title';
-  studiesTitle.textContent = 'Lichess studies';
-  wrap.appendChild(studiesTitle);
-  wrap.appendChild(buildStudySection({
-    lines,
-    games,
-    onSaveLines: (seeds, colour) =>
-      exploreDeps ? exploreDeps.onSaveLines(seeds, colour) : Promise.resolve(0),
-  }));
 
   return wrap;
 }

@@ -171,6 +171,10 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   // inside the import lightbox itself, reached via its "add manually" link.
   const topRow = document.createElement('div');
   topRow.className = 'mygames-top-row';
+  const pageTitle = document.createElement('h1');
+  pageTitle.className = 'desk-title';
+  pageTitle.textContent = 'My games';
+  topRow.appendChild(pageTitle);
 
   const importBtn = document.createElement('button');
   importBtn.type = 'button';

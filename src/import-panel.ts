@@ -764,18 +764,27 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     body.className = 'import-step2-body';
     step2.appendChild(body);
 
+    // Two groups: whose games these are, and the choices about them. `display:
+    // contents` on a phone, where they stack as one list; on a desktop they are the
+    // two sides of a dialog, so the choices aren't a line of chips on a wide page.
+    const who = document.createElement('div');
+    who.className = 'import-step2-who';
+    const choices = document.createElement('div');
+    choices.className = 'import-step2-choices';
+    body.append(who, choices);
+
     // Your picture leads the screen (Chess.com only; Lichess / none → icon).
     const avatarRow = document.createElement('div');
     avatarRow.className = 'import-step2-avatar';
     avatarRow.appendChild(userAvatar(scannedAvatarUrl, 72));
-    body.appendChild(avatarRow);
+    who.appendChild(avatarRow);
 
     // Whose games these are — the username field now lives only in step 1, so
     // echo the source here so it's never lost.
     const source = document.createElement('p');
     source.className = 'import-source';
     source.textContent = `@${userInput.value.trim()} · ${PLATFORM_LABELS[result.platform]}`;
-    body.appendChild(source);
+    who.appendChild(source);
 
     // "Found N games" — everything the platform gave us. If the hard cap bit,
     // there are genuinely more than HARD_CAP and we say so.
@@ -784,13 +793,13 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     found.textContent = result.truncated
       ? `Found more than ${HARD_CAP.toLocaleString()} games.`
       : `Found ${total.toLocaleString()} game${total === 1 ? '' : 's'}.`;
-    body.appendChild(found);
+    who.appendChild(found);
 
     if (total === 0) {
       const none = document.createElement('p');
       none.className = 'import-status';
       none.textContent = 'No games found for that username — check the spelling, or try the other platform.';
-      body.appendChild(none);
+      who.appendChild(none);
       step2.hidden = false;
       return;
     }
@@ -799,7 +808,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     // you change the count / time-control selection.
     const wdlWrap = document.createElement('div');
     wdlWrap.className = 'import-wdl';
-    body.appendChild(wdlWrap);
+    who.appendChild(wdlWrap);
 
     // Seed the time-control selection once from the defaults present in the full
     // scan (bullet OFF). It then stays stable as the count slice changes.
@@ -814,7 +823,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       const countLabel = document.createElement('div');
       countLabel.className = 'edit-label';
       countLabel.textContent = 'How many';
-      body.appendChild(countLabel);
+      choices.appendChild(countLabel);
 
       const countRow = document.createElement('div');
       countRow.className = 'import-chips';
@@ -843,7 +852,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         countChips.push(c);
         countRow.appendChild(c);
       });
-      body.appendChild(countRow);
+      choices.appendChild(countRow);
 
       // Say why the big slices are padlocked, right under the chips — then give
       // the way out its own button. It used to be an underlined word at the end
@@ -865,7 +874,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         link.addEventListener('click', () => openSignUp(unlock));
         guest.appendChild(link);
 
-        body.appendChild(guest);
+        choices.appendChild(guest);
       }
     }
 
@@ -873,17 +882,17 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     const capNote = document.createElement('div');
     capNote.className = 'import-cap-note';
     capNote.hidden = true;
-    body.appendChild(capNote);
+    choices.appendChild(capNote);
 
     // ── Which to import (time-control toggles, counts reflect the slice) ──
     const tcLabel = document.createElement('div');
     tcLabel.className = 'edit-label';
     tcLabel.textContent = 'Which to import';
-    body.appendChild(tcLabel);
+    choices.appendChild(tcLabel);
 
     const tcRow = document.createElement('div');
     tcRow.className = 'import-chips';
-    body.appendChild(tcRow);
+    choices.appendChild(tcRow);
 
     // ── Pinned footer: the split, a status line, and the Import button ──
     const footer = document.createElement('div');

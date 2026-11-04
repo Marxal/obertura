@@ -11,9 +11,10 @@ export interface LineStrip {
   /**
    * Redraw for this list of moves, showing the position after `at` of them. From
    * `pendingFrom` on they're dimmed: a line ends on your move, so a reply you haven't
-   * answered isn't part of what Save would keep.
+   * answered isn't part of what Save would keep. `startPly` numbers a line that
+   * doesn't begin at the first move (0 is 1.White, 1 is 1...Black).
    */
-  update: (sans: string[], at: number, pendingFrom?: number) => void;
+  update: (sans: string[], at: number, pendingFrom?: number, startPly?: number) => void;
 }
 
 function stepButton(label: string, icon: SVGElement, onClick: () => void): HTMLButtonElement {
@@ -42,7 +43,7 @@ export function buildLineStrip(onShow: (at: number) => void): LineStrip {
   });
   el.append(back, row, forward);
 
-  const update = (sans: string[], at: number, pendingFrom = Infinity): void => {
+  const update = (sans: string[], at: number, pendingFrom = Infinity, startPly = 0): void => {
     total = sans.length;
     current = at;
     row.replaceChildren();
@@ -51,11 +52,12 @@ export function buildLineStrip(onShow: (at: number) => void): LineStrip {
       const move = document.createElement('button');
       move.type = 'button';
       move.className = 'nr-move';
-      const white = i % 2 === 0;
-      if (white) {
+      const ply = startPly + i;
+      const white = ply % 2 === 0;
+      if (white || i === 0) {
         const number = document.createElement('span');
         number.className = 'nr-move-number';
-        number.textContent = `${i / 2 + 1}.`;
+        number.textContent = `${Math.floor(ply / 2) + 1}${white ? '.' : '…'}`;
         move.appendChild(number);
       }
       move.append(formatMove(san));

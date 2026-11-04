@@ -68,6 +68,8 @@ import { Icons } from './icons';
 // kept (so a full-bleed target still shows its ring), and how close to a corner
 // the tail is allowed to sit.
 const BUBBLE_GAP = 12;
+// Mirrors DESKTOP_NAV_BREAKPOINT in main.ts; at and above it a bubble sits beside its target.
+const TOUR_DESKTOP_MIN = 960;
 // The default pause between `watch` firing and the bubble moving on — long
 // enough for the move that triggered it to land on the board.
 const WATCH_BEAT = 400;
@@ -104,6 +106,9 @@ export interface CoachStep {
   // the bubble is painted — the last board step asks for a move that may already
   // have been played from the Explore panel.
   body: string | (() => string);
+  // A step that only moves on when the user does something says so, with a live
+  // marker: a bubble with no Next otherwise looks finished rather than waiting.
+  waiting?: string;
   // Extra room around this target (a small header button wants a bit so the
   // ring doesn't crowd it; a full-width board wants none).
   pad?: number;
@@ -235,6 +240,14 @@ export function showCoachMarks(
   skipRow.className = 'tour-skiprow';
   bubble.appendChild(skipRow);
 
+  const waitEl = document.createElement('div');
+  waitEl.className = 'tour-waiting';
+  const waitDot = document.createElement('span');
+  waitDot.className = 'tour-waiting-dot';
+  const waitText = document.createElement('span');
+  waitEl.append(waitDot, waitText);
+  bubble.insertBefore(waitEl, main);
+
   const dots = document.createElement('div');
   dots.className = 'tour-dots';
   const dotEls = all.map(() => {
@@ -320,6 +333,8 @@ export function showCoachMarks(
     overlay.setAttribute('aria-label', step.title);
     title.textContent = step.title;
     body.textContent = typeof step.body === 'function' ? step.body() : step.body;
+    waitEl.hidden = !step.waiting;
+    waitText.textContent = step.waiting ?? '';
     dotEls.forEach((d, i) => d.classList.toggle('tour-dot--on', i === index));
 
     // The step's big ask, or the pill that says it's already done.
@@ -445,7 +460,47 @@ export function showCoachMarks(
     spot.style.width = `${Math.max(0, right - left)}px`;
     spot.style.height = `${height}px`;
 
-    placeBubble(top, height, (left + right) / 2);
+    if (!placeBubbleBeside(left, right, top, bottom)) placeBubble(top, height, (left + right) / 2);
+  }
+
+  // A desktop has room a phone doesn't: the bubble can sit BESIDE the thing it is
+  // talking about instead of over whatever is above or below it. Centred on the
+  // window, as it is on a phone, it landed on the board's controls and pointed at
+  // the Save button from half a screen away. False on a phone, or when the target
+  // is too wide to have a side with room, and placeBubble takes over.
+  function placeBubbleBeside(left: number, right: number, top: number, bottom: number): boolean {
+    bubble.classList.remove('tour-bubble--right', 'tour-bubble--left', 'tour-bubble--aligned');
+    tail.style.removeProperty('top');
+    bubble.style.removeProperty('left');
+    if (window.innerWidth < TOUR_DESKTOP_MIN) return false;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const w = bubble.offsetWidth;
+    const h = bubble.offsetHeight;
+    const roomRight = vw - right;
+    const roomLeft = left;
+    const need = w + BUBBLE_GAP + EDGE_INSET;
+
+    // The bubble's own translateX(-50%) stays, so `left` is its centre.
+    const midY = (top + bottom) / 2;
+    if (bottom - top > h * 0.6 && Math.max(roomRight, roomLeft) >= need) {
+      const onRight = roomRight >= roomLeft;
+      const y = Math.min(Math.max(midY - h / 2, EDGE_INSET), vh - h - EDGE_INSET);
+      bubble.style.top = `${y}px`;
+      bubble.style.left = `${onRight ? right + BUBBLE_GAP + w / 2 : left - BUBBLE_GAP - w / 2}px`;
+      bubble.classList.remove('tour-bubble--above');
+      bubble.classList.add(onRight ? 'tour-bubble--right' : 'tour-bubble--left');
+      tail.style.left = '';
+      tail.style.top = `${Math.min(Math.max(midY - y, TAIL_INSET), h - TAIL_INSET)}px`;
+      return true;
+    }
+
+    // A small target, like Save: above or below as usual, but lined up with it.
+    const cx = Math.min(Math.max((left + right) / 2, w / 2 + EDGE_INSET), vw - w / 2 - EDGE_INSET);
+    bubble.style.left = `${cx}px`;
+    bubble.classList.add('tour-bubble--aligned');
+    return false;
   }
 
   // Put the bubble on whichever side of the spotlight has more room, and point
@@ -862,10 +917,12 @@ function buildSteps(
   return [
     {
       selector: ['#board'],
-      title: 'Enter your line',
-      body: 'Make your moves on the board to build a line you can train after. '
-        + 'You can step back and forward through them at any time to add more. '
-        + 'Play your first move!',
+      // The title is the instruction. It was "Enter your line", with the ask at the
+      // end of a paragraph, so the bubble read like one more thing to dismiss, on the
+      // one step with no Next to press.
+      title: 'Play your first move',
+      body: 'Move a piece on the board to start your line.',
+      waiting: 'Waiting for your move',
       pad: 0,
       // Live, and it advances on a move: the fastest way to learn that the board
       // is yours to play on is to play on it.
@@ -890,7 +947,9 @@ function buildSteps(
       // stopped at the panel's bottom edge lit the tiles and hid the one
       // control the sentence is about. Covering panel + dock also says, without
       // a sentence, that everything under the board belongs to this step.
-      spanSelector: ['#builder-dock'],
+      // Not on a desktop: the controls sit under the board there, so a hole around
+      // both would light the whole screen and leave the bubble nowhere to stand.
+      spanSelector: window.innerWidth >= TOUR_DESKTOP_MIN ? undefined : ['#builder-dock'],
       title: 'Explore',
       body: 'Suggested moves from your games, the library and the engine. '
         + 'Auto-reply plays the suggested answer for you.',
@@ -958,6 +1017,7 @@ function buildSteps(
       selector: ['#board'],
       title: 'Back to your line',
       body: 'Play two more moves for now — you can keep adding moves later.',
+      waiting: 'Waiting for your moves',
       pad: 0,
       interactive: true,
       onEnter: () => {

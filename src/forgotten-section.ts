@@ -77,35 +77,19 @@ function moveLabel(m: NeedsWorkMove): string {
  *   are green and red. The peek behind each card carries the full figures for
  *   anyone who wants them.
  */
-export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: ForgottenCallbacks): void {
-  const moves = needsWorkMoves(lines, 50);
+export function renderForgottenLines(host: HTMLElement, lines: Line[], cb: ForgottenCallbacks): void {
   const recall = lineRecall(lines, 50);
-
-  if (moves.length > 0) {
-    host.appendChild(buildStripBlock(
-      'Relearn forgotten moves',
-      `${moves.length} to work on`,
-      buildStrip(
-        moves.slice(0, PREVIEW).map(m => moveRow(m, lines, cb)),
-        moves.length > PREVIEW
-          ? seeAllRow(`See all ${moves.length}`, () => openMovesSheet(moves, lines, cb))
-          : null,
-      ),
-    ));
-  }
-
-  if (recall.length > 0) {
-    host.appendChild(buildStripBlock(
-      'Relearn forgotten lines',
-      `${recall.length} to work on`,
-      buildStrip(
-        recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),
-        recall.length > PREVIEW
-          ? seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb))
-          : null,
-      ),
-    ));
-  }
+  if (recall.length === 0) return;
+  host.appendChild(buildStripBlock(
+    'Relearn forgotten lines',
+    `${recall.length} to work on`,
+    buildStrip(
+      recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),
+      recall.length > PREVIEW
+        ? seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb))
+        : null,
+    ),
+  ));
 }
 
 /**

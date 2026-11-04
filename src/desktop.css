@@ -1,0 +1,969 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   THE DESKTOP LAYOUT — everything at and above 960px, in one place.
+
+   That number mirrors DESKTOP_NAV_BREAKPOINT in main.ts. Below it nothing in this
+   file applies, so a phone is untouched. Above it there is still only one DOM:
+   these rules re-lay out what the phone renders, plus the few `.desk-title` and
+   `.where-art` pieces that stay hidden on a phone.
+
+   Four rules hold the screens together, and each exists because its absence was
+   a complaint:
+     1. One board size. --desk-board is the board in every exercise, the builder
+        and the analyser. Board column first, panel beside it.
+     2. One page width. --desk-page stops every tab screen at the same place,
+        with the same gutter, under the same kind of title.
+     3. One section at a time. Train, Openings and Statistics pick theirs from the
+        sidebar (side-nav-groups.ts), as a phone picks from its switch.
+     4. Phone-width blocks stay phone-width. Cards were drawn for about 400px;
+        given 900px they turn into thin bars with their content at the far ends.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.desk-title,
+.home-previews,
+.where-art { display: none; }
+
+@media (min-width: 960px) {
+  :root {
+    --desk-nav: 240px;
+    --desk-page: 1240px;
+    --desk-gutter: clamp(1.5rem, 3vw, 2.5rem);
+    --desk-panel: 380px;
+    /* Tall enough for the header, the dock under the builder's board, and a
+       margin; narrow enough to leave the panel its width. */
+    --desk-board: min(calc(100dvh - 10.5rem), calc(100vw - var(--desk-panel) - 5rem), 860px);
+  }
+
+  /* ── Things a mouse gets ─────────────────────────────────────────────── */
+  :is(button, a, [role="button"], summary, input, select):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  * { scrollbar-width: thin; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .mode-card:not(.mode-card--disabled):hover,
+    .pcard:hover,
+    .mygames-card:hover,
+    .onb-pack:hover,
+    .first-steps-step:hover,
+    .side-sub-item:hover {
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border-card));
+    }
+    .train-door:not(.train-door--disabled):hover { filter: brightness(1.06); }
+  }
+
+  /* ── The page ────────────────────────────────────────────────────────── */
+  .desk-title {
+    display: block;
+    margin: 0 0 var(--space-md);
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--text);
+  }
+
+  :root[data-view="home"] main,
+  :root[data-view="train"] main,
+  :root[data-view="explore"] main,
+  :root[data-view="games"] main,
+  :root[data-view="progress"] main { padding-top: 0; }
+
+  #view-home:not([hidden]),
+  #view-explore:not([hidden]),
+  #view-games:not([hidden]),
+  #view-progress:not([hidden]) > *,
+  .train-room {
+    max-width: var(--desk-page);
+    margin-inline: auto;
+  }
+  #view-explore:not([hidden]),
+  #view-games:not([hidden]),
+  #view-progress:not([hidden]) {
+    box-sizing: border-box;
+    padding: var(--space-lg) var(--desk-gutter) var(--space-xl);
+  }
+
+  /* ── The sidebar ─────────────────────────────────────────────────────── */
+  .side-nav:not([hidden]) { width: var(--desk-nav); }
+  .side-brand { padding-bottom: 0.75rem; }
+  .side-nav-items { gap: 0.1rem; overflow: visible; min-height: auto; flex: none; }
+
+  .side-group-head { position: relative; }
+  .side-group-head .side-item { padding-right: 2.25rem; }
+  .side-caret {
+    position: absolute;
+    top: 50%;
+    right: 0.3rem;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    transform: translateY(-50%);
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-faint);
+    cursor: pointer;
+  }
+  .side-caret svg { transition: transform 0.15s; }
+  .side-group--open .side-caret svg { transform: rotate(180deg); }
+  .side-caret:hover { background: var(--accent-soft); color: var(--text); }
+
+  .side-sub {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0.1rem 0 0.35rem 1.15rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--hairline-soft);
+  }
+  .side-sub[hidden] { display: none; }
+  .side-sub-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 32px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .side-sub-item:hover { background: var(--accent-soft); color: var(--text); }
+  .side-sub-item[aria-current="true"] { background: var(--accent-soft); color: var(--accent); }
+  .side-sub-icon { display: inline-flex; flex: none; }
+  .side-sub-icon svg { width: 15px; height: 15px; }
+  .side-sub-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-sub-figure {
+    display: inline-flex;
+    flex: none;
+    max-width: 5.5rem;
+    overflow: hidden;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-faint);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* New lines: three short rows, not a block that competes with the destinations. */
+  .side-create { gap: 0.15rem; padding: 0.6rem 0.2rem 0.2rem; }
+  .side-create-title { padding: 0 0.5rem 0.2rem; font-size: 0.66rem; }
+  .side-create-items { gap: 0.05rem; }
+  .side-create-item { padding: 0.28rem 0.5rem; min-height: 34px; gap: 0.55rem; }
+  .side-create-icon { width: 24px; height: 24px; }
+  .side-create-sub { display: none; }
+  .side-signin {
+    margin: var(--space-sm) 0.5rem 0;
+    padding: 0.42rem 0.7rem;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .side-signin[hidden] { display: none; }
+  .side-signin:hover { background: var(--accent-soft); }
+
+  /* ── Home: today across the top, the boards under it ─────────────────────
+     The daily card used to be a column beside the boards. It is far shorter than
+     they are, so a tall empty hole opened beneath it, and its one-line rows were
+     the only thing on the page reading downwards. Across the top it is a band: the
+     tasks side by side, Start at the end of its head, and two boards above the
+     fold on a laptop. */
+  #view-home:not([hidden]) {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-lg) var(--desk-gutter) var(--space-xl);
+  }
+  #view-home > .home-scan,
+  #view-home > .ga-ready { margin: 0; max-width: none; }
+  #view-home > .ga-ready { padding-block: 0.55rem; align-items: center; }
+  .ga-ready-text { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; }
+
+  /* The band, and Get started beside it while that is still around. */
+  #view-home > .daily-host {
+    margin: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: var(--space-md);
+  }
+  #view-home > .daily-host:has(> .first-steps) {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+  }
+  /* A new user: nothing to start yet, so the two cards weigh the same. */
+  #view-home > .daily-host:has(> .daily-card--locked) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .daily-card:has(> .daily-card-start) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem var(--space-md);
+    padding: 0.9rem 1rem;
+  }
+  .daily-card:has(> .daily-card-start) > * { grid-column: 1 / -1; }
+  .daily-card:has(> .daily-card-start) > .daily-card-head { grid-column: 1; grid-row: 1; }
+  .daily-card:has(> .daily-card-start) > .daily-card-start {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 1.4rem;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+  .daily-card-tasks {
+    display: grid;
+    gap: 0.4rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .daily-card-tasks:has(> :last-child:nth-child(3)),
+  .daily-card-tasks:has(> :last-child:nth-child(6)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .daily-card-tasks:has(> :last-child:nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .daily-card-tasks:has(> :last-child:nth-child(5)) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .daily-card-tasks > :last-child:nth-child(7) { grid-column: span 2; }
+  .daily-task { min-height: 42px; }
+  .daily-task-label { line-height: 1.2; }
+  /* Beside Get started the band is narrower, and four across would wrap every row. */
+  .daily-host:has(> .first-steps) .daily-card-tasks,
+  .daily-card--locked .daily-card-tasks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .daily-host:has(> .first-steps) .daily-card-tasks > :last-child:nth-child(7) { grid-column: auto; }
+
+  /* Too narrow to share a row: Start drops below the tasks, or it covers the title. */
+  @media (max-width: 1199.98px) {
+    .daily-host:has(> .first-steps) .daily-card > .daily-card-head { grid-column: 1 / -1; }
+    .daily-host:has(> .first-steps) .daily-card > .daily-card-start {
+      grid-column: 1 / -1;
+      grid-row: auto;
+      width: 100%;
+    }
+  }
+
+  /* Get started: the name of each step, without the paragraph under it. */
+  .first-steps-step-body { display: none; }
+  .first-steps-step { min-height: 40px; padding-block: 0.35rem; align-items: center; }
+  .first-steps-step--done { display: none; }
+  .first-steps-list { gap: 0.3rem; }
+  .first-steps { gap: 0.5rem; padding: 0.9rem; }
+
+  /* The boards, one block to a row and all the same shape: the board on the left, at
+     one size, and what to do about it on the right. Two across, they had to centre
+     the board over a stack of controls, and each block aligned differently. */
+  #view-home > .home-body {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    min-width: 0;
+  }
+  .home-next-host,
+  .home-extend-host { display: contents; }
+
+  /* Forgotten lines stay a phone's strip: not on a desktop. */
+  .home-body > .fmove-block:not(.home-panel) { display: none; }
+
+  .home-panel {
+    --home-board: min(400px, 46%);
+    box-sizing: border-box;
+    min-width: 0;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 14px;
+  }
+  .home-panel .forgotten-board { max-width: none; margin: 0; }
+
+  /* Learn from your last games, and forgotten moves. */
+  .home-panel .nr-card-body {
+    display: grid;
+    grid-template-columns: var(--home-board) minmax(0, 1fr);
+    grid-template-rows: repeat(7, auto) minmax(0, 1fr);
+    column-gap: var(--space-lg);
+    row-gap: var(--space-sm);
+    align-items: start;
+  }
+  .home-panel .nr-card-body > .forgotten-board {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    width: 100%;
+  }
+  .home-panel .nr-card-body > :not(.forgotten-board) { grid-column: 2; min-width: 0; }
+  .home-panel .nr-actions { flex-wrap: wrap; }
+  .home-panel .mrc-tab-title { text-align: left; }
+
+  /* Add a missing reply is built directly on its section, so the section is the grid. */
+  .home-panel:has(> .nr-board-frame) {
+    display: grid;
+    grid-template-columns: var(--home-board) minmax(0, 1fr);
+    grid-template-rows: auto repeat(12, auto) minmax(0, 1fr);
+    column-gap: var(--space-lg);
+    align-items: start;
+    row-gap: var(--space-sm);
+  }
+  .home-panel:has(> .nr-board-frame) > * { grid-column: 2; min-width: 0; }
+  .home-panel:has(> .nr-board-frame) > .fmove-block-head { grid-column: 1 / -1; grid-row: 1; }
+  .home-panel:has(> .nr-board-frame) > .nr-board-frame {
+    grid-column: 1;
+    grid-row: 2 / -1;
+    width: 100%;
+  }
+  .home-panel:has(> .nr-board-frame) .forgotten-board { width: 100% !important; max-width: none; margin: 0; }
+  .home-panel:has(> .nr-board-frame) > .nr-board-frame { margin: 0; max-width: none; }
+  .home-panel:has(> .nr-board-frame) > :not(.fmove-block-head, .nr-board-frame) { text-align: left; }
+  .home-panel:has(> .nr-board-frame) .nr-faced { align-self: start; justify-self: start; margin-inline: 0; }
+  /* The kinds of mistake pick what the board shows, so they sit over the board. */
+  .home-panel .mrc-tabs { width: var(--home-board); min-width: 300px; }
+
+  /* There is room, so the details are simply there. */
+  .home-panel .nr-more { display: none; }
+
+  .mrc-solved .sc-line { text-align: left; }
+  /* Forgotten moves. */
+  .home-panel .nr-card-body > .nr-note { justify-content: flex-start; }
+  .home-panel .nr-card-body > .fm-foot { text-align: left; }
+  .fm-intro { justify-content: flex-start; }
+  .fm-panel .fm-actions--more .nr-action { font-size: 0.82rem; }
+
+  /* New user: each block that isn't here yet, under its own title. */
+  .home-previews {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-md);
+  }
+  .home-next-host:not(:empty) ~ .home-previews .home-preview--reply,
+  .home-body:has(> .fm-panel) .home-preview--forgotten { display: none; }
+  .home-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: var(--space-md);
+    border: 1px dashed var(--border-card);
+    border-radius: 14px;
+  }
+  .home-preview-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .home-preview-board { opacity: 0.55; }
+  .home-preview-board .mini-board {
+    display: block;
+    width: 100%;
+    max-width: 340px;
+    height: auto;
+    margin-inline: auto;
+    border-radius: 6px;
+  }
+  .home-preview-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  /* ── Train: the phone's panel, with its sections in two columns ──────── */
+  .train-room { box-sizing: border-box; padding: var(--space-lg) var(--desk-gutter) var(--space-xl); }
+  .train-switch { display: none; }
+  .train-track { display: block; }
+  .train-domain > .train-door { padding: 1.1rem 1.25rem; }
+  .train-door-hero-title { font-size: 1.2rem; }
+  .train-door-hero-detail { font-size: 0.85rem; }
+  .train-domain > .train-door .train-door-go { padding: 0.55rem 1.4rem; font-size: 0.92rem; }
+  .train-box-body {
+    display: block;
+    columns: 2;
+    column-gap: var(--space-lg);
+  }
+  .train-section-head { height: 1.75rem; min-height: 0; }
+  .train-section-head .info-btn { width: 24px; height: 24px; }
+  .train-section {
+    break-inside: avoid;
+    margin-bottom: var(--space-md);
+  }
+  .train-box-body > :not(.train-section) {
+    column-span: all;
+    max-width: 640px;
+    margin-bottom: var(--space-md);
+  }
+
+  /* ── Openings ────────────────────────────────────────────────────────── */
+  .lines-try .lines-tabs { display: none; }
+  .lines-try, .lines-tab-content { margin: 0; padding: 0; }
+  .lines-grid > * { min-width: 0; }
+
+  /* Coverage: the figures side by side above the cards. A colour switch and bars
+     the width of the page have a long way to travel for very little. */
+  .cvg-colour-seg { width: 240px; margin-inline: 0; }
+  .cvg-tab-body {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    column-gap: var(--space-xl);
+    align-items: start;
+  }
+  .cvg-tab-body > :not(.cvg-summary, .cvg-families) { grid-column: 1 / -1; }
+  .cvg-tab-body .stat-card-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .cvg-tab-body .stat-card-chips > * { white-space: nowrap; }
+  .cvg-list.lines-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 1400px) {
+    .cvg-list.lines-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  /* The boards in the cards: there is room for one you can read. */
+  .pcard-mini { width: 152px; }
+  .mygames-card-mini { width: 128px; }
+
+  /* ── My games ────────────────────────────────────────────────────────── */
+  .mygames-screen { padding: 0; }
+  .mygames-top-row { align-items: center; margin-inline: 0; }
+  .mygames-top-row > .desk-title { flex: 1; margin: 0; }
+  .mygames-import { flex: 0 0 auto; width: auto; padding-inline: 1.25rem; }
+  .mygames-wdl { margin-inline: 0; padding-inline: 0; }
+
+  /* ── Every exercise: board left, panel right ─────────────────────────────
+     One layout for all the runners (.pt-overlay--split). The phone's .pt-scroll
+     wrapper becomes `display: contents`, so one set of rules places them all.
+
+       ┌────────────────────────────────────────────────────────┐
+       │ .pt-header                                             │
+       ├─────┬───────────────┬──────────────────────────┬───────┤
+       │     │               │ session bar              │       │
+       │     │ .pt-board-wrap│ .pt-top                  │       │
+       │ 1fr │ --desk-board  │ .pt-bottom (scrolls)     │  1fr  │
+       │     │               │ .mr-after (Analyse, Next)│       │
+       │     │               │ keyboard hint            │       │
+       └─────┴───────────────┴──────────────────────────┴───────┘
+
+     THE HEIGHT IS BOUNDED AND ONLY THE MIDDLE ROW SCROLLS. When the rows sized to
+     their content, a long story (which move, a mistake's full explanation) grew
+     out of its row and lay on top of the row below — which was Analyse game and
+     Next position, so "See results" could not be reached at all. Now the actions
+     are always on screen and the story scrolls between them.
+
+     A results screen swaps the overlay's contents for one .train-completion, and
+     with one showing the grid steps aside. */
+  .pt-overlay--split:not(:has(> .train-completion)) {
+    display: grid;
+    height: 100dvh;
+    grid-template-columns: 1fr var(--desk-board) var(--desk-panel) 1fr;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    column-gap: 1.75rem;
+    overflow: hidden;
+  }
+  .pt-overlay--split:not(:has(> .train-completion)) > .pt-scroll { display: contents; }
+  .pt-overlay--split > .pt-header { grid-column: 1 / -1; grid-row: 1; }
+
+  .pt-overlay--split:not(:has(> .train-completion)) .pt-board-wrap {
+    grid-column: 2;
+    grid-row: 2 / 7;
+    align-self: start;
+    width: var(--desk-board);
+    height: var(--desk-board);
+    margin: var(--space-lg) 0;
+  }
+
+  /* Anything else a runner adds is in the panel. */
+  .pt-overlay--split:not(:has(> .train-completion)) > :not(.pt-header, .pt-board-wrap, .pt-scroll),
+  .pt-overlay--split:not(:has(> .train-completion)) > .pt-scroll > :not(.pt-board-wrap) {
+    grid-column: 3;
+    min-width: 0;
+  }
+  .pt-overlay--split .pt-session-bar {
+    grid-row: 2;
+    margin: var(--space-lg) 0 var(--space-sm);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+  }
+  .pt-overlay--split .pt-top {
+    grid-row: 3;
+    justify-content: flex-start;
+    padding-inline: 0;
+  }
+  .pt-overlay--split:not(:has(.pt-session-bar)) .pt-top { margin-top: var(--space-lg); }
+  .pt-overlay--split .pt-bottom {
+    grid-row: 4;
+    min-height: 0;
+    padding-inline: 0;
+    overflow-y: auto;
+  }
+  /* Everything in the panel shares one left edge, the session bar's. */
+  .pt-overlay--split .pt-bottom > :not(.pt-note-card, .pt-alt-card, .pt-nudge) { padding-inline: 0; }
+  .pt-overlay--split .pt-bottom .fs-verdict {
+    padding-inline: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .pt-overlay--split .pt-bottom .mr-status-row { padding-inline: 0; }
+  .pt-overlay--split > .mr-after {
+    grid-row: 5;
+    border-top: none;
+    background: none;
+    padding: var(--space-sm) 0;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .pt-overlay--split:not(:has(> .train-completion))::after {
+      content: "Press ? for keyboard shortcuts";
+      grid-column: 3;
+      grid-row: 6;
+      padding-bottom: var(--space-md);
+      font-size: 0.72rem;
+      color: var(--text-faint);
+      text-align: center;
+    }
+  }
+
+  /* A results screen: the actions as wide as the list above them. */
+  .pz-results-actions > button { width: 100%; max-width: none; }
+  .pz-results-fade { display: none; }
+
+  /* ── The builder and the analyser: the same board, centred ───────────── */
+  /* The dock's two parts split up. Its buttons act on the board, so they stay under
+     it. The engine's bar and lines go above the panel: under the board they made the
+     dock taller than the window had room for, and pushed the step buttons off the
+     bottom on a laptop as soon as the engine was on.
+
+       ┌─────────────┬──────────────┐
+       │ #board-wrap │ #builder-eval│  auto; no height when the engine is off
+       │ and under   ├──────────────┤
+       │ it,         │ #builder-    │  1fr
+       │ #builder-bar│  sheet       │
+       └─────────────┴──────────────┘
+
+     The board and its bar share one cell, the bar offset by the board's size. As two
+     rows, the board's height was spread across the empty eval row too, and the panel
+     started halfway down the window. */
+  #view-builder:not([hidden]) {
+    grid-template-columns: var(--desk-board) minmax(var(--desk-panel), 680px);
+    grid-template-rows: auto minmax(0, 1fr);
+    row-gap: 0;
+    justify-content: center;
+  }
+  #view-builder:not([hidden]) #board-wrap {
+    --builder-board-size: var(--desk-board);
+    grid-row: 1 / -1;
+    align-self: start;
+  }
+  #view-builder:not([hidden]) #builder-dock { display: contents; }
+  #view-builder:not([hidden]) #builder-eval {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    margin-bottom: var(--space-sm);
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+  }
+  #view-builder:not([hidden]) #builder-eval[hidden] { display: none; }
+  #view-builder:not([hidden]) #builder-bar {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: start;
+    margin-top: calc(var(--desk-board) + var(--space-sm));
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+  }
+  #view-builder:not([hidden]) #builder-sheet { grid-row: 2; }
+  /* The phone's cap on the game's moves, for a sheet that has no height to spare. */
+  #view-builder:not([hidden]) .move-list--box { max-height: none; }
+
+  /* ── Coach-marks: a bubble beside what it describes (onboarding-tour.ts) ─ */
+  .tour-bubble--right .tour-tail,
+  .tour-bubble--left .tour-tail { margin-left: 0; margin-top: -7px; }
+  .tour-bubble--right .tour-tail { left: -7px; transform: rotate(-45deg); }
+  .tour-bubble--left .tour-tail {
+    left: auto;
+    right: -7px;
+    transform: rotate(135deg);
+  }
+
+  /* ── First run: "Where do you play?" ─────────────────────────────────── */
+  .picker-overlay--slim:has(> .where-art) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: stretch;
+    justify-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+  .picker-overlay--slim:has(> .where-art) > .picker-bar {
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+    max-width: none;
+    padding: var(--space-lg) var(--desk-gutter) 0;
+  }
+  .picker-overlay--slim:has(> .where-art) > .picker-stage-slim {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    justify-self: center;
+    width: min(100%, 440px);
+    box-sizing: border-box;
+    align-items: stretch;
+    padding: 0 var(--space-lg);
+    text-align: left;
+  }
+  .picker-overlay--slim:has(> .where-art) .picker-lead { max-width: none; }
+  .picker-overlay--slim:has(> .where-art) .where-tabs,
+  .picker-overlay--slim:has(> .where-art) .where-panel { width: 100%; max-width: none; }
+  .picker-overlay--slim:has(> .where-art) > .picker-foot-signin {
+    grid-column: 1;
+    grid-row: 3;
+    padding: 0 var(--desk-gutter) var(--space-lg);
+    justify-content: center;
+  }
+  /* What the import is for (where-showcase.ts). Dark, so it reads as a showcase beside
+     the form rather than a second thing to fill in, and the same in every theme. */
+  .where-art {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-lg);
+    min-height: 0;
+    padding: var(--space-lg);
+    background: #1f3a2e;
+    color: #f4efe6;
+  }
+  .where-sc-stage {
+    position: relative;
+    width: min(100%, 56dvh, 460px);
+    height: min(calc(100dvh - 7rem), calc(56dvh + 11rem), 640px);
+  }
+  .where-sc-scene {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-md);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
+  }
+  .where-sc-scene--on { opacity: 1; visibility: visible; transform: none; }
+  .where-sc-head { text-align: center; }
+  .where-sc-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .where-sc-sub { margin: 0.2rem 0 0; font-size: 0.92rem; opacity: 0.8; }
+  .where-sc-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .where-sc-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    background: rgb(255 255 255 / 0.08);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .where-sc-row--in { opacity: 0; transform: translateX(-10px); }
+  .where-sc-scene--on .where-sc-row--in {
+    animation: where-sc-in 0.35s ease forwards;
+    animation-delay: calc(var(--i) * 0.2s + 0.15s);
+  }
+  @keyframes where-sc-in { to { opacity: 1; transform: none; } }
+  .where-sc-row--opening { flex-wrap: wrap; row-gap: 0.45rem; }
+  .where-sc-row-name { flex: 1; min-width: 0; }
+  .where-sc-result { font-size: 0.85rem; font-weight: 700; }
+  .where-sc-result--won { color: #a8d5a2; }
+  .where-sc-result--lost { color: #f0a58f; }
+  .where-sc-result--drew { color: #d9d2c5; }
+  .where-sc-state { font-size: 0.78rem; font-weight: 700; color: #a8d5a2; }
+  .where-sc-state--todo { color: #f0c98f; }
+  .where-sc-bar {
+    flex: 1 0 calc(100% - 3.5rem);
+    height: 6px;
+    border-radius: 3px;
+    background: rgb(255 255 255 / 0.15);
+    overflow: hidden;
+  }
+  .where-sc-bar > span { display: block; height: 100%; background: #e0a458; }
+  .where-sc-pct { font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .where-sc-board .cg-wrap {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .where-sc-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+  }
+  .where-sc-chip {
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.14);
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .where-sc-chip--bad { background: #d64a3a; color: #fff; }
+  .where-sc-chip--good { background: #2f9e57; color: #fff; }
+  .where-sc-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: min(100%, 56dvh, 460px);
+  }
+  .where-sc-arrow {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgb(255 255 255 / 0.25);
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+  .where-sc-arrow:hover { background: rgb(255 255 255 / 0.12); }
+  .where-art :focus-visible { outline-color: #fff; }
+  .where-sc-steps { flex: 1; display: flex; gap: 0.3rem; }
+  .where-sc-step {
+    flex: 1;
+    height: 18px;
+    padding: 7px 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    position: relative;
+  }
+  .where-sc-step::before,
+  .where-sc-step--on::after {
+    content: "";
+    position: absolute;
+    inset: 7px 0;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.22);
+  }
+  .where-sc-step:hover::before { background: rgb(255 255 255 / 0.45); }
+  .where-sc-step--done::before { background: rgb(255 255 255 / 0.65); }
+  .where-sc-step--on::after {
+    background: #fff;
+    transform-origin: left;
+    animation: where-sc-fill 5s linear forwards;
+  }
+  @keyframes where-sc-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  /* Reading, or about to press something: the cards wait. */
+  .where-art:hover .where-sc-step--on::after,
+  .where-art:focus-within .where-sc-step--on::after { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .where-sc-scene { transition: none; }
+    .where-sc-scene--on .where-sc-row--in { animation: none; opacity: 1; transform: none; }
+    .where-sc-step--on::after { animation: none; }
+  }
+
+  /* The colour question: one centred column, name included. */
+  .picker-overlay--slim:not(:has(> .where-art)) > .picker-bar { justify-content: center; }
+
+  /* ── First run: the openings the import found ────────────────────────── */
+  .recap-stage,
+  .recap-foot { max-width: 980px; margin-inline: auto; width: 100%; }
+  .recap-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-md);
+  }
+
+  /* ── Importing games: a dialog in two halves ─────────────────────────────
+     On a phone this step takes the whole screen. Stretched to a desktop that left
+     chips in one corner, a button a metre wide and a page of nothing between. Here:
+     whose games on the left, what to take from them on the right, and the Import
+     button at the bottom right, where a dialog's answer goes. */
+  .edit-overlay--full {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+    background: rgb(0 0 0 / 0.45);
+  }
+  .edit-sheet--full {
+    box-sizing: border-box;
+    width: min(100%, 860px);
+    max-width: 860px;
+    height: auto;
+    max-height: min(100%, 680px);
+    padding: 0;
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.32);
+  }
+  .edit-sheet--full .import-step2-head {
+    margin: 0;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .edit-sheet--full .import-step2-body {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+  }
+  .import-step2-who {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border-right: 1px solid var(--hairline);
+  }
+  .import-step2-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 1.5rem;
+    min-width: 0;
+  }
+  .import-step2-choices .edit-label { margin-top: 0.4rem; }
+  .import-step2-choices .edit-label:first-child { margin-top: 0; }
+  .import-step2-choices .tag-chip {
+    min-height: 40px;
+    padding-inline: 1rem;
+    font-size: 0.9rem;
+  }
+  .import-guest-btn { width: auto; align-self: flex-start; padding-inline: 1rem; }
+  .import-step2-footer {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem var(--space-md);
+    padding: 0.9rem 1.5rem;
+  }
+  .import-step2-footer .import-split { flex: 1; margin: 0; }
+  .import-step2-footer .import-status:empty { display: none; }
+  .import-step2-footer .import-go-btn {
+    width: auto;
+    min-width: 220px;
+    margin: 0;
+    padding-inline: 1.5rem;
+  }
+
+  /* ── Statistics: one section at a time ───────────────────────────────── */
+  .stats-screen[data-stats-tab]:not([data-stats-tab="overview"]) > :is(.stats-streak-hero, .empty-state, .stats-empty),
+  .stats-screen[data-stats-tab="overview"] > .stats-region:not(.stats-region--openings),
+  .stats-screen[data-stats-tab="puzzles"] > .stats-region:not(.stats-region--puzzles),
+  .stats-screen[data-stats-tab="endgames"] > .stats-region:not(.stats-region--endgames),
+  .stats-screen[data-stats-tab="games"] > .stats-region:not(.stats-region--games) { display: none; }
+
+  /* The sidebar and the page title already say which section this is, so only
+     the overview, which holds a streak above its region, keeps a region heading. */
+  .stats-screen:not([data-stats-tab="overview"]) .stats-region-title { display: none; }
+  .stats-screen > .stats-region { border-top: none; padding-top: 0; }
+
+  .stats-screen > .stats-streak-hero {
+    box-sizing: border-box;
+    margin-block: 0 var(--space-lg);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
+    column-gap: var(--space-xl);
+    align-items: center;
+  }
+  .stats-screen > .stats-streak-hero > .stats-streak-main {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    margin-bottom: 0;
+  }
+  .stats-screen > .stats-streak-hero > .stats-week-grid {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-bottom: 0;
+  }
+  .stats-screen > .stats-streak-hero > .stats-streak-sub {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+  }
+  .stats-screen > .stats-streak-hero > .stats-activity {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .stats-screen > .stats-streak-hero .stats-cal { max-width: 420px; }
+
+  .stats-region {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-lg);
+    grid-auto-flow: dense;
+  }
+  .stats-region > .stats-region-title { grid-column: 1 / -1; margin: 0; }
+  .stats-region > .section,
+  .stats-region > .stats-quick-row,
+  .stats-region > .games-refresh-row,
+  .stats-region > .stats-region-import,
+  .stats-region > .stats-games-empty { margin: 0; }
+  .stats-region > .games-refresh-row,
+  .stats-region > .stats-region-import,
+  .stats-region > .stats-games-empty,
+  .stats-region > .stats-widget--wide,
+  .stats-region--openings > .stats-quick-row { grid-column: 1 / -1; }
+
+  /* Your games, from the headline down: the record across the top, then rating
+     beside the trend and the lists, then the opening cards. In DOM order the
+     tall rating chart sat next to the one-line record with a hole beneath it. */
+  .stats-region--games > .games-refresh-row { order: 0; }
+  .stats-region--games > .stats-widget--record { order: 1; grid-column: 1 / -1; }
+  .stats-region--games > .stats-widget--rating { order: 2; grid-row: span 2; }
+  .stats-region--games > .stats-widget--trend { order: 3; }
+  .stats-region--games > .stats-widget--lists { order: 4; }
+  .stats-region--games > .stats-widget--wide { order: 5; }
+  .pz-stat-row--rating { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .stats-widget--wide > .group {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-md);
+  }
+  .stats-widget--wide > .group > .stats-op-card { margin-bottom: 0; }
+  .stats-rating-chart,
+  .pz-rating-chart,
+  .stats-trend-chart,
+  .stats-rf-chart {
+    max-width: 460px;
+    margin-inline: auto;
+  }
+}

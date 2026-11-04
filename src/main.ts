@@ -6,6 +6,7 @@ import type { DrawShape } from 'chessground/draw';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
+import './desktop.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode, hasMove, currentLineNodes } from './tree';
 import {
   openBook, closeBook, activeBook, notePending, pendingCount, pendingOwnCount, hasPending,
@@ -28,7 +29,10 @@ import { positionIndex, type DuplicateVerdict } from './position-index';
 import { inheritReviews, inheritanceNote, missingTags, type InheritResult } from './save-index';
 import type { Line, LinePriority } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
-import { renderProgressScreen } from './progress-screen';
+import { renderProgressScreen, setStatsTab, type StatsTab } from './progress-screen';
+import { createSideGroups, type SideGroups } from './side-nav-groups';
+import { buildTrainBoard } from './train-boards';
+import { installHoverLabels } from './hover-labels';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import {
   initEntitlement,
@@ -43,11 +47,11 @@ import {
 } from './entitlement';
 import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
-import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
+import { whenAutoRunCloses, renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { DOMAIN_ACCENT, type DomainId } from './train-doors';
 import { DEFAULT_TRAIN_ORDER, getTrainOrder, setTrainOrder, trainOrderHintSeen, markTrainOrderHintSeen } from './train-order';
 import { installRunKeys } from './run-keys';
-import { renderHomeBody, buildScanBanner, type HomeDeps } from './home-screen';
+import { renderHomeBody, buildScanBanner, type HomeData, type HomeDeps } from './home-screen';
 import { mountReplyBoard, replyBoardInProgress } from './next-reply-card';
 import { loadNextReplies } from './next-reply-data';
 import { planRepertoireRun } from './repertoire-run';
@@ -55,7 +59,7 @@ import { startBrilliantSession } from './brilliant-run';
 import { collectBrilliantSpots, orderBrilliant } from './brilliant';
 import { brilliantDueMap } from './brilliant-log';
 import { getPuzzleRating } from './puzzle-rating';
-import { renderExploreScreen } from './explore-screen';
+import { renderExploreScreen, showLiveExploreTab, type ExploreTab } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import { renderMistakesScreen } from './mistakes-screen';
 import { renderEndgameScreen, startDailyEndgamePuzzles } from './endgame-screen';
@@ -3262,6 +3266,9 @@ const BACK_VIEWS: ReadonlySet<ViewName> = new Set<ViewName>(['builder', 'setting
 // index.html's pre-paint script — update both on change.
 const DESKTOP_NAV_BREAKPOINT = 960;
 
+// The sidebar's expanding sections; built once, by buildSideNav.
+let sideGroups: SideGroups | null = null;
+
 // How long after launch the background mistake scan is allowed to start. Long
 // enough that the first screen, the weekly refresh and any sync have all had the
 // device to themselves first — nothing here is urgent, and the whole point is
@@ -4070,9 +4077,14 @@ function initAnalysisNotice(): void {
 
 // Straight into a session on the lines just saved, through the Train screen's own
 // default mode, so it's the same session its Start button gives.
+//
+// IT ENDS ON HOME, not on Train where it ran. Home is the app's front page, and this
+// person has never seen it with anything on it: they went from the import straight
+// into the run.
 function startFirstTraining(): void {
   pendingTrainAutoStart = true;
   showView('train');
+  whenAutoRunCloses(() => showView('home'));
 }
 
 // The manual branch: the original colour picker, now reached only through
@@ -4267,10 +4279,9 @@ function exploreScreenDeps() {
     ) => buildFromUcis(ucis, colour, [], opts),
     // The opponent "board browser" opens the builder's My lines → My opponents.
     onScoutInBuilder: (opponentId: string) => scoutInBuilder(opponentId),
-    // The Packs tab's Lichess-study browser saves chapters straight to My Lines.
-    onSaveLines: saveImportedLines,
     // The Coverage tab's rows: seed the builder at the unanswered reply.
     onPrepareGap: prepareGap,
+    onTabShown: (tab: ExploreTab) => sideGroups?.setActive('explore', tab),
   };
 }
 
@@ -4630,6 +4641,8 @@ function trainHost(): HTMLElement {
 // a relaunch. On launch it is null, and Train opens on the FIRST tab of your
 // order (train-order.ts) — reordering is how you choose where Train opens.
 let trainTab: DomainId | null = null;
+// The sidebar's Train section switching the panel of a room already on screen.
+let showLiveTrainTab: ((id: DomainId) => boolean) | null = null;
 
 const TRAIN_TABS: Record<DomainId, { label: string; icon: () => SVGElement }> = {
   openings: { label: 'Openings', icon: () => Icons.pawn(16) },
@@ -4641,11 +4654,13 @@ const TRAIN_TABS: Record<DomainId, { label: string; icon: () => SVGElement }> = 
 function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
 
-  // The room, top to bottom. On a PHONE: one switch naming the four domains,
-  // pinned under the header as you scroll, then the four panels with only the
-  // chosen one shown. Each panel is its domain's Start card (the door, styled
-  // as a "hero") and its box. On a DESKTOP the switch hides, the doors sit
-  // together as four tiles, and every box shows, two to a row.
+  // The room, top to bottom: one switch naming the four domains, pinned under
+  // the header as you scroll, then the four panels with only the chosen one
+  // shown. Each panel is its domain's Start card (the door, styled as a "hero")
+  // and its box. On a DESKTOP the sidebar's Train section takes the switch's job
+  // (side-nav-groups.ts) and the panel is the same one a phone shows. It used to
+  // be four tiles and every box at once, which was the phone's old 25-card wall
+  // with more room to get lost in.
   //
   // NOT A SLIDER (v0.14, second pass). The panels used to sit side by side in a
   // horizontal scroll-snap strip, swiped between. The strip had to be given the
@@ -4663,9 +4678,8 @@ function renderTrainRoom(host: HTMLElement): void {
   //
   // THE ONE PIECE OF PLUMBING. Each screen still renders its door AND its box
   // into its own host, and repaints that host alone, exactly as before. The
-  // host is a panel in the track. On a phone the door stays there; on a desktop
-  // a MutationObserver lifts it into that domain's tile slot (placeDoor). The
-  // switch reads each door's figure off its data attributes. So the four
+  // host is a panel in the track. A MutationObserver reads each door's figure off
+  // its data attributes for the switch and the sidebar (syncFigure). So the four
   // screens know nothing about the layout.
   const order = getTrainOrder();
   if (!trainTab) trainTab = order[0];
@@ -4674,9 +4688,8 @@ function renderTrainRoom(host: HTMLElement): void {
   room.className = 'train-room';
   const desktop = window.matchMedia(`(min-width: ${DESKTOP_NAV_BREAKPOINT}px)`);
 
-  const doors = document.createElement('div');
-  doors.className = 'train-doors';
-  const slots = new Map<DomainId, HTMLElement>();
+  const title = document.createElement('h1');
+  title.className = 'desk-title';
   const sw = document.createElement('div');
   sw.className = 'train-switch';
   sw.setAttribute('role', 'tablist');
@@ -4687,11 +4700,6 @@ function renderTrainRoom(host: HTMLElement): void {
   const panes = new Map<DomainId, HTMLElement>();
 
   for (const id of DEFAULT_TRAIN_ORDER) {
-    const slot = document.createElement('div');
-    slot.className = 'train-door-slot';
-    slot.dataset.domain = id;
-    slots.set(id, slot);
-
     const pane = document.createElement('div');
     pane.className = 'train-domain';
     pane.dataset.domain = id;
@@ -4717,49 +4725,51 @@ function renderTrainRoom(host: HTMLElement): void {
     tabs.set(id, b);
   }
 
-  // Lay the three rows out in the user's order — the switch, the tiles and the
-  // swipe all follow it. Re-run after a reorder.
+  // Lay the rows out in the user's order — the switch and the swipe both follow
+  // it. Re-run after a reorder.
   const applyOrder = (ids: DomainId[]): void => {
     for (const id of ids) {
       sw.appendChild(tabs.get(id)!);
-      doors.appendChild(slots.get(id)!);
       track.appendChild(panes.get(id)!);
     }
   };
   applyOrder(order);
-  room.append(sw, doors, track);
+  const boardSlot = document.createElement('div');
+  boardSlot.className = 'train-board-slot';
+  room.append(title, sw, track, boardSlot);
 
-  // The door's home: its tile slot on a desktop, the top of its panel on a
-  // phone. Run whenever a screen repaints its panel and when the window crosses
-  // the breakpoint. Observers run before the next paint, so a door is never
-  // seen in the wrong place.
-  const doorOf = (id: DomainId): HTMLElement | null =>
-    panes.get(id)!.querySelector<HTMLElement>(':scope > .train-door')
-      ?? slots.get(id)!.querySelector<HTMLElement>(':scope > .train-door');
-  const placeDoor = (id: DomainId): void => {
-    const door = doorOf(id);
-    if (door) {
-      if (desktop.matches) {
-        if (door.parentElement !== slots.get(id)) slots.get(id)!.replaceChildren(door);
-      } else if (door.parentElement !== panes.get(id)) {
-        panes.get(id)!.prepend(door);
-      }
-    }
-    // The switch's figure under the name: "7 due", a rating, or a padlock.
+  // The showing section's live board (train-boards.ts). A newer section wins over a
+  // slower older one: the games read and the puzzle fetch both take a moment.
+  let boardTurn = 0;
+  const paintBoard = async (id: DomainId): Promise<void> => {
+    const turn = ++boardTurn;
+    boardSlot.replaceChildren();
+    try {
+      const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+      if (turn !== boardTurn || !room.isConnected) return;
+      const board = await buildTrainBoard(id, homeBoardData(lines, games), homeBoardDeps('train'));
+      if (board && turn === boardTurn && room.isConnected) boardSlot.replaceChildren(board);
+    } catch { /* a bonus under the list, never a reason to break it */ }
+  };
+
+  // The figure under each name: "7 due", a rating, or a padlock. Run whenever a
+  // screen repaints its panel. The sidebar's Train section shows the same one.
+  const syncFigure = (id: DomainId): void => {
+    const door = panes.get(id)!.querySelector<HTMLElement>(':scope > .train-door');
     const figure = tabs.get(id)!.querySelector<HTMLElement>('.train-switch-figure')!;
     figure.replaceChildren();
     if (door?.dataset.locked) figure.appendChild(Icons.lock(11));
     else figure.textContent = door?.dataset.figure ?? '';
+    sideGroups?.setFigure('train', id, door?.dataset.locked ? Icons.lock(12) : door?.dataset.figure ?? null);
     tabs.get(id)!.setAttribute('aria-label',
       [TRAIN_TABS[id].label, door?.dataset.locked ? 'locked' : door?.dataset.figure].filter(Boolean).join(', '));
   };
   for (const id of DEFAULT_TRAIN_ORDER) {
-    new MutationObserver(() => placeDoor(id)).observe(panes.get(id)!, { childList: true });
+    new MutationObserver(() => syncFigure(id)).observe(panes.get(id)!, { childList: true });
   }
   const onBreakpoint = (): void => {
     // A repaint built a new room: this one's listener retires.
     if (!room.isConnected) { desktop.removeEventListener('change', onBreakpoint); return; }
-    for (const id of DEFAULT_TRAIN_ORDER) placeDoor(id);
     if (!isPaged()) setSwitchCompact(sw, 'train-switch--compact', false);
   };
   desktop.addEventListener('change', onBreakpoint);
@@ -4768,12 +4778,22 @@ function renderTrainRoom(host: HTMLElement): void {
   const current = (): DomainId[] => [...sw.querySelectorAll<HTMLElement>('.train-switch-tab')]
     .map((b) => b.dataset.domain as DomainId);
 
-  // Which panel shows. Desktop CSS ignores the class and shows all four.
+  // Which panel shows. `isPaged` is about the pinned switch, which only a phone
+  // has: a desktop picks its panel from the sidebar.
   const isPaged = (): boolean => !desktop.matches;
   const showTab = (id: DomainId): void => {
     trainTab = id;
+    title.textContent = TRAIN_TABS[id].label;
     for (const [tid, b] of tabs) b.setAttribute('aria-selected', String(tid === id));
     for (const [pid, pane] of panes) pane.classList.toggle('train-domain--shown', pid === id);
+    sideGroups?.setActive('train', id);
+    void paintBoard(id);
+  };
+  showLiveTrainTab = (id) => {
+    if (!room.isConnected) return false;
+    showTab(id);
+    host.scrollTop = 0;
+    return true;
   };
 
   // Switching from far down a long list lands at the top of the new one, just
@@ -4854,14 +4874,6 @@ function renderTrainRoom(host: HTMLElement): void {
     if (id === trainTab) return;
     showTab(id);
     toListTop();
-  });
-
-  // Desktop: a locked tile scrolls to its own box, which holds what it is
-  // waiting for (the import form, the first line to save).
-  doors.addEventListener('click', (e) => {
-    const door = (e.target as HTMLElement).closest<HTMLElement>('.train-door--disabled');
-    if (!door?.dataset.domain) return;
-    panes.get(door.dataset.domain as DomainId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   host.appendChild(room);
@@ -5224,41 +5236,35 @@ function renderHome(host: HTMLElement): void {
 
 // The figures Home's own body needs, fetched once. Kept apart from the daily
 // card's render so a slow read of one never holds up the other.
-async function renderHomeData(body: HTMLElement): Promise<void> {
-  let lines: Line[];
-  let games: ImportedGame[];
-  try {
-    [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
-  } catch {
-    body.replaceChildren();
-    return;
-  }
-
-  const deps: HomeDeps = {
+// What Home's board blocks run on. Train's boards use the same ones (train-boards.ts).
+function homeBoardDeps(back: ViewName): HomeDeps {
+  return {
     onFixSpots: (refs, mode) => startMistakeSession({
       refs,
       modeLabel: mode?.label,
       modeIcon: mode?.icon,
       modeAccent: mode?.accent,
       contextLabel: 'From your games',
-      onExit: () => showView('home'),
+      onExit: () => showView(back),
       onOpenGame: openGameFromSession,
     }),
     onFindBrilliant: (refs) => startBrilliantSession({
       refs,
-      onExit: () => showView('home'),
+      onExit: () => showView(back),
       onOpenGame: openGameFromSession,
     }),
     onFixMove: (m, ls) => startMoveFix(
       { preFen: m.preFen, san: m.san, colour: m.colour, count: m.lapses },
       ls,
-      () => showView('home'),
+      () => showView(back),
     ),
     onDrillLine: (line) => onTrainLine(line.id, true),
-    onOpenLine: (line) => onOpenLine(line),
-    onRefresh: () => showView('home'),
+    onOpenLine: (line, atFen) => onOpenLine(line, atFen),
+    onRefresh: () => showView(back),
   };
+}
 
+function homeBoardData(lines: Line[], games: ImportedGame[]): HomeData {
   const spots = collectSpots(games);
   // Your own best moves, ordered by what has rested long enough to be worth
   // re-finding (brilliant-log.ts). Below BRILLIANT_ONLY_FROM of the real thing
@@ -5272,8 +5278,20 @@ async function renderHomeData(body: HTMLElement): Promise<void> {
     trueGems.length >= HOME_BRILLIANT_ONLY_FROM ? trueGems : gems,
     id => dueMap[id] ?? 0,
   );
+  return { lines, games, spots, brilliant };
+}
 
-  renderHomeBody(body, { lines, games, spots, brilliant }, deps);
+async function renderHomeData(body: HTMLElement): Promise<void> {
+  let lines: Line[];
+  let games: ImportedGame[];
+  try {
+    [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+  } catch {
+    body.replaceChildren();
+    return;
+  }
+
+  renderHomeBody(body, homeBoardData(lines, games), homeBoardDeps('home'));
 
   // DRAW FIRST, THE BOARDS STRAIGHT AFTER. They load the opening statistics and replay
   // your games, so each fills its own host. And they wait until you have trained once:
@@ -5398,6 +5416,7 @@ function showView(view: ViewName): void {
     if (active) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
   });
+  sideGroups?.sync(view);
 
   if (view === 'explore') {
     renderExploreScreen(exploreEl, exploreScreenDeps());
@@ -5425,6 +5444,13 @@ function showView(view: ViewName): void {
       onOpenLine: (line) => onOpenLine(line),
       onStartTraining: () => showView('train'),
       onBuildLine: () => startNewLine('white'),
+      // The sidebar's Statistics section lists what this screen has to show.
+      onSections: (tabs, active) => {
+        sideGroups?.setSubs('progress', tabs.map(({ id, label }) => ({
+          id, label, icon: STATS_TAB_ICONS[id],
+        })));
+        sideGroups?.setActive('progress', active);
+      },
       // "Where you leave theory" seeds the builder at the exact fork so the line
       // can be saved and trained.
       onBuildFromMoves: (ucis, colour) => buildFromUcis(ucis, colour),
@@ -5812,6 +5838,7 @@ function applyNavSignIn(): void {
     && currentView !== 'builder'
     && currentView !== 'settings';
   btn.toggleAttribute('hidden', !offer);
+  document.getElementById('side-signin')?.toggleAttribute('hidden', !offer);
 }
 
 // The desktop sidebar's five destinations — same views, order and icons as
@@ -5842,6 +5869,8 @@ function buildSideNav(): void {
   brand.setAttribute('aria-label', 'Bito Chess');
   nav.appendChild(brand);
 
+  sideGroups = buildSideGroups();
+
   const items = document.createElement('div');
   items.className = 'side-nav-items';
   for (const item of SIDE_NAV_ITEMS) {
@@ -5853,15 +5882,72 @@ function buildSideNav(): void {
     const label = document.createElement('span');
     label.textContent = item.label;
     btn.appendChild(label);
-    items.appendChild(btn);
+    items.appendChild(sideGroups.mount(item.view, btn));
   }
   nav.appendChild(items);
 
   nav.appendChild(buildSideCreate());
   void refreshSideCreate();
 
+  // The header's Sign in chip, for the desktop that has no header on its tabs.
+  const signIn = document.createElement('button');
+  signIn.type = 'button';
+  signIn.id = 'side-signin';
+  signIn.className = 'side-signin';
+  signIn.textContent = 'Sign in';
+  signIn.hidden = true;
+  signIn.addEventListener('click', () => openSignUpSheet('signin'));
+  nav.appendChild(signIn);
+
   nav.appendChild(buildSideUser());
 }
+
+// The three destinations with sections. Each one's pick changes what its screen
+// shows, in place when the screen is already up.
+function buildSideGroups(): SideGroups {
+  return createSideGroups([
+    {
+      view: 'train',
+      label: 'Train',
+      subs: getTrainOrder().map((id) => ({ id, label: TRAIN_TABS[id].label, icon: TRAIN_TABS[id].icon })),
+      onPick: (id) => guardBuilderLeave(() => {
+        trainTab = id as DomainId;
+        if (currentView !== 'train' || !showLiveTrainTab?.(trainTab)) showView('train');
+      }),
+    },
+    {
+      view: 'explore',
+      label: 'Openings',
+      subs: [
+        { id: 'mylines', label: 'My lines', icon: () => Icons.pawn(16) },
+        { id: 'coverage', label: 'Coverage', icon: () => Icons.target(16) },
+        { id: 'openings', label: 'Discover', icon: () => Icons.sparkles(16) },
+        { id: 'packs', label: 'Packs', icon: () => Icons.build(16) },
+      ],
+      onPick: (id) => guardBuilderLeave(() => {
+        openExploreTab(id as ExploreTab);
+        if (currentView !== 'explore' || !showLiveExploreTab()) showView('explore');
+      }),
+    },
+    {
+      view: 'progress',
+      label: 'Statistics',
+      subs: [],
+      onPick: (id) => guardBuilderLeave(() => {
+        setStatsTab(id as StatsTab, currentView === 'progress' ? document.getElementById('view-progress') : null);
+        if (currentView !== 'progress') showView('progress');
+        sideGroups?.setActive('progress', id);
+      }),
+    },
+  ]);
+}
+
+const STATS_TAB_ICONS: Record<StatsTab, () => SVGElement> = {
+  overview: () => Icons.barChart(16),
+  puzzles: () => Icons.puzzlePiece(16),
+  endgames: () => Icons.flag(16),
+  games: () => Icons.build(16),
+};
 
 // Desktop's stand-in for the FAB: the same speed-dial actions (buildFabActions),
 // laid out as plain always-visible buttons instead of a popover, since there's
@@ -5994,6 +6080,7 @@ function openSettings(): void {
 
 function setupNav(): void {
   buildSideNav();
+  installHoverLabels();
   // desktopNavQuery.matches flips on a live resize without a view change
   // (e.g. dragging a window wider), so re-run the same swap showView() does.
   desktopNavQuery.addEventListener('change', () => {
@@ -6012,7 +6099,11 @@ function setupNav(): void {
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item, #side-nav .side-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const view = btn.dataset.view as ViewName | undefined;
-      if (view) guardBuilderLeave(() => showView(view));
+      if (!view) return;
+      // The row of the screen you are on opens and closes its sections instead
+      // of rebuilding the screen under you.
+      if (view === currentView && sideGroups?.has(view)) { sideGroups.toggle(view); return; }
+      guardBuilderLeave(() => showView(view));
     });
   });
 

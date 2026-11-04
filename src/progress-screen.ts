@@ -88,6 +88,8 @@ export interface ProgressCallbacks {
   // Truly-fresh empty-state routes: jump to Train, or open the builder fresh.
   onStartTraining: () => void;
   onBuildLine: () => void;
+  // Which sections this render has, for the sidebar. Not used on a phone.
+  onSections?: (tabs: { id: StatsTab; label: string }[], active: StatsTab) => void;
   // Seed the builder with a UCI move list (used by win-rate-by-opening when I
   // don't yet have a saved line for that opening — build from a representative game).
   onBuildFromMoves: (ucis: string[], colour: 'white' | 'black') => void;
@@ -103,6 +105,42 @@ export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbac
   void doRender(container, cb);
 }
 
+// ── One section at a time on a desktop ──────────────────────────────────────
+// A phone scrolls through every region. A desktop has the room to show them all
+// at once, and showing them all at once was the problem: charts, rings and lists
+// competing with nothing to say what to read first. So the sidebar lists the
+// regions (side-nav-groups.ts) and the page shows the one picked. The DOM is the
+// same on both: the attribute below only matters to desktop.css.
+export type StatsTab = 'overview' | 'puzzles' | 'endgames' | 'games';
+const STATS_TAB_LABEL: Record<StatsTab, string> = {
+  overview: 'Overview', puzzles: 'Puzzles', endgames: 'Endgames', games: 'Your games',
+};
+let statsTab: StatsTab = 'overview';
+
+export function setStatsTab(tab: StatsTab, live: HTMLElement | null): void {
+  statsTab = tab;
+  if (live) paintStatsTab(live);
+}
+
+function paintStatsTab(container: HTMLElement): void {
+  container.dataset.statsTab = statsTab;
+  const title = container.querySelector<HTMLElement>(':scope > .desk-title');
+  if (title) title.textContent = STATS_TAB_LABEL[statsTab];
+  container.scrollTop = 0;
+}
+
+// Which tabs this render has something for, then the sidebar is told. The
+// overview always exists: it is where the empty state lives too.
+function finishStatsTabs(container: HTMLElement, cb: ProgressCallbacks): void {
+  const tabs: StatsTab[] = ['overview'];
+  for (const tab of ['puzzles', 'endgames', 'games'] as const) {
+    if (container.querySelector(`:scope > .stats-region--${tab}`)) tabs.push(tab);
+  }
+  if (!tabs.includes(statsTab)) statsTab = 'overview';
+  paintStatsTab(container);
+  cb.onSections?.(tabs.map((id) => ({ id, label: STATS_TAB_LABEL[id] })), statsTab);
+}
+
 async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   let games: ImportedGame[];
@@ -114,8 +152,11 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
   container.innerHTML = '';
-  // Marks the screen for the desktop dashboard rules (harmless on a phone).
+  // Marks the screen for the desktop rules (harmless on a phone).
   container.classList.add('stats-screen');
+  const title = document.createElement('h1');
+  title.className = 'desk-title';
+  container.appendChild(title);
 
   // Truly fresh — no lines and no games — has no numbers to show yet. One clean
   // empty state beats a wall of zeroes.
@@ -126,6 +167,7 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
       cta: { label: 'Start training', onClick: () => cb.onStartTraining() },
       link: { label: 'or build your first line', onClick: () => cb.onBuildLine() },
     }));
+    finishStatsTabs(container, cb);
     return;
   }
 
@@ -143,6 +185,7 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     renderPuzzlesRegion(container);
     renderEndgamesRegion(container, games);
     if (games.length > 0) renderGamesRegion(container, games, lines, cb);
+    finishStatsTabs(container, cb);
     return;
   }
 
@@ -167,6 +210,7 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   } else {
     renderGamesRegion(container, games, lines, cb);
   }
+  finishStatsTabs(container, cb);
 }
 
 // ── Small helpers ───────────────────────────────────────────────────────────
@@ -1284,6 +1328,7 @@ function renderRatingSection(container: HTMLElement, games: ImportedGame[]): voi
   if (chipClasses.length === 0) return;
 
   const section = statsSection('Your rating', source ? `on ${platformLabel(source.platform)}` : '');
+  section.classList.add('stats-widget--rating');
 
   let tc: TimeClass = dominantTimeClass(games, cachedLive);
   if (!chipClasses.includes(tc)) tc = chipClasses[0];
@@ -1403,6 +1448,7 @@ function renderRecordSection(container: HTMLElement, games: ImportedGame[]): voi
   if (wins + draws + losses === 0) return;
 
   const section = statsSection('Record', `${games.length} imported game${games.length === 1 ? '' : 's'}`);
+  section.classList.add('stats-widget--record');
   const host = document.createElement('div');
   renderRecordStrip(host, { wins, draws, losses });
   section.appendChild(host);
@@ -1621,6 +1667,7 @@ function otrLine(tag: string, bar: HTMLElement, meta: string): HTMLElement {
 // Win rate over time — a filterable monthly line graph (inline SVG, no dependency).
 function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], stats: OpeningStat[]): void {
   const section = statsSection('Win rate over time', '');
+  section.classList.add('stats-widget--trend');
 
   // Controls: opening filter (select) + Overall/White/Black toggle.
   let opening = 'all';
@@ -1720,6 +1767,7 @@ function renderScoringTabs(container: HTMLElement, stats: OpeningStat[]): void {
   if (tabs.every(t => t.items.length === 0)) return;
 
   const section = statsSection('Openings', '');
+  section.classList.add('stats-widget--lists');
 
   const listWrap = document.createElement('div');
   let active = 'most';

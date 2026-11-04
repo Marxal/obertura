@@ -46,7 +46,6 @@ import { runEndgameCatalogSelfTest } from '../src/endgame-catalog.selftest';
 import { runEndgameProgressSelfTest } from '../src/endgame-progress.selftest';
 import { runEndgameScanSelfTest } from '../src/endgame-scan.selftest';
 import { runStudyImportSelfTest } from '../src/study-import.selftest';
-import { runStudyCatalogSelfTest } from '../src/study-catalog.selftest';
 import { runRepertoireSyncSelfTest } from '../src/repertoire-sync.selftest';
 import { runOnboardingLinesSelfTest } from '../src/onboarding-lines.selftest';
 import { runOnboardingRecapSelfTest } from '../src/onboarding-recap.selftest';
@@ -125,7 +124,6 @@ const SUITES: { suite: string; run: () => TestResult[] | Promise<TestResult[]> }
   { suite: 'endgame-progress', run: runEndgameProgressSelfTest },
   { suite: 'endgame-scan', run: runEndgameScanSelfTest },
   { suite: 'study-import', run: runStudyImportSelfTest },
-  { suite: 'study-catalog', run: runStudyCatalogSelfTest },
   { suite: 'account-sync', run: runRepertoireSyncSelfTest },
   { suite: 'onboarding-lines', run: runOnboardingLinesSelfTest },
   { suite: 'onboarding-recap', run: runOnboardingRecapSelfTest },

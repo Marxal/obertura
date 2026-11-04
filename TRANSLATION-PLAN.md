@@ -34,8 +34,8 @@ isn't the personal one.
 | Privacy and terms | about 4,600 words | Includes some markup in the count |
 | Opening names | 10,765 names in 407 families | Top 100 families cover 93% |
 
-Leave these in their original language: Lichess study titles (`study-index.json`,
-which come from other people) and players' names.
+Leave these in their original language: Lichess study titles, which come from
+other people through a pasted link, and players' names.
 
 Move notation needs no work. The default uses piece symbols, so there is no
 Cf3 / Sf3 problem. The optional letter notation stays in English letters.

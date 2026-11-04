@@ -24,6 +24,8 @@ import { HINT_COLOR, registerBrushes } from './board-brushes';
 import { recordBrilliantSeen, recordBrilliantSolved } from './brilliant-log';
 import type { BrilliantRef } from './brilliant';
 import { burstConfetti } from './confetti';
+import { buildGameTiles } from './full-story';
+import { buildContextStrip, buildResultLine } from './spot-context';
 import { CATEGORY_ACCENT } from './exercise-identity';
 import type { HomeData, HomeDeps } from './home-screen';
 import { Icons, classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
@@ -75,7 +77,8 @@ function textOf(className: string): HTMLParagraphElement {
 // A new Home render replaces the box, and the old boards' document listeners go with it.
 let destroyCurrent: (() => void) | null = null;
 
-export function buildGamesBlock(data: HomeData, deps: HomeDeps): HTMLElement | null {
+/** `startAt` deals past the first of each kind: Train's copy, so it isn't Home's board. */
+export function buildGamesBlock(data: HomeData, deps: HomeDeps, startAt = 0): HTMLElement | null {
   destroyCurrent?.();
   destroyCurrent = null;
 
@@ -84,7 +87,7 @@ export function buildGamesBlock(data: HomeData, deps: HomeDeps): HTMLElement | n
     const pool = data.spots
       .filter(r => r.spot.category === cat && !r.spot.fixed)
       .sort((a, b) => (b.game.endTime ?? 0) - (a.game.endTime ?? 0));
-    if (pool.length) slides.push({ kind: 'mistake', cat, pool, at: 0 });
+    if (pool.length) slides.push({ kind: 'mistake', cat, pool, at: startAt % pool.length });
   }
   if (data.brilliant.length) slides.push({ kind: 'brilliant', pool: data.brilliant.slice(), at: 0 });
   if (slides.length === 0) return null;
@@ -236,6 +239,7 @@ interface CardCallbacks {
 /** The bits a mistake and a brilliant find don't share. */
 interface Question {
   game: SpotRef['game'];
+  ply: number;
   preFen: string;
   /** The move you played, drawn in red, for a mistake. Hidden for a find: that's the answer. */
   showPlayed?: string;
@@ -253,6 +257,7 @@ function mistakeQuestion(slide: Extract<Slide, { kind: 'mistake' }>, deps: HomeD
   const best = spot.best[0];
   return {
     game,
+    ply: spot.ply,
     preFen: spot.preFen,
     showPlayed: spot.playedUci,
     intro: () => {
@@ -291,6 +296,7 @@ function brilliantQuestion(slide: Extract<Slide, { kind: 'brilliant' }>, deps: H
   const { spot, game } = ref;
   return {
     game,
+    ply: spot.ply,
     preFen: spot.preFen,
     intro: () => {
       const intro = document.createElement('div');
@@ -404,6 +410,25 @@ function drawCard(
     actionButton('Drill', 'btn-secondary nr-action', q.drill, Icons.target(16)),
   );
 
+  // Which game this is. Behind Show more on a phone, under the buttons on a desktop,
+  // where there is room (desktop.css). Not its result: that can wait for the answer.
+  const factsEl = buildGameTiles(q.game);
+  factsEl.classList.add('mrc-facts');
+  factsEl.hidden = !window.matchMedia('(min-width: 960px)').matches;
+  const moreButton = document.createElement('button');
+  moreButton.type = 'button';
+  moreButton.className = 'nr-more mrc-more';
+  const paintMore = (): void => {
+    moreButton.replaceChildren(
+      factsEl.hidden ? 'Show more' : 'Show less',
+      factsEl.hidden ? Icons.chevronDown(15) : Icons.chevronUp(15),
+    );
+    moreButton.setAttribute('aria-expanded', String(!factsEl.hidden));
+  };
+  moreButton.addEventListener('click', () => { factsEl.hidden = !factsEl.hidden; paintMore(); });
+  paintMore();
+  body.append(moreButton, factsEl);
+
   function onMove(from: Key, to: Key): void {
     const verdict = q.judge(`${from}${to}`);
     if (!verdict) {
@@ -446,6 +471,12 @@ function drawCard(
       'btn-primary nr-action',
       callbacks.next,
     ));
+    // The answer is in, so now the game can say how it went and what the clock was
+    // doing. Not the engine or the charts: those are a run's, one tap away on Drill.
+    const info = document.createElement('div');
+    info.className = 'mrc-solved';
+    info.append(buildResultLine(q.game), buildContextStrip(q.game, q.ply));
+    row.after(info);
   }
 
   return {

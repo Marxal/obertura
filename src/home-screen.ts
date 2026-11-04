@@ -6,9 +6,9 @@
 // user opens first, so what it shows has to be true TODAY — a figure that never
 // moves belongs in the section it describes, not here.
 //
-// EVERYTHING HERE IS BOARDS, AND EVERY TITLE IS A THING TO DO. Five blocks: add a
-// missing reply, learn from your last games, relearn forgotten moves and lines, then
-// extend a line you know. A title names the action; how many are waiting goes beside
+// EVERYTHING HERE IS BOARDS, AND EVERY TITLE IS A THING TO DO. Add a missing reply,
+// learn from your last games, your most forgotten moves, then extend a line you know,
+// with a strip of forgotten lines at the foot on a phone. A title names the action; how many are waiting goes beside
 // it. A board you can point at is the only summary of a chess position worth putting
 // on an overview.
 //
@@ -37,8 +37,10 @@ import type { Line } from './types';
 import type { ImportedGame } from './import-core';
 import { Icons } from './icons';
 import { buildGamesBlock } from './home-games-card';
+import { buildMiniBoard } from './board-mini';
 import { buildSupportNote } from './support-note';
-import { renderForgottenSection } from './forgotten-section';
+import { renderForgottenLines } from './forgotten-section';
+import { buildForgottenMovesBlock } from './home-forgotten-card';
 import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-autoscan';
 import { isAnalysisPending } from './game-analysis';
 import type { SpotRef } from './mistake-scan';
@@ -59,8 +61,8 @@ export interface HomeDeps {
   ) => void;
   /** Drill one line start to finish (a Forgotten-moves row). */
   onDrillLine: (line: Line) => void;
-  /** Open a line in the builder. */
-  onOpenLine: (line: Line) => void;
+  /** Open a line in the builder, at this position if there is one. */
+  onOpenLine: (line: Line, atFen?: string) => void;
   /** Repaint Home — used after anything here changes the numbers. */
   onRefresh: () => void;
 }
@@ -91,22 +93,81 @@ export function renderHomeBody(host: HTMLElement, data: HomeData, deps: HomeDeps
   const mistakes = buildGamesBlock(data, deps);
   if (mistakes) host.appendChild(mistakes);
 
-  // Forgotten moves and forgotten lines arrive already shaped as blocks of the
-  // same kind (forgotten-section.ts owns those cards and the sheets behind them).
-  renderForgottenSection(host, data.lines, {
-    onFixMove: (m, lines) => deps.onFixMove(
-      { preFen: m.preFen, san: m.san, colour: m.colour, lapses: m.lapses }, lines),
-    onDrillLine: (line) => deps.onDrillLine(line),
-    onOpenLine: (line) => deps.onOpenLine(line),
-    onStartTraining: () => deps.onRefresh(),
-  });
+  const forgotten = buildForgottenMovesBlock(data.lines, deps);
+  if (forgotten) host.appendChild(forgotten);
 
   const extendHost = document.createElement('div');
   extendHost.className = 'home-extend-host';
   host.appendChild(extendHost);
 
+  // A strip at the foot on a phone, and not on a desktop (desktop.css): a line isn't
+  // something you can answer on a board, and Home has enough boards without it.
+  renderForgottenLines(host, data.lines, {
+    onFixMove: (mv, lines) => deps.onFixMove(
+      { preFen: mv.preFen, san: mv.san, colour: mv.colour, lapses: mv.lapses }, lines),
+    onDrillLine: (line) => deps.onDrillLine(line),
+    onOpenLine: (line) => deps.onOpenLine(line),
+    onStartTraining: () => deps.onRefresh(),
+  });
+
+  const previews = buildHomePreviews(data, !mistakes);
+  if (previews) host.appendChild(previews);
+
   const support = buildSupportNote();
   if (support) host.appendChild(support);
+}
+
+// ── What is coming, for someone with nothing to show yet ────────────────────
+//
+// Home is made of boards from your own games and lines, so a new user's desktop was
+// half a window of nothing. A phone doesn't feel that: its one column is simply
+// shorter. So a desktop shows each block that isn't there yet, under its real title,
+// on a dimmed board, with what fills it. One line each and no buttons: Get started,
+// beside these, holds the actions, and two sets would compete.
+//
+// A preview steps aside as its real block arrives. The games one is decided here;
+// the other two by CSS, since one of them arrives late (.home-next-host) and the other
+// knows its own data. Real positions, checked with Stockfish at depth 16.
+function buildHomePreviews(data: HomeData, noGamesBlock: boolean): HTMLElement | null {
+  if (!window.matchMedia('(min-width: 960px)').matches) return null;
+  if (data.games.length > 0 && data.lines.length >= 3) return null;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'home-previews';
+
+  const card = (
+    kind: string, title: string, note: string, fen: string,
+    colour: 'white' | 'black', arrow?: string,
+  ): void => {
+    const el = document.createElement('section');
+    el.className = `home-preview home-preview--${kind}`;
+    const h = document.createElement('h2');
+    h.className = 'home-preview-title';
+    h.textContent = title;
+    const board = document.createElement('div');
+    board.className = 'home-preview-board';
+    board.appendChild(buildMiniBoard(fen, colour, arrow ? { arrows: [arrow] } : {}));
+    const line = document.createElement('p');
+    line.className = 'home-preview-note';
+    line.appendChild(Icons.lock(13));
+    line.appendChild(document.createTextNode(note));
+    el.append(h, board, line);
+    wrap.appendChild(el);
+  };
+
+  // Open Ruy Lopez, the Tarrasch trap: 11...Qd7?? (+3.3).
+  if (noGamesBlock) {
+    card('games', 'Learn from your last games',
+      data.games.length > 0 ? 'Your games are being read' : 'Comes with your games',
+      'r4rk1/2pqbppp/p1n1b3/1p1pP3/3Nn3/1BP5/PP3PPP/RNBQR1K1 w - - 5 12', 'black', 'd8d7');
+  }
+  // Najdorf, English Attack, after 8.f3 (White about +0.6).
+  card('reply', 'Add a missing reply', 'Comes with your first lines',
+    'rn1qkb1r/1p3ppp/p2pbn2/4p3/4P3/1NN1BP2/PPP3PP/R2QKB1R b KQkq - 0 8', 'black', 'b8c6');
+  // King's Indian, Mar del Plata, after 9...Ne7 (White about +0.6).
+  card('forgotten', 'Your most forgotten moves', 'Comes with your first training',
+    'r1bq1rk1/ppp1npbp/3p1np1/3Pp3/2P1P3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 1 9', 'white');
+  return wrap;
 }
 
 // ── "Reading your games" ─────────────────────────────────────────────────────

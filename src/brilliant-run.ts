@@ -403,11 +403,11 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     playFeedback('correct');
     const label = CLASS_LABEL[current.spot.cls];
     setStatus(
-      clean ? `${label} ✓ — you found it again` : `That's it — ${label} ✓`,
+      clean ? `Found it again ✓ ${label}` : `That’s it ✓ ${label}`,
       clean ? 'pt-status--success' : 'pt-status--reveal');
     if (clean) burstConfetti(boardWrap);
     contextEl.replaceChildren(buildContextStrip(current.game, current.spot.ply));
-    storyEl.replaceChildren(buildStoryContent(current.game, current.spot.ply));
+    storyEl.replaceChildren(buildStoryContent(current.game, current.spot.ply, { inRun: true }));
     // The brief has just been answered — "can you find it again?" is a question
     // with an answer on the board now — so its line goes to the game instead.
     // The tone matters: after a brilliancy the surprise is LOSING, so a lost

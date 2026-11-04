@@ -53,6 +53,7 @@ export const Icons = {
   trash:    (s?: number) => svg(`<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>`, s),
   back:     (s?: number) => svg(`<path d="m15 18-6-6 6-6"/>`, s),
   reply:    (s?: number) => svg(`<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>`, s),
+  chevronLeft: (s?: number) => svg(`<path d="m15 18-6-6 6-6"/>`, s),
   chevronRight: (s?: number) => svg(`<path d="m9 18 6-6-6-6"/>`, s),
   // Dismiss — the X on the desktop Settings lightbox.
   close:    (s?: number) => svg(`<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`, s),

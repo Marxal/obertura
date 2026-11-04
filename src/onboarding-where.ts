@@ -49,11 +49,13 @@
 import type { Platform } from './import-games';
 import { userAvatar } from './avatar';
 import { lookupPlayer, type FoundPlayer } from './player-lookup';
+import { buildWhereShowcase } from './where-showcase';
 
 // Where the brand mark points. The marketing page, not the app — same as the
 // colour picker's, and for the same reason: a stranger who landed on the app
 // itself has no other way back to "what is this?".
 const BITO_CHESS_URL = 'https://bitochess.com';
+
 
 /** Which segment is showing. 'manual' is the no-games branch. */
 type Tab = Platform | 'manual';
@@ -109,9 +111,12 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   let lookupTimer = 0;
   let lookupAbort: AbortController | null = null;
   let closed = false;
+  let followWindow = (): void => {};
+  let stopFollowing = (): void => {};
   const close = (): void => {
     if (closed) return;
     closed = true;
+    stopFollowing();
     window.clearTimeout(lookupTimer);
     lookupAbort?.abort();
     overlay.remove();
@@ -327,6 +332,21 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
 
   select(tab);
   overlay.appendChild(stage);
+
+  // A desktop has room to show what the import is for; a phone doesn't build it.
+  // Follows the window: built the first time it is wide enough, and told to redraw
+  // when it comes back, since a board can't measure itself while it's hidden.
+  const wide = window.matchMedia('(min-width: 960px)');
+  let showcase: ReturnType<typeof buildWhereShowcase> | null = null;
+  followWindow = (): void => {
+    if (!wide.matches) return;
+    if (showcase) { showcase.redraw(); return; }
+    showcase = buildWhereShowcase();
+    overlay.appendChild(showcase.el);
+  };
+  wide.addEventListener('change', followWindow);
+  stopFollowing = () => wide.removeEventListener('change', followWindow);
+  followWindow();
 
   // ── The returning user's way in, at the very bottom ──
   if (deps.onSignIn) {

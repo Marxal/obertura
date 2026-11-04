@@ -224,23 +224,72 @@ everything *below* it into a separate host.
 ### 3.6 The desktop path
 
 Above `DESKTOP_NAV_BREAKPOINT` (960px) the same DOM re-lays out; there is no
-separate markup and no separate render path:
+separate render path. Almost all of it lives in one file, `src/desktop.css`,
+imported after `style.css`. Below 960px nothing in it applies. Four rules hold the
+screens together:
 
-- A left sidebar replaces the tab bar, and Settings becomes a lightbox.
-- **Home** is two columns: the daily card (and Get started) on the left, the
-  board blocks on the right, capped at 1240px. The forgotten strips stop
-  bleeding past their column.
-- **Train** shows four tiles across and every box two to a row; the phone's switch hides (§6.3).
-- **Openings, My games and Statistics** keep their own column grids (Statistics
-  is a dashboard with charts capped at 460px) and are capped at 1240px.
+1. **One board size.** `--desk-board` is the board in every exercise, the builder
+   and the analyser, with the panel beside it.
+2. **One page width.** `--desk-page` and `--desk-gutter` stop every tab screen at
+   the same place, under the same `.desk-title`. The header is gone on all five
+   tabs; its Sign in chip moved to the sidebar (`#side-signin`).
+3. **One section at a time.** Train, Openings and Statistics pick theirs from the
+   sidebar (`side-nav-groups.ts`), as a phone picks from its switch. The section of
+   the screen you are on opens and the others close on each navigation. The chevron,
+   or clicking the current screen's row, overrides that until the next navigation.
+   Nothing is stored.
+4. **Phone-width blocks stay phone-width.** Cards were drawn for about 400px.
+
+Screen by screen:
+
+- **Home** runs top to bottom: the daily card as a band across the page (tasks side
+  by side, Start at the end of its head), with Get started beside it while that lasts;
+  then the board blocks, one to a row and all one shape: the board left at one size,
+  the controls right. Forgotten lines are a phone-only strip at the foot. A new user
+  sees each block that isn't there yet as a dimmed preview under its real title
+  (`buildHomePreviews`, `home-screen.ts`; desktop only, and gone once they have games
+  and three lines).
+- **Train** is the phone's panel: Start card, then the sections in two columns (§6.3).
+  Under them, on phone and desktop, one live board for the showing section
+  (`train-boards.ts`).
+- **Openings** hides `.lines-tabs`; the sidebar stands in for it.
+- **Statistics** shows one region per sidebar pick, through `data-stats-tab` on the
+  screen (§14).
 - **Every exercise** (`.pt-overlay--split`: the drill, puzzles, mistake retry,
   which move, brilliant, detective, time pressure, endgame play-out, fix-it)
-  is board left, panel right. The board is as large as the window allows
-  (`--split-board`), and the panel holds the session bar, the story, the
-  status and the actions. The phone's `.pt-scroll` wrapper becomes
-  `display: contents` so one set of grid rules places all nine runners.
-  A results screen (`.train-completion`) switches the grid off via `:has()`.
-  This replaced the puzzle runner's own two-column block.
+  is board left, panel right. The phone's `.pt-scroll` wrapper becomes
+  `display: contents` so one set of grid rules places all nine runners. **The
+  overlay's height is bounded and only `.pt-bottom` scrolls**, so `.mr-after`
+  (Analyse game, Next position, See results) is always on screen. When the rows
+  sized to their content, a long story lay on top of those buttons and See results
+  could not be reached. A results screen (`.train-completion`) switches the grid off
+  via `:has()`.
+- **The builder and analyser** split the dock: `#builder-bar` stays under the board,
+  `#builder-eval` goes above the panel, so turning the engine on doesn't push the step
+  buttons off a laptop screen or change the board's size.
+- **Importing games:** step 2 is a dialog in two halves (`.import-step2-who`,
+  `.import-step2-choices`), with Import at the bottom right. Those wrappers are
+  `display: contents` on a phone.
+- **Home's details** are simply shown: Add a missing reply's Show more is hidden and
+  its details open, and Learn from your last games shows the game's tiles under its
+  buttons (behind Show more on a phone).
+- **Coach-marks** sit beside their target when it has a side with room
+  (`placeBubbleBeside` in `onboarding-tour.ts`), else above or below, lined up with it.
+- **After answering a from-your-games exercise,** on every width: the result as a
+  pill in the line above the board (`buildContextLine`), then the verdict with a small
+  "Engine" button that opens a panel by the board (`placeEngineLine`, `full-story.ts`):
+  the engine's line in the move row from Add a missing reply (`reply-line-strip.ts`,
+  back/forward with the move on the board lit), Also good, and why your move doesn't
+  work, asked of local Stockfish the first time the panel opens. Then the comparison,
+  then the clock as a bar (`buildContextStrip`). The story's tiles add the opening and
+  the move number.
+- **First run:** "Where do you play?" is form left, six browsable cards of what the
+  import is for on the right (`where-showcase.ts`, built the first time the window is desktop-wide): real
+  boards, autoplaying, paused on hover. It is native rather than the marketing video,
+  so it can be translated. The recap's cards are two across. The first training run
+  started from first run ends on Home (`whenAutoRunCloses`).
+- **Icon-only buttons** get a tooltip from their `aria-label` on first mouse hover
+  (`hover-labels.ts`).
 - **Keyboard shortcuts** (`run-keys.ts`, installed at boot): Space or Enter for
   next, H hint, S show solution, N note, A analyse, Esc end or close, and `?`
   lists the keys the current screen has. One global handler presses the
@@ -679,9 +728,9 @@ spending the column's gap on nothing.
    sheet closes itself when a drill overlay lands on `<body>`, and a repaint
    while it is open hands it the fresh body (matched by key).
 
-On a **desktop** (≥960px) the switch hides, the doors are the four "level"
-tiles in a row, and every box shows, two to a row, with its title and (i) —
-the v0.12/v0.13 layout, plus the sections. A later round will rethink it.
+On a **desktop** (≥960px) the same panel shows, one at a time. The switch hides, the
+sidebar's Train section picks the panel and carries each door's figure, and the
+sections sit in two columns (`desktop.css`).
 
 **One colour per domain.** Every card on Train wears its domain's colour
 (`.train-box .mode-card` overrides `--mode-accent`), so switch, Start card and
@@ -691,10 +740,9 @@ drill screens were left for a later pass on purpose.
 
 **The one piece of plumbing.** Each screen still renders its door and its box
 into one host (a panel) and repaints that host alone. A `MutationObserver` per
-panel runs `placeDoor`: on a phone the door stays at the top of its panel, on a
-desktop it is lifted into its tile slot, and either way the switch reads the
-figure off the door's `data-figure` / `data-locked`. The four screens know
-nothing about the layout.
+panel runs `syncFigure`, which reads the figure off the door's `data-figure` /
+`data-locked` for the switch and the sidebar. The four screens know nothing about
+the layout.
 
 | Domain | Start card | Sections | Lives in |
 |---|---|---|---|
@@ -1155,12 +1203,10 @@ position *before* the move, and `review.ts` is responsible for the conversion.
     than silently degrading.
 - `traps.ts` / `traps-screen.ts` — 19 curated traps in 2 groups. A trap's only
   action is "Build line", so nothing touches the scheduler until you save.
-- **Lichess studies** — `study-catalog.ts` (pure ranking over the bundled
-  253-study index), `study-browser.ts` (the Packs section), `study-import.ts`
-  (PGN helpers), `study-sheet.ts` (the shared chapter list). Lichess's study
-  *search* has no CORS, so the index is built at build time; the *import*
+- **Lichess studies** — by pasted link only, in the builder's Import menu:
+  `study-import.ts` (PGN helpers), `study-sheet.ts` (the chapter list). The import
   (`/api/study/{id}.pgn`) is CORS-enabled and live. Side variations are dropped
-  (`variations=false`).
+  (`variations=false`). The browsable catalogue in Packs was removed in v0.17.
 
 ---
 
@@ -1245,7 +1291,7 @@ Four tabs:
 3. **Discover** — what your games show, each row saying what to do: no line yet
    / your line is losing / prepared. **Not called "Openings"** — a tab with its
    parent's name says nothing about itself.
-4. **Packs** — starter packs (6 packs, 62 lines), traps, and the study browser.
+4. **Packs** — starter packs (6 packs, 62 lines) and traps.
 
 **Scouting left the tab strip** and sits at the foot of Discover. It was the
 only tab here not about *your* repertoire, it is one opponent at a time (capped
@@ -1353,8 +1399,9 @@ last trained, best time).
 
 ## 14. Statistics
 
-`progress-screen.ts` — one scrolling page (a dashboard grid on desktop), three
-blocks:
+`progress-screen.ts` — one scrolling page on a phone; on a desktop one section at a
+time, picked from the sidebar (Overview, Puzzles, Endgames, Your games, for whichever
+have data). Three blocks:
 
 1. **Streak hero** — the daily streak, a rolling 7-day strip, and a collapsible
    "times trained this month" calendar. Days in both are tappable and reopen that
@@ -2010,7 +2057,7 @@ Every non-selftest module in `src/`, exactly once.
 | `individual.ts` | picks which single positions "Review missed moves" drills |
 | `review.ts` | Game Review — a line of moves into a list of judgements |
 | `forgotten-moves.ts` | per-window miss log (currently write-only) |
-| `forgotten-section.ts` | the "Forgotten moves" block on Train |
+| `forgotten-section.ts` | the forgotten-lines strip on Home, and the moves and lines sheets |
 | `struggle.ts` | chronic misses — the threshold, the snooze, the counting |
 | `struggle-nudge.ts` | the quiet nudge below the board |
 | `fix-it.ts` | the three-rep "Fix it" drill |
@@ -2102,10 +2149,8 @@ Every non-selftest module in `src/`, exactly once.
 | `lichess-explorer.ts` | the live explorer client (login-gated; overlay only) |
 | `move-stats.ts` | per-move WDL keyed by UCI path from the start |
 | `traps.ts` / `traps-screen.ts` | opening traps: pure data, then the pane |
-| `study-catalog.ts` | pure logic for the Lichess-study browser |
-| `study-browser.ts` | the Packs tab's Lichess studies section |
 | `study-import.ts` | Lichess study import — pure PGN helpers |
-| `study-sheet.ts` | the study-chapter list, shared by two callers |
+| `study-sheet.ts` | the study-chapter list |
 
 ### Explore, maps and coverage
 | Module | |
@@ -2226,6 +2271,12 @@ Every non-selftest module in `src/`, exactly once.
 | `settings-screen.ts` | every device-local preference, grouped |
 | `settings-controls.ts` | the three controls every preference row is made of |
 | `settings-lightbox.ts` | Settings as a centred lightbox (desktop path) |
+| `side-nav-groups.ts` | the desktop sidebar's expanding sections |
+| `hover-labels.ts` | tooltips for icon-only buttons, for a mouse |
+| `where-showcase.ts` | the cards beside "Where do you play?" on a desktop |
+| `home-forgotten-card.ts` | Home's "Your most forgotten moves" live board |
+| `train-boards.ts` | which live board each Train section shows |
+| `train-puzzle-card.ts` | one unrated Lichess puzzle on a board |
 | `feedback.ts` | the in-app feedback form |
 
 ---
@@ -2240,7 +2291,6 @@ never hand-edit.
 | `openings-data.json` | 1.3 MB | 12,082 EPD → opening name (CC0 lichess dataset) |
 | `openings-library.json` | 1.7 MB | 12,352 library entries (name, ECO, moves) |
 | `starter-packs.json` | 64 KB | 6 packs, 62 lines |
-| `study-index.json` | 59 KB | 253 Lichess studies, ranked per family |
 | `traps.json` | 10 KB | 19 traps in 2 groups |
 | `endgames.json` | 6.6 KB | 18 fundamental endgames, all ≤7 pieces |
 | `onboarding-lines.json` | 3.4 KB | the 8 curated first lines |
@@ -2290,7 +2340,6 @@ one that fails soft — see §18.
 | `build-openings.mjs` | `openings-data.json` |
 | `build-explorer-stats.mjs` | `explorer-stats.json` — **needs `LICHESS_TOKEN`** (build-time only, never shipped) |
 | `build-starter-packs.mjs` | `starter-packs.json` (source in `scripts/starter-packs/`) |
-| `build-study-index.mjs` | `study-index.json` |
 | `build-traps.mjs` / `build-traps-from-lichess.mjs` | `traps.json` |
 | `build-puzzle-openings.mjs` | `puzzle-openings.json` |
 | `run-selftests.ts` + `register-ts.mjs` + `ts-resolve.mjs` | the headless test runner |

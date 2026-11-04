@@ -20,12 +20,14 @@
 // longer needs a layer of its own to stand in.
 
 import { Icons } from './icons';
-import { formatMove, pvMoveParts } from './notation';
+import { formatMove } from './notation';
 import { showCp } from './eval-chip';
 import { formatClock, parseTimeControl, ownClockIndex } from './clock';
-import { sanLineToUci, type MoveEval } from './engine';
+import { analysePosition, sanLineToUci, type MoveEval } from './engine';
+import { buildLineStrip } from './reply-line-strip';
+import { fenAfter } from './which-move';
 import {
-  spotFacts, repertoireLinkAt, openingRecord, shortLineName,
+  spotFacts, repertoireLinkAt, openingRecord, shortLineName, whenLabel,
   type RepertoireLink, type OpeningRecord,
 } from './spot-facts';
 import { TIME_CLASS_LABELS } from './import-core';
@@ -38,25 +40,16 @@ const CHART_H = 54;
 
 export interface StoryOptions {
   /**
-   * The engine's line at this move (a MistakeSpot/DetectiveSpot/EvalPairSpot's
-   * `best[0]` and `preFen`) — rendered as "the engine's idea" when the scan
-   * kept more than the one move. Left out entirely by Brilliant Moves, whose
-   * spots have no alternative to show (the move you found already was one).
+   * Inside a run, whose own head already shows the result as a pill and whose own
+   * clock bar shows the time, so the story doesn't say either again.
    */
-  continuation?: { preFen: string; best: MoveEval };
-  /**
-   * Tapping a move of the continuation — plays the position up to that point
-   * onto the caller's own board, the same way tapping either side of the
-   * red/green comparison already flips the board to that move.
-   */
-  onPreviewLine?: (ucis: string[]) => void;
+  inRun?: boolean;
   /** Tapping a game in "this opening" opens it. */
   onOpenGame?: (gameId: string) => void;
 }
 
 /**
- * The story — the charts, the engine's continuation, the repertoire link and
- * the fact tiles.
+ * The story — the charts, the repertoire link and the fact tiles.
  *
  * Two homes: the run's own scrollable area, right under the exercise's answer,
  * and the results-row popup (spot-peek.ts), where it sits under the board it
@@ -73,16 +66,11 @@ export function buildStoryContent(game: ImportedGame, ply: number, opts: StoryOp
   host.className = 'fs-story';
   const facts = spotFacts(game, ply);
 
-  const clockChart = buildClockChart(game, ply);
+  const clockChart = buildClockChart(game, ply, opts.inRun);
   if (clockChart) host.appendChild(clockChart);
 
   const evalChart = buildEvalChart(game, ply);
   if (evalChart) host.appendChild(evalChart);
-
-  if (opts.continuation) {
-    const card = continuationCard(opts.continuation.preFen, opts.continuation.best, opts.onPreviewLine);
-    if (card) host.appendChild(card);
-  }
 
   const bookSlot = document.createElement('div');
   host.appendChild(bookSlot);
@@ -96,7 +84,7 @@ export function buildStoryContent(game: ImportedGame, ply: number, opts: StoryOp
   // cost you nothing" both left the actual result to be inferred, which is a
   // strange thing to make someone do about their own game — so the tile names
   // the result outright, in the colour it deserves.
-  tiles.appendChild(tile('This game', RESULT_WORD[game.result], `fs-tile-v--${game.result}`));
+  if (!opts.inRun) tiles.appendChild(tile('This game', RESULT_WORD[game.result], `fs-tile-v--${game.result}`));
   tiles.appendChild(tile('Time control', timeControlLabel(game)));
   // Both ratings, not the gap between them. The gap is arithmetic anyone can do
   // from the two numbers, and the numbers are the ones you would actually
@@ -111,6 +99,14 @@ export function buildStoryContent(game: ImportedGame, ply: number, opts: StoryOp
   if (facts.wobblesBefore !== null && facts.wobblesBefore > 0) {
     const n = facts.wobblesBefore;
     tiles.appendChild(tile('Before this', `${n} slip${n === 1 ? '' : 's'}`));
+    tiles.appendChild(tile('Move', String(facts.moveNumber)));
+    if (game.opening) tiles.appendChild(wideTile('Opening', game.opening));
+  } else {
+    // No slip to pair the move number with, so it rides with the opening: the grid
+    // is two across, and a tile alone on a row looks like something went missing.
+    tiles.appendChild(game.opening
+      ? wideTile(`Opening, move ${facts.moveNumber}`, game.opening)
+      : wideTile('Move', String(facts.moveNumber)));
   }
   host.appendChild(tiles);
 
@@ -133,7 +129,7 @@ export function buildStoryContent(game: ImportedGame, ply: number, opts: StoryOp
  *
  * Null when the game has no clock trail — an older import, or correspondence.
  */
-function buildClockChart(game: ImportedGame, ply: number): HTMLElement | null {
+function buildClockChart(game: ImportedGame, ply: number, quiet = false): HTMLElement | null {
   const clocks = game.clocks;
   if (!clocks || clocks.length < 3) return null;
   const tc = parseTimeControl(game.timeControl);
@@ -151,7 +147,7 @@ function buildClockChart(game: ImportedGame, ply: number): HTMLElement | null {
     return { x, y };
   });
 
-  const card = chartCard('Your clock', `${formatClock(clocks[idx])} left here`, 'fs-note--warn');
+  const card = chartCard('Your clock', quiet ? '' : `${formatClock(clocks[idx])} left here`, 'fs-note--warn');
   const svg = chartSvg(`Your clock through the game, ${formatClock(clocks[idx])} left at this move`);
   svg.appendChild(line(0, CHART_H - 8, CHART_W, CHART_H - 8, 'fs-axis'));
   svg.appendChild(path(points, 'fs-clock-line'));
@@ -201,46 +197,165 @@ function buildEvalChart(game: ImportedGame, ply: number): HTMLElement | null {
   return card;
 }
 
+export interface EngineLineOptions {
+  preFen: string;
+  best: MoveEval;
+  /** The engine's other picks: they count as an answer in the drill too. */
+  also?: MoveEval[];
+  /** The move that went wrong, for "why it doesn't work". */
+  played?: { san: string; uci: string };
+  /** Put the position after these moves from `preFen` on the board; none is `preFen`. */
+  onPreview: (ucis: string[]) => void;
+}
+
+const PLY_AFTER = (fen: string): number => {
+  const parts = fen.split(' ');
+  return (Number(parts[5] || 1) - 1) * 2 + (parts[1] === 'b' ? 1 : 0);
+};
+
 /**
- * "The engine's idea" — not just what it wanted, but what would have
- * followed (MoveEval.sanLine, kept by the scan for exactly this). Each move
- * is its own element: given `onPreview`, tapping one plays the position up to
- * that point onto the caller's board — the same interaction the engine dock's
- * own PV chips already teach (engine-panel.ts), so this reads the position
- * the way opening the analyser would, without leaving the exercise.
+ * The engine, on demand: a small button beside the verdict, and a panel by the board.
  *
- * Null when the scan kept no continuation worth showing — an older scan (no
- * sanLine), or a line that never got past the recommended move itself.
+ * Its lines use the move row from Add a missing reply (reply-line-strip.ts): one row
+ * that scrolls sideways, with back and forward, and the move on the board lit up.
+ * Only one row is "on the board" at a time, so stepping through one clears the other.
+ *
+ * "Why it doesn't work" is the engine's answer to the move you played. The scan didn't
+ * keep that, so it's asked for the first time the panel opens: local Stockfish, a second
+ * or so, and nothing leaves the device.
  */
-function continuationCard(
-  preFen: string, best: MoveEval, onPreview?: (ucis: string[]) => void,
-): HTMLElement | null {
-  const sanLine = best.sanLine;
-  if (!sanLine || sanLine.length < 2) return null;
+export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
+  clearEngineLine(row);
 
-  // The line can stop early if a stored move turns out illegal at replay (it
-  // shouldn't, but a foreign/corrupted record is not worth a crash over) — the
-  // two walks are kept in lockstep by capping the SAN side to what replayed.
-  const ucis = sanLineToUci(preFen, sanLine);
-  const parts = pvMoveParts(sanLine.slice(0, ucis.length), preFen);
-  if (parts.length < 2) return null;
+  const panel = document.createElement('div');
+  panel.className = 'fs-engine-panel';
+  panel.hidden = true;
+  const startPly = PLY_AFTER(o.preFen);
+  const rows: { clear: () => void }[] = [];
 
-  const card = chartCard('The engine’s idea', '', '');
-  const row = document.createElement('div');
-  row.className = 'fs-pv';
-  parts.forEach((p, i) => {
-    const chip = document.createElement(onPreview ? 'button' : 'span');
-    chip.className = 'fs-pv-move';
-    chip.textContent = `${p.prefix}${p.san}`;
-    if (onPreview) {
-      (chip as HTMLButtonElement).type = 'button';
-      const upTo = ucis.slice(0, i + 1);
-      chip.addEventListener('click', () => onPreview(upTo));
+  const lineBlock = (
+    heading: string, sans: string[], ucis: string[], prefix: string[], firstPly: number, at: number,
+  ): HTMLElement => {
+    const block = document.createElement('div');
+    block.className = 'fs-engine-block';
+    const h = document.createElement('div');
+    h.className = 'fs-engine-head';
+    h.textContent = heading;
+    const strip = buildLineStrip((i) => {
+      for (const r of rows) r.clear();
+      strip.update(sans, i, Infinity, firstPly);
+      o.onPreview([...prefix, ...ucis.slice(0, i)]);
+    });
+    strip.update(sans, at, Infinity, firstPly);
+    rows.push({ clear: () => strip.update(sans, 0, Infinity, firstPly) });
+    block.append(h, strip.el);
+    return block;
+  };
+
+  const sanLine = o.best.sanLine ?? [o.best.san];
+  const ucis = sanLineToUci(o.preFen, sanLine);
+  if (ucis.length > 0) {
+    panel.appendChild(lineBlock('The engine’s line', sanLine.slice(0, ucis.length), ucis, [], startPly, 0));
+  }
+
+  const also = (o.also ?? []).filter(m => m.uci);
+  if (also.length > 0) {
+    const block = document.createElement('div');
+    block.className = 'fs-engine-block fs-engine-also';
+    const h = document.createElement('span');
+    h.className = 'fs-engine-head';
+    h.textContent = 'Also good';
+    block.appendChild(h);
+    for (const m of also) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'fs-engine-chip';
+      chip.textContent = formatMove(m.san);
+      chip.addEventListener('click', () => {
+        for (const r of rows) r.clear();
+        o.onPreview([m.uci]);
+      });
+      block.appendChild(chip);
     }
-    row.appendChild(chip);
+    panel.appendChild(block);
+  }
+
+  let whySlot: HTMLElement | null = null;
+  if (o.played) {
+    whySlot = document.createElement('div');
+    whySlot.className = 'fs-engine-block';
+    panel.appendChild(whySlot);
+  }
+  const askWhy = (): void => {
+    const played = o.played;
+    const slot = whySlot;
+    if (!played || !slot || slot.childElementCount > 0) return;
+    const fen = fenAfter(o.preFen, played.uci);
+    const heading = `Why ${formatMove(played.san)} doesn’t work`;
+    const h = document.createElement('div');
+    h.className = 'fs-engine-head';
+    h.textContent = heading;
+    const wait = document.createElement('div');
+    wait.className = 'fs-engine-wait';
+    wait.textContent = 'Looking…';
+    slot.append(h, wait);
+    void analysePosition(fen, 14, import.meta.env.BASE_URL, { multiPv: 1, movetimeMs: 1500 })
+      .then((moves) => {
+        if (!slot.isConnected) return;
+        const answer = moves[0];
+        const line = answer?.sanLine ?? (answer ? [answer.san] : []);
+        const lineUcis = line.length ? sanLineToUci(fen, line) : [];
+        if (lineUcis.length === 0) { slot.replaceChildren(); return; }
+        slot.replaceChildren(...lineBlock(
+          heading, line.slice(0, lineUcis.length), lineUcis, [played.uci], PLY_AFTER(fen), 0,
+        ).childNodes);
+      })
+      .catch(() => { if (slot.isConnected) slot.replaceChildren(); });
+  };
+
+  if (panel.childElementCount === 0) return;
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'fs-engine-btn';
+  const paint = (): void => {
+    toggle.replaceChildren(
+      'Engine',
+      panel.hidden ? Icons.chevronDown(14) : Icons.chevronUp(14),
+    );
+    toggle.setAttribute('aria-expanded', String(!panel.hidden));
+  };
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    paint();
+    if (!panel.hidden) askWhy();
   });
-  card.appendChild(row);
-  return card;
+  paint();
+
+  row.classList.add('fs-verdict');
+  row.append(toggle, panel);
+}
+
+export function clearEngineLine(row: HTMLElement): void {
+  row.querySelector('.fs-engine-btn')?.remove();
+  row.querySelector('.fs-engine-panel')?.remove();
+  row.classList.remove('fs-verdict');
+}
+
+/** Who and how, before the answer: Home's "Learn from your last games" uses it. */
+export function buildGameTiles(game: ImportedGame): HTMLElement {
+  const tiles = document.createElement('div');
+  tiles.className = 'fs-tiles';
+  tiles.appendChild(tile('Opponent', game.opponent));
+  tiles.appendChild(tile('When', whenLabel(game.endTime)));
+  tiles.appendChild(tile('Time control', timeControlLabel(game)));
+  if (game.myRating != null && game.opponentRating != null) {
+    tiles.appendChild(tile('Ratings', `${game.myRating} vs ${game.opponentRating}`));
+  } else if (game.opponentRating != null) {
+    tiles.appendChild(tile('Their rating', String(game.opponentRating)));
+  }
+  if (game.opening) tiles.appendChild(wideTile('Opening', game.opening));
+  return tiles;
 }
 
 /**
@@ -332,6 +447,12 @@ function dot(at: { x: number; y: number }): SVGElement {
   el.setAttribute('cy', at.y.toFixed(1));
   el.setAttribute('r', '4');
   el.setAttribute('class', 'fs-dot');
+  return el;
+}
+
+function wideTile(label: string, value: string): HTMLElement {
+  const el = tile(label, value);
+  el.classList.add('fs-tile--wide');
   return el;
 }
 

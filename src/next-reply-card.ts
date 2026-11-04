@@ -773,7 +773,9 @@ function renderCard(
   }
 
   function paintDetails(): void {
-    if (!detailsOpen || at === 0) {
+    // A desktop has the room, so there is nothing to ask for: see .nr-more in desktop.css.
+    const open = detailsOpen || window.matchMedia('(min-width: 960px)').matches;
+    if (!open || at === 0) {
       detailsEl.hidden = true;
       detailsEl.replaceChildren();
       return;

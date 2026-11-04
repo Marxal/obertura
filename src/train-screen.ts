@@ -206,11 +206,26 @@ export function renderTrainScreen(
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
 
+// Where to go when the run autoStart began is over, finished or abandoned. A run
+// always ends by repainting this screen, which is what picks this up: not while its
+// overlay is still up, since a background repaint can land during a run.
+let afterAutoRun: (() => void) | null = null;
+let autoRunLive = false;
+export function whenAutoRunCloses(go: () => void): void {
+  afterAutoRun = go;
+}
+
 async function doRender(
   container: HTMLElement,
   focusLineId?: string,
   autoStart?: boolean,
 ): Promise<void> {
+  if (autoRunLive && !autoStart && !document.querySelector('.pt-overlay')) {
+    autoRunLive = false;
+    const go = afterAutoRun;
+    afterAutoRun = null;
+    if (go) { go(); return; }
+  }
   // Leaving any finish screen lands back here ("Close training" / "Save &
   // close"), so this is where the FAB the completion panel hid comes back.
   setFabVisible?.(true);
@@ -272,9 +287,11 @@ async function doRender(
   if (autoStart && !trainingLocked) {
     const lines = linesForDefaultMode(trainingLines, due);
     if (lines) {
+      autoRunLive = true;
       startRounds(lines, container, { explicit: true });
       return;
     }
+    afterAutoRun = null;
   }
 
   // The door, then the box — see .train-room for where each ends up.
