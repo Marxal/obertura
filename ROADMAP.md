@@ -2997,4 +2997,5 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   band starts lower on a desktop and the form stays clear of it.
 - ✅ **Game analysis and puzzles are one section,** after Openings: "Your games show you what to practise",
   six tiles. The three drawn step cards are gone, and "Bring in your games" folded into the turning points
-  tile, since the form above already asks for the games.
+  tile, since the form above already asks for the games. On a phone the tiles are a sideways carousel.
+- ✅ **The form is the same width as the hero board** and lines up under it.

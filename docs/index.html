@@ -2104,11 +2104,17 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 /* The hero board hangs over the top of this band, by up to 154px once it lags on
    scroll (see .hero__board). The form sits in the same column, so it starts below that. */
 @media (min-width: 900px) { #analyse { padding-top: 184px; } }
-.an { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: clamp(28px, 5vw, 72px); align-items: center; }
+/* The same two columns as .hero__cols, so the form lines up under the hero board. */
+.an { display: grid; gap: clamp(28px, 5vw, 72px); align-items: center; }
+@media (min-width: 900px) {
+  .an { grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr); gap: clamp(48px, 6vw, 84px); }
+}
 .an h2 { color: #fff; }
 .an .lede { margin-top: 16px; color: rgba(255, 255, 255, 0.86); max-width: 34ch; }
 .an__form {
   display: grid; gap: 12px;
+  /* The same box as .board-card. */
+  width: 100%; max-width: 430px; margin: 0 auto;
   padding: 18px;
   border-radius: 24px;
   background: #faf8f5;
@@ -2145,7 +2151,6 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 .an__go { width: 100%; }
 .an__note { font-size: 14px; text-align: center; opacity: 0.7; max-width: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-@media (max-width: 860px) { .an { grid-template-columns: 1fr; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
    PRICING, round two — side by side, the founding offer on the right
@@ -2351,11 +2356,25 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 }
 @keyframes hand-spin { to { transform: rotate(360deg); } }
 @media (max-width: 980px) { .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Phones: a sideways carousel running to the screen's edges, with the next tile
+   showing so it reads as more. The extra bottom padding keeps the shadows from
+   being cut off by the scroller. Tiles skip the scroll-in fade here: it is triggered
+   by the page's scroll, and would make them appear late while swiping. */
 @media (max-width: 520px) {
-  .pz-grid { grid-template-columns: 1fr; }
-  .pz { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; padding: 20px 18px; }
-  .pz__ico { grid-row: span 2; width: 48px; height: 48px; margin: 0; }
-  .pz h3 { margin-bottom: 4px; }
+  .pz-grid {
+    display: flex;
+    gap: 12px;
+    margin: 0 calc(var(--gutter) * -1) -28px;
+    padding: 4px var(--gutter) 28px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+  }
+  .pz-grid::-webkit-scrollbar { display: none; }
+  .pz { flex: 0 0 82%; scroll-snap-align: start; padding: 22px 20px; }
+  html.js .pz-grid .pz.reveal { opacity: 1; transform: none; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

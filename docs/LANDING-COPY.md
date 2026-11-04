@@ -423,10 +423,12 @@ The Italian Game box is gone.
 
 **Game analysis and puzzles (2026-11-04):** the old three-step “Your games”
 section and “Sharpen your tactics” merged, placed after Openings. Centred
-heading, six tiles with the app's own icons, each with its own hover motion.
+heading, six tiles with the app's own icons, each with its own hover motion. On a
+phone the tiles are a sideways carousel.
 “Where do you play?” now comes straight after the hero. The drawn scenes and the
 Step 1 / 2 / 3 labels are gone, and “Bring in your games” folded into the turning
-points tile, since the form above already asks for the games.
+points tile, since the form above already asks for the games. The form is the
+same width as the hero board and lines up under it.
 
 **Daily challenge:** the felt panel, with a working copy of the app's daily
 card beside the copy: “Daily challenge” · “N parts today” · a Monday-first week
