@@ -1,8 +1,9 @@
 # Translating Bito Chess: the plan
 
-Status: **Phases 0, 1 and 2 done (2026-11-04).** First run, Home, opening training, the Pro
-popup and Settings go through `t()`, and English users see no change beyond small layout
-fixes. Next is Phase 3: Marçal's Catalan tone answers, then the glossary. Pack names and notes
+Status: **Phases 0 to 3 done (2026-11-04).** First run, Home, opening
+training, the Pro popup and Settings go through `t()`, and English users see no change beyond
+small layout fixes. Marçal's Catalan guide is `catalan-instructions-bito.md`, and
+`src/locales/GLOSSARY.md` holds the approved words. Next is Phase 4. Pack names and notes
 wait for Phase 7. The builder, Middlegame, Tactics, Endgames and the other screens wait for
 Phase 6. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
 
@@ -138,9 +139,9 @@ assume.
 
 **Before translating**
 
-- Marçal rewrites about 15 real app sentences the way Bito should sound in Catalan.
-  They set the voice.
-- Choose the form of address. Proposed: `tu` in Catalan and Spanish, `du` in Swedish.
+- Marçal's guide, `catalan-instructions-bito.md`, sets the voice, including 15 agreed sentences.
+  Most of it carries to Spanish and Swedish. *Badada* and *cagada* are Catalan only.
+- The form of address is `tu` in Catalan and Spanish, `du` in Swedish.
 - Keep Bito's rule from English: show facts, don't explain the obvious.
 
 **The glossary** (`src/locales/GLOSSARY.md`), read before every translation pass.
@@ -218,7 +219,7 @@ Each phase can stop safely, because of the English fallback.
 | 0 ✅ | Declare a version, and re-run the string count | `v0.18` |
 | 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers all of first run, starter packs, the builder tour, the import sheet, the Pro popup, a drill, the five tabs and Settings |
 | 2 ✅ | Move the core screens to keys: first-run, Home, training, Pro popup, Settings | Selftests pass, screens look identical in English |
-| 3 | Marçal approves voice and glossary | Glossary approved |
+| 3 ✅ | Marçal approves voice and glossary | Glossary approved |
 | 4 | Translate the core screens into all three, build the review page | Layout check passes in all languages |
 | 5 | Marçal reviews Catalan first, then Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
 | 6 | The remaining screens, one or two rounds at a time | No untranslated text in the fake language |
@@ -253,5 +254,4 @@ the first-run picker exist but stay hidden until a second language is in
 - Is the app calm enough to start? Translating text that's about to change is wasted
   work, and day-two retention (7 returns from 80 installs by 2026-11-03) may matter
   more first.
-- Keep "Bito" and "Full Access" in English, or translate "Full Access"?
 - Who are the first two or three Catalan club players to ask?

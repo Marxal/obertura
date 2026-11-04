@@ -3077,3 +3077,10 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - Feedback emails keep English subjects and categories, because they're for reading here.
 - The default book names ("My White lines") are saved in people's data, so they stay in English for now.
 
+### Translation: the voice (Phase 3)
+
+- ✅ **`catalan-instructions-bito.md`:** Marçal's guide to Bito's Catalan.
+- ✅ **`src/locales/GLOSSARY.md`:** the approved words in all three languages.
+- Phone test of Phase 2 passed, apart from three Train tabs and Statistics breaking in the fake language, which is
+  longer than the real words. Noted in the glossary to check in each language.
+

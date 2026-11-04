@@ -85,7 +85,8 @@ Keep this map in mind before reading anything large.
   repo root and don't renumber their sections:** `REPERTOIRE-REDESIGN.md` (the
   data model), `TRANSPOSITIONS.md` (saving, drilling, duplicates),
   `SUPABASE-SYNC.md` (accounts, sync, SQL), `STRIPE-SETUP.md` (the buy flow).
-- **Owner notes:** `TRANSLATION-PLAN.md` (Catalan, Spanish, Swedish: not started),
+- **Owner notes:** `TRANSLATION-PLAN.md` (Catalan, Spanish, Swedish: under way; words in
+  `src/locales/GLOSSARY.md`, Catalan's voice in `catalan-instructions-bito.md`),
   `PUBLISHING.md` (store plans not yet built),
   `docs/LANDING-COPY.md` (landing copy's source of truth), `PLATFORM-OAUTH.md`
   (connecting Lichess/Chess.com — and why platform OAuth never creates Bito
