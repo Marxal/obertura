@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bito copy</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --page: #f1ece1; --card: #faf8f5; --text: #1c1610; --muted: #6f6253; --line: #dcd2bf;
+  --accent: #c07a2a; --green: #3f6b52; --bad: #b3402e;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --page: #211c16; --card: #2c261e; --text: #f1ece1; --muted: #a79a88; --line: #453c30; --accent: #e09a4a; --green: #7fb596; --bad: #e88472; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--page); border-bottom: 1px solid var(--line); padding: 12px 20px; }
+.bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 17px; margin: 0; color: var(--accent); letter-spacing: -.01em; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--card); }
+.seg button { border: 0; background: none; color: var(--muted); font: inherit; font-weight: 600; font-size: 13px; padding: 7px 11px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--green); color: #fff; }
+input[type=search] { flex: 1 1 200px; min-width: 0; font: inherit; padding: 7px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); }
+a.see { color: var(--accent); font-weight: 600; font-size: 13px; white-space: nowrap; }
+#status { font-size: 13px; color: var(--muted); min-width: 90px; }
+main { max-width: 1180px; margin: 0 auto; padding: 18px 20px 80px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+summary { cursor: pointer; padding: 11px 15px; font-weight: 650; }
+summary small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 10px 15px; border-top: 1px solid var(--line); }
+.context { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin-bottom: -8px; }
+.en { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+textarea { width: 100%; resize: none; overflow: hidden; font: inherit; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 3px 7px; margin: -3px -7px; }
+textarea:hover { border-color: var(--line); }
+textarea:focus { outline: none; border-color: var(--accent); background: var(--page); }
+.row.saved textarea { border-color: var(--green); }
+.row.problem textarea { border-color: var(--bad); }
+.msg { grid-column: 2; font-size: 12.5px; color: var(--bad); margin-top: -8px; }
+.none { color: var(--muted); padding: 20px 0; }
+@media (max-width: 720px) { .row { grid-template-columns: 1fr; gap: 6px; } .msg { grid-column: 1; margin-top: 0; } header { padding: 10px 14px; } main { padding-inline: 14px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Bito copy</h1>
+    <div class="seg" id="langs"></div>
+    <div class="seg" id="sections"></div>
+    <input type="search" id="search" placeholder="Search English or translation" aria-label="Search" />
+    <a class="see" id="see" target="bito-preview" rel="noopener">See it →</a>
+    <span id="status" role="status"></span>
+  </div>
+</header>
+<main>
+  <p class="hint" id="hint">The English is on the left, for reference. Change the right side: it saves as you type, and your words don’t have to follow the English.</p>
+  <div id="list"></div>
+</main>
+<script>
+var LANGS = ['ca', 'es', 'sv'];
+var state = { lang: 'ca', section: 'landing', query: '', data: {} };
+try {
+  var saved = JSON.parse(localStorage.getItem('bito-copy') || '{}');
+  if (LANGS.indexOf(saved.lang) >= 0) state.lang = saved.lang;
+  if (saved.section) state.section = saved.section;
+} catch (_) {}
+
+var list = document.getElementById('list');
+var statusEl = document.getElementById('status');
+
+function el(tag, cls, text) {
+  var n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+function fit(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+
+function save(item, area, row) {
+  var value = area.value;
+  statusEl.textContent = 'Saving…';
+  fetch('/copy/save', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ lang: state.lang, section: state.section, path: item.path, value: value }),
+  }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); }).then(function (res) {
+    var old = row.querySelector('.msg');
+    if (old) old.remove();
+    if (res.ok) {
+      item.value = value;
+      row.classList.remove('problem');
+      row.classList.add('saved');
+      statusEl.textContent = 'Saved';
+      setTimeout(function () { row.classList.remove('saved'); }, 1200);
+    } else {
+      row.classList.add('problem');
+      row.appendChild(el('div', 'msg', res.body.error));
+      statusEl.textContent = 'Not saved';
+    }
+  }).catch(function () { statusEl.textContent = 'Not saved: is the server running?'; });
+}
+
+function rowFor(item) {
+  var row = el('div', 'row');
+  if (item.context) row.appendChild(el('div', 'context', item.context));
+  row.appendChild(el('div', 'en', item.en));
+  var area = document.createElement('textarea');
+  area.value = item.value;
+  area.rows = 1;
+  area.lang = state.lang;
+  area.setAttribute('aria-label', item.en.slice(0, 80));
+  var timer = null;
+  area.addEventListener('input', function () {
+    fit(area);
+    clearTimeout(timer);
+    timer = setTimeout(function () { if (area.value !== item.value) save(item, area, row); }, 700);
+  });
+  area.addEventListener('blur', function () {
+    clearTimeout(timer);
+    if (area.value !== item.value) save(item, area, row);
+  });
+  row.appendChild(area);
+  requestAnimationFrame(function () { fit(area); });
+  return row;
+}
+
+function matches(item) {
+  if (!state.query) return true;
+  var q = state.query.toLowerCase();
+  return item.en.toLowerCase().indexOf(q) >= 0 || item.value.toLowerCase().indexOf(q) >= 0;
+}
+
+function render() {
+  list.textContent = '';
+  var section = (state.data[state.lang] || []).filter(function (s) { return s.id === state.section; })[0];
+  if (!section) return;
+  var shown = 0;
+  section.groups.forEach(function (group, i) {
+    var items = group.items.filter(matches);
+    if (!items.length) return;
+    shown += items.length;
+    var box = el('details');
+    var head = el('summary', null, group.title);
+    head.appendChild(el('small', null, String(items.length)));
+    box.appendChild(head);
+    var filled = false;
+    var fill = function () {
+      if (filled) return;
+      filled = true;
+      items.forEach(function (item) { box.appendChild(rowFor(item)); });
+    };
+    box.addEventListener('toggle', function () { if (box.open) fill(); });
+    if (state.query || section.groups.length <= 2 || i === 0) box.open = true;
+    list.appendChild(box);
+    if (box.open) fill();
+  });
+  if (!shown) list.appendChild(el('p', 'none', 'Nothing matches that.'));
+}
+
+function paintBar() {
+  var langs = document.getElementById('langs');
+  langs.textContent = '';
+  LANGS.forEach(function (lang) {
+    var b = el('button', null, lang.toUpperCase());
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(lang === state.lang));
+    b.addEventListener('click', function () { state.lang = lang; load(); });
+    langs.appendChild(b);
+  });
+  var sections = document.getElementById('sections');
+  sections.textContent = '';
+  (state.data[state.lang] || []).forEach(function (s) {
+    var b = el('button', null, s.title);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(s.id === state.section));
+    b.addEventListener('click', function () { state.section = s.id; remember(); paintBar(); render(); });
+    sections.appendChild(b);
+  });
+  var see = document.getElementById('see');
+  var appUrl = 'http://' + location.hostname + ':5173/obertura/?lang=' + state.lang;
+  see.href = state.section === 'legal' ? '/' + state.lang + '/terms.html'
+    : state.section === 'app' || state.section === 'packs' ? appUrl
+    : '/' + state.lang + '/';
+}
+function remember() {
+  try { localStorage.setItem('bito-copy', JSON.stringify({ lang: state.lang, section: state.section })); } catch (_) {}
+}
+function load() {
+  remember();
+  fetch('/copy/data?lang=' + state.lang).then(function (r) { return r.json(); }).then(function (sections) {
+    state.data[state.lang] = sections;
+    paintBar();
+    render();
+  });
+}
+var searching = null;
+document.getElementById('search').addEventListener('input', function (e) {
+  clearTimeout(searching);
+  searching = setTimeout(function () { state.query = e.target.value.trim(); render(); }, 150);
+});
+load();
+</script>
+</body>
+</html>

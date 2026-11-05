@@ -25,12 +25,13 @@ import { registerBrushes } from './board-brushes';
 import { colourPip } from './card-position';
 import { Icons } from './icons';
 import { t, type MessageKey } from './i18n';
+import { formatMove } from './notation';
 
 const GAMES: { opening: string; colour: 'white' | 'black'; result: 'won' | 'lost' | 'drew' }[] = [
-  { opening: 'Italian Game', colour: 'white', result: 'won' },
-  { opening: 'Caro-Kann', colour: 'black', result: 'lost' },
-  { opening: 'London System', colour: 'white', result: 'drew' },
-  { opening: 'Scandinavian', colour: 'black', result: 'won' },
+  { opening: t('showcase.opening.italian'), colour: 'white', result: 'won' },
+  { opening: t('showcase.opening.caroKann'), colour: 'black', result: 'lost' },
+  { opening: t('showcase.opening.london'), colour: 'white', result: 'drew' },
+  { opening: t('showcase.opening.scandinavian'), colour: 'black', result: 'won' },
 ];
 
 const RESULT_KEYS: Record<'won' | 'lost' | 'drew', MessageKey> = {
@@ -38,10 +39,10 @@ const RESULT_KEYS: Record<'won' | 'lost' | 'drew', MessageKey> = {
 };
 
 const OPENINGS: { name: string; colour: 'white' | 'black'; score: number; saved: boolean }[] = [
-  { name: 'Italian Game', colour: 'white', score: 58, saved: true },
-  { name: 'London System', colour: 'white', score: 61, saved: true },
-  { name: 'Caro-Kann', colour: 'black', score: 44, saved: false },
-  { name: 'Scandinavian', colour: 'black', score: 37, saved: false },
+  { name: t('showcase.opening.italian'), colour: 'white', score: 58, saved: true },
+  { name: t('showcase.opening.london'), colour: 'white', score: 61, saved: true },
+  { name: t('showcase.opening.caroKann'), colour: 'black', score: 44, saved: false },
+  { name: t('showcase.opening.scandinavian'), colour: 'black', score: 37, saved: false },
 ];
 
 function gamesVisual(): HTMLElement {
@@ -153,7 +154,7 @@ export function buildWhereShowcase(): { el: HTMLElement; redraw: () => void } {
       sub: t('showcase.mistakes.sub'),
       visual: () => boardVisual('r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3', 'black',
         [{ from: 'g8', to: 'f6', brush: 'bad' }, { from: 'g7', to: 'g6', brush: 'good' }],
-        [{ text: t('showcase.youPlayed', { move: 'Nf6??' }), tone: 'bad' }, { text: t('showcase.better', { move: 'g6' }), tone: 'good' }]),
+        [{ text: t('showcase.youPlayed', { move: formatMove('Nf6??') }), tone: 'bad' }, { text: t('showcase.better', { move: formatMove('g6') }), tone: 'good' }]),
     },
     {
       title: t('showcase.which.title'),

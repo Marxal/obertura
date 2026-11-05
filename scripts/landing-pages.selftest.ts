@@ -8,6 +8,7 @@ import { formatMove } from '../src/notation';
 import { englishDictionary, useDictionary, type Dictionary } from '../src/i18n';
 import { BROWSER_REDIRECTS, pickLanguage, type Language } from '../src/language-choice';
 import { checkoutLocale } from '../worker/checkout-locale';
+import { checkEdit, copySections, replaceDictionaryLine } from './copy-editor.mjs';
 
 export interface TestResult {
   name: string;
@@ -125,6 +126,13 @@ export function runLandingPagesSelfTest(): TestResult[] {
   const rootWithCa = buildRootPage(html, ['ca'], BROWSER_REDIRECTS);
   check('a released language gets a link from `/`', rootWithCa.includes('hreflang="ca"') && rootWithCa.includes('data-language-choice="ca"'));
 
+  const rail = (html2: string): string[] => [...(html2.match(/<nav class="lang-rail"[\s\S]*?<\/nav>/)?.[0] ?? '').matchAll(/>([A-Z]{2})<\/a>/g)].map((m) => m[1]);
+  const all = ['ca', 'es', 'sv'];
+  check('the switcher on `/` leaves out English, in order', rail(buildRootPage(html, all, BROWSER_REDIRECTS)).join(' ') === 'CA ES SV');
+  check('the switcher on /ca/ leaves out Catalan, in order', rail(buildLanguagePage(html, 'ca', words('ca'), all)).join(' ') === 'ES EN SV');
+  check('the switcher on /sv/ leaves out Swedish, in order', rail(buildLanguagePage(html, 'sv', words('sv'), all)).join(' ') === 'CA ES EN');
+  check('the switcher only offers released languages', rail(buildLanguagePage(html, 'ca', words('ca'), ['ca'])).join(' ') === 'EN');
+
   check('Catalan phone goes to /ca/', redirectFor(['ca'], ['ca-ES']) === '/ca/');
   check("Spain's Spanish goes to /ca/ for now", redirectFor(['ca'], ['es-ES', 'en']) === '/ca/');
   check('Mexican Spanish stays on `/` until Spanish is released', redirectFor(['ca'], ['es-MX', 'en']) === null);
@@ -143,6 +151,27 @@ export function runLandingPagesSelfTest(): TestResult[] {
     return (landing ?? '/en/') !== `/${app}/`;
   });
   check('`/` and the app pick the same language', differ.length === 0, differ.map((c) => c.join(',')).join(' | '));
+
+  // ── The copy editor ─────────────────────────────────────────────────────────
+  const editable = (section: string, en: string) => ({ section, en });
+  check('the editor takes a free rewording', checkEdit(editable('landing', 'Improve your next move'), 'Juga millor demà', 'ca') === null);
+  check('the editor refuses an empty sentence', checkEdit(editable('landing', 'Hi'), '  ', 'ca') !== null);
+  check('the editor refuses a lost placeholder', checkEdit(editable('app', '{n} lines'), '3 línies', 'ca') !== null);
+  check('the editor refuses a lost link', checkEdit(editable('legal', 'See <a href="x">this</a>'), 'Mira això', 'ca') !== null);
+  check('the editor refuses a changed move', checkEdit(editable('packs', 'Play Nf3 and d4'), 'Juga Nf3 i d5', 'ca') !== null);
+  check('the editor accepts the same moves reworded', checkEdit(editable('packs', 'Play Nf3 and d4'), 'Primer d4, després Nf3', 'ca') === null);
+  check('the editor keeps "cagada" out of the landing page', checkEdit(editable('landing', 'Mistakes'), 'Cagades', 'ca') !== null && checkEdit(editable('app', 'Mistakes'), 'Cagades', 'ca') === null);
+  const dictionary = '{\n  "a.b": "old",\n  "c.d": {"one": "x", "other": "y"},\n  "e.f": "z"\n}\n';
+  const edited = replaceDictionaryLine(dictionary, 'a.b', 'new "words"');
+  check('a dictionary edit changes one line', edited === '{\n  "a.b": "new \\"words\\"",\n  "c.d": {"one": "x", "other": "y"},\n  "e.f": "z"\n}\n', edited);
+  check('a plural stays on its line', replaceDictionaryLine(dictionary, 'c.d', { one: '1', other: '2' }).includes('"c.d": {"one": "1", "other": "2"},'));
+  for (const lang of ['ca', 'es', 'sv']) {
+    const sections = copySections(lang);
+    const items = sections.flatMap((s: { groups: { items: { section: string; en: string; value: string; path: string[] }[] }[] }) => s.groups.flatMap((g) => g.items));
+    const refused = items.filter((i: { value: string }) => checkEdit(i, i.value, lang) !== null);
+    check(`${lang}: everything already written passes the editor's own rules (${items.length})`, refused.length === 0,
+      refused.slice(0, 3).map((i: { en: string }) => i.en.slice(0, 50)).join(' | '));
+  }
 
   // ── Checkout ────────────────────────────────────────────────────────────────
   check('Catalan buyers get Stripe in Spanish, which is the closest it has', checkoutLocale('ca') === 'es');

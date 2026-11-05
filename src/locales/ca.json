@@ -2248,5 +2248,19 @@
   "endgame.minor-right-bishop.name": "L'alfil bo i el peó de torre",
   "endgame.minor-right-bishop.idea": "A diferència de l'alfil dolent, aquest vigila la casella de coronació. Com que cobreix a8, el rei rival no pot bloquejar el racó: acompanya el teu peó de torre fins al final.",
   "endgame.minor-two-knights.name": "Dos cavalls no fan mat",
-  "endgame.minor-two-knights.idea": "Dos cavalls no poden forçar el mat contra un rei sol. Mantén el teu rei lluny dels racons i de la vora, no donis als cavalls res per atrapar i la partida són taules."
+  "endgame.minor-two-knights.idea": "Dos cavalls no poden forçar el mat contra un rei sol. Mantén el teu rei lluny dels racons i de la vora, no donis als cavalls res per atrapar i la partida són taules.",
+  "eval.cloudTitle": "No s’ha pogut connectar amb la màquina de Lichess: funciona en local. Toca per tornar-ho a provar.",
+  "eval.cloudLabel": "No s’ha pogut connectar amb la màquina de Lichess. Toca per tornar-ho a provar.",
+  "builder.masters": "Mestres",
+  "tag.aggressive": "agressiva",
+  "tag.solid": "sòlida",
+  "tag.gambit": "gambit",
+  "tag.sideline": "línia secundària",
+  "tag.mainLine": "línia principal",
+  "showcase.opening.italian": "Italiana",
+  "showcase.opening.caroKann": "Caro-Kann",
+  "showcase.opening.london": "Sistema Londres",
+  "showcase.opening.scandinavian": "Escandinava",
+  "repertoire.defaultWhite": "Les meves línies amb blanques",
+  "repertoire.defaultBlack": "Les meves línies amb negres"
 }

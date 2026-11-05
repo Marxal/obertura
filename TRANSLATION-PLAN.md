@@ -209,8 +209,10 @@ what keeps the unread parts consistent.
 - **Privacy and terms:** translated in `src/locales/legal/<lang>.json`, and generated the same way.
   **The English version governs** (Marçal, 2026-11-05): the terms say so, and each translation says so under
   its title with a link to the English. Licences stay in English.
-- **Changing the landing text:** `npm run landing:preview`, edit `src/locales/landing/ca.json`, save and
-  reload. The left side is the English and must stay. The right side is free to say something different.
+- **Changing any translated text:** `npm run copy` opens the editor at `localhost:4190/copy/`: landing, terms and
+  privacy, the app, starter packs and traps, with the English beside each sentence. It saves as you type and
+  needs no build. The words may differ from the English. It refuses an empty sentence, a lost placeholder or
+  link, a changed move, and *cagada* outside the app. It runs only on this computer and never reaches a build.
 - **Sign-in emails:** Supabase has one template per project. The language is saved at sign-up, and
   the wording and test steps are in `EMAIL-TEMPLATES.md`. **Untested, so test first.**
 - **Checkout:** Stripe Checkout supports `es` and `sv` but not Catalan (checked
@@ -259,8 +261,8 @@ the first-run picker exist but stay hidden until a second language is in
 
 ## Questions to settle when starting
 
-- The default book names ("My White lines", "My Black lines") are saved in each person's data, so
-  they stay in English for now. Decide in Phase 4 whether new books get a translated name.
+- The default book names are saved in each person's data. New accounts get them in their language, and books
+  that already exist keep the name they have.
 
 - Is the app calm enough to start? Translating text that's about to change is wasted
   work, and day-two retention (7 returns from 80 installs by 2026-11-03) may matter

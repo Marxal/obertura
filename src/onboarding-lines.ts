@@ -47,7 +47,7 @@ export const STYLE_LABELS: Record<OnboardingStyle, string> = {
 // The level control's labels. The move count is a caption under each, and it's
 // the nominal count — a line that's shorter says so on its own card instead.
 export const LEVELS: { value: OnboardingLevel; label: string; moves: number }[] = [
-  { value: 'beginner', label: 'Beginner', moves: 3 },
+  { value: 'beginner', label: t('open.tag.beginner'), moves: 3 },
   { value: 'intermediate', label: t('open.clubPlayer'), moves: 5 },
   { value: 'advanced', label: t('open.deepPrep'), moves: 7 },
 ];

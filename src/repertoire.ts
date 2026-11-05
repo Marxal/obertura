@@ -18,6 +18,7 @@
 // DOM-free and storage-free on purpose, so all of it is exercised under Node by
 // repertoire.selftest.ts.
 
+import { t } from './i18n';
 import type { MoveNode } from './tree';
 import type { LinePriority } from './types';
 
@@ -46,8 +47,8 @@ export interface Repertoire {
 
 /** The two books every account starts with. */
 export const DEFAULT_REPERTOIRE_NAMES: Record<'white' | 'black', string> = {
-  white: 'My White lines',
-  black: 'My Black lines',
+  white: t('repertoire.defaultWhite'),
+  black: t('repertoire.defaultBlack'),
 };
 
 export function emptyTree(): MoveNode {

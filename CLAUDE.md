@@ -116,7 +116,8 @@ landing page's and legal pages' language versions are generated from them by the
 build (`scripts/landing-pages.mjs`). Changed text needs its translation updated in
 `src/locales/landing/` or `src/locales/legal/`, and a selftest says which. A translation
 may differ from the English on purpose: Marçal edits them himself, so don't "fix" that.
-`npm run landing:preview` shows them all, fresh on every reload.
+`npm run copy` is the editor for all translated text, and shows those pages fresh on
+every reload. Changing `scripts/landing-pages.mjs` needs that server restarted.
 `src/legal.ts` resolves the right URL for each host so the app can link to them.
 
 No Google Fonts, anywhere. Chakra Petch is self-hosted (`src/fonts/` for the

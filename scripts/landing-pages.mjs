@@ -161,6 +161,34 @@ function switcher(current, released, page = '') {
 <script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-language-choice]');if(!a)return;try{localStorage.setItem('obertura.language',a.getAttribute('data-language-choice'))}catch(_){}});</script>`;
 }
 
+// Pinned to the left edge of the landing page. Short names, in a fixed order, and only the
+// languages you could change to: the one you're reading isn't a choice.
+const RAIL_ORDER = ['ca', 'es', 'en', 'sv'];
+const RAIL_STYLE = `<style>
+.lang-rail { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 45; display: flex; flex-direction: column;
+  padding: 2px 0 2px env(safe-area-inset-left, 0px); background: var(--bg-card); border: 1px solid var(--hairline); border-left: 0;
+  border-radius: 0 10px 10px 0; box-shadow: 0 2px 10px rgba(28, 22, 16, .1); }
+/* Narrower than the page's side margin on a phone, so it never covers text. The tap area
+   reaches further than it looks. */
+.lang-rail a { position: relative; display: block; padding: 9px 3px; font: 700 10px/1 var(--font-display, system-ui, sans-serif);
+  color: var(--text-muted, inherit); text-decoration: none; text-align: center; }
+.lang-rail a::after { content: ""; position: absolute; inset: 0 -12px 0 0; }
+.lang-rail a:hover { color: var(--accent); }
+.lang-rail a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+@media (min-width: 900px) { .lang-rail a { padding: 11px 9px; font-size: 12px; letter-spacing: .03em; } .lang-rail a::after { inset: 0; } }
+</style>`;
+
+function languageRail(current, languages) {
+  const paths = { en: '/', ...Object.fromEntries(languages.map((l) => [l, `/${l}/`])) };
+  const names = { en: 'English', ...Object.fromEntries(languages.map((l) => [l, LANDING_LANGUAGES[l].name])) };
+  const links = RAIL_ORDER
+    .filter((lang) => lang !== current && paths[lang])
+    .map((lang) => `<a href="${paths[lang]}" hreflang="${lang}" lang="${lang}" aria-label="${names[lang]}" title="${names[lang]}" data-language-choice="${lang}">${lang.toUpperCase()}</a>`)
+    .join('');
+  return `<nav class="lang-rail" aria-label="Language">${links}</nav>
+<script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-language-choice]');if(!a)return;try{localStorage.setItem('obertura.language',a.getAttribute('data-language-choice'))}catch(_){}});</script>`;
+}
+
 // A language page sends people to the app in that language, unless they already chose one.
 function carryLanguageIntoApp(lang) {
   return `<script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="/app/"]');if(!a)return;try{if(!localStorage.getItem('obertura.language'))localStorage.setItem('obertura.language','${lang}')}catch(_){}});</script>`;
@@ -182,8 +210,8 @@ export function buildSitemap(xml, released) {
 export function buildRootPage(html, released, redirects) {
   if (released.length === 0) return html;
   return html
-    .replace('</head>', `${languageLinks(released)}\n${redirectFromRoot(released, redirects)}\n</head>`)
-    .replace('</footer>', `${switcher('en', released)}\n</footer>`);
+    .replace('</head>', `${languageLinks(released)}\n${redirectFromRoot(released, redirects)}\n${RAIL_STYLE}\n</head>`)
+    .replace(/<\/body>/, `${languageRail('en', released)}\n</body>`);
 }
 
 /** The English privacy or terms page, with the language links added once a language is released. */
@@ -216,9 +244,8 @@ export function buildLanguagePage(html, lang, dictionary, released) {
     .replace('<link rel="canonical" href="https://bitochess.com/" />', `<link rel="canonical" href="${SITE}${lang}/" />`)
     .replace('<meta property="og:url" content="https://bitochess.com/" />', `<meta property="og:url" content="${SITE}${lang}/" />`)
     .replace('<meta property="og:locale" content="en_GB" />', `<meta property="og:locale" content="${LANDING_LANGUAGES[lang].locale}" />`)
-    .replace('</head>', `${languageLinks(languages)}\n</head>`)
-    .replace('</footer>', `${switcher(lang, languages)}\n</footer>`)
-    .replace(/<\/body>/, `${carryLanguageIntoApp(lang)}\n</body>`);
+    .replace('</head>', `${languageLinks(languages)}\n${RAIL_STYLE}\n</head>`)
+    .replace(/<\/body>/, `${languageRail(lang, languages)}\n${carryLanguageIntoApp(lang)}\n</body>`);
 }
 
 /**

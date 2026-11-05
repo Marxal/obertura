@@ -325,7 +325,7 @@ function updateOpeningName(): void {
 // A small fixed set of toggleable suggestion chips, plus any freeform tags the
 // user types. The working set lives here and is edited in the edit lightbox
 // (opened from the pencil in the title row), then saved with the line.
-const SUGGESTED_TAGS = ['aggressive', 'solid', 'gambit', 'sideline', 'main line'] as const;
+const SUGGESTED_TAGS: readonly string[] = [t('tag.aggressive'), t('tag.solid'), t('tag.gambit'), t('tag.sideline'), t('tag.mainLine')];
 
 // The tags currently applied to the line being built/edited.
 let currentTags: string[] = [];
@@ -492,7 +492,7 @@ function openEditSheet(): void {
     // tags as-is rather than silently dropping them.
     const own = ownRows
       ? [...ownRows.querySelectorAll('.tag-chip--on')].map(c => (c as HTMLElement).textContent!.trim())
-      : currentTags.filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]));
+      : currentTags.filter(tag => !SUGGESTED_TAGS.includes(tag));
     const custom = freeInput.value.split(',').map(t => t.trim()).filter(Boolean);
     currentTags = [...new Set([...selected, ...own, ...custom])];
     renderBuilderTags();

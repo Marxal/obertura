@@ -102,9 +102,9 @@ export class EvalPanel {
         <div class="eval-moves${this.compact ? ' eval-moves--compact' : ''}" id="eval-moves"></div>
         <div class="eval-right">
           <button class="eval-cloud-warn" id="eval-cloud-warn" type="button" hidden
-                  title="Couldn’t reach the Lichess engine — running locally. Tap to retry."
-                  aria-label="Couldn’t reach the Lichess engine — tap to retry">
-            ${WARN_SVG}<span id="eval-cloud-warn-text">Lichess off</span>
+                  title="${t('eval.cloudTitle')}"
+                  aria-label="${t('eval.cloudLabel')}">
+            ${WARN_SVG}<span id="eval-cloud-warn-text">${t('builder.lichessOff')}</span>
           </button>
           <span class="eval-source" id="eval-source"></span>
           ${toggle}

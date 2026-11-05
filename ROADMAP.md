@@ -3152,3 +3152,15 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - ✅ **Prices:** 120 kr everywhere, matching Stripe (checked live), and 12 EUR in the landing page's search data.
 - ✅ **`npm run landing:preview`:** edit a translation file, save, reload the phone. It needs no build.
 
+### Translation: the copy editor, the language rail, the last strings
+
+- **`npm run copy`:** a local page with every translated sentence beside its English, as marxal.net has: landing, terms and
+  privacy, the app, starter packs and traps. It saves as you type, one line per edit in the app's dictionaries, and refuses
+  what would break a page or change a move. It saves only from this computer, and nothing of it reaches a build.
+- **The landing page's language switcher** is pinned to the left edge: CA, ES, EN, SV, leaving out the current language.
+  On a phone it fits inside the page margin, so it covers no text. It stays hidden until a language is released.
+- **Last strings:** Masters, the Lichess warning, suggested tags, first-run's example openings and moves, and the default
+  book names for new accounts. Existing books and tags keep what they have.
+- Still in English: opening names from the library (Phase 10), the licences page and the install description. The emails
+  are written but not pasted into Supabase.
+

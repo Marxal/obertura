@@ -2565,5 +2565,19 @@
   "pack.style.universal": "Universal",
   "pack.style.solid": "Solid",
   "pack.style.aggressive": "Aggressive",
-  "pack.style.classical": "Classical"
+  "pack.style.classical": "Classical",
+  "eval.cloudTitle": "Couldn’t reach the Lichess engine — running locally. Tap to retry.",
+  "eval.cloudLabel": "Couldn’t reach the Lichess engine — tap to retry",
+  "builder.masters": "Masters",
+  "tag.aggressive": "aggressive",
+  "tag.solid": "solid",
+  "tag.gambit": "gambit",
+  "tag.sideline": "sideline",
+  "tag.mainLine": "main line",
+  "showcase.opening.italian": "Italian Game",
+  "showcase.opening.caroKann": "Caro-Kann",
+  "showcase.opening.london": "London System",
+  "showcase.opening.scandinavian": "Scandinavian",
+  "repertoire.defaultWhite": "My White lines",
+  "repertoire.defaultBlack": "My Black lines"
 }

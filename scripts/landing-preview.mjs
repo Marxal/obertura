@@ -1,12 +1,15 @@
-// `npm run landing:preview`: the landing and legal pages in every language, built fresh on
-// each request. Edit src/locales/landing/ca.json, save, reload the page on the phone: no
-// build. Prices and the founding counter need the live server, so they show their defaults.
+// `npm run copy`: the copy editor at /copy/, and the landing and legal pages in every
+// language, built fresh on each request. Change a sentence, reload the page: no build.
+// Prices and the founding counter need the live server, so they show their defaults.
+// The editor saves only from this computer: the phone can look, not write.
 
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { networkInterfaces } from 'node:os';
+import { exec } from 'node:child_process';
 import { buildLanguagePage, buildLegalPage, buildRootPage, LANDING_LANGUAGES } from './landing-pages.mjs';
+import { copySections, saveEdit } from './copy-editor.mjs';
 
 const PORT = Number(process.env.PORT ?? 4190);
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -28,8 +31,49 @@ function page(path) {
   return buildLegalPage(read(`docs/${file}`), file, lang, words('legal', lang), LANGUAGES);
 }
 
+const isThisComputer = (request) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress)
+  && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(request.headers.host ?? '');
+
+function reply(response, status, body) {
+  response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  response.end(JSON.stringify(body));
+}
+
+function saveFrom(request, response) {
+  // The JSON content type also keeps other websites from posting here.
+  if (!isThisComputer(request) || !(request.headers['content-type'] ?? '').startsWith('application/json')) {
+    reply(response, 403, { error: 'Saving only works on the computer, at localhost.' });
+    return;
+  }
+  let body = '';
+  request.on('data', (chunk) => { body += chunk; });
+  request.on('end', () => {
+    try {
+      const error = saveEdit(JSON.parse(body));
+      reply(response, error ? 400 : 200, error ? { error } : { ok: true });
+    } catch (error) {
+      reply(response, 500, { error: `Couldn’t save: ${error.message}` });
+    }
+  });
+}
+
 createServer((request, response) => {
-  const path = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+  const url = new URL(request.url, 'http://localhost');
+  const path = decodeURIComponent(url.pathname);
+  if (path === '/copy/save' && request.method === 'POST') { saveFrom(request, response); return; }
+  if (path === '/copy/data') {
+    try {
+      reply(response, 200, copySections(url.searchParams.get('lang') ?? 'ca'));
+    } catch (error) {
+      reply(response, 500, { error: error.message });
+    }
+    return;
+  }
+  if (path === '/copy' || path === '/copy/') {
+    response.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-store' });
+    response.end(read('scripts/copy-editor.html'));
+    return;
+  }
   let html;
   try {
     html = page(path);
@@ -52,8 +96,16 @@ createServer((request, response) => {
   }
   response.writeHead(404);
   response.end('Not here. Prices and the app need the live site.\n');
+}).on('error', (error) => {
+  // Already running, most likely: just open it.
+  if (error.code === 'EADDRINUSE' && process.argv.includes('--open')) {
+    exec(`open http://localhost:${PORT}/copy/`);
+    return;
+  }
+  throw error;
 }).listen(PORT, () => {
   const addresses = Object.values(networkInterfaces()).flat().filter((a) => a?.family === 'IPv4' && !a.internal);
+  console.log(`The editor: http://localhost:${PORT}/copy/`);
   for (const a of addresses) console.log(`On your phone (same Wi-Fi): http://${a.address}:${PORT}/ca/`);
-  console.log(`On this computer: http://localhost:${PORT}/ca/`);
+  if (process.argv.includes('--open')) exec(`open http://localhost:${PORT}/copy/`);
 });

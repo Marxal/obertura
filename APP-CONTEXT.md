@@ -2350,7 +2350,8 @@ one that fails soft — see §18.
 | `build-explorer-stats.mjs` | `explorer-stats.json` — **needs `LICHESS_TOKEN`** (build-time only, never shipped) |
 | `build-starter-packs.mjs` | `starter-packs.json` (source in `scripts/starter-packs/`) |
 | `landing-pages.mjs` | the language versions of the landing and legal pages, run by `vite.config.ts` during the Cloudflare build |
-| `landing-preview.mjs` | `npm run landing:preview`: those pages, rebuilt on every reload |
+| `landing-preview.mjs` | `npm run copy`: those pages, rebuilt on every reload, and the copy editor |
+| `copy-editor.mjs` / `.html` | the local editor for all translated text at `/copy/`. Never in a build |
 | `build-traps.mjs` / `build-traps-from-lichess.mjs` | `traps.json` |
 | `build-puzzle-openings.mjs` | `puzzle-openings.json` |
 | `run-selftests.ts` + `register-ts.mjs` + `ts-resolve.mjs` | the headless test runner |

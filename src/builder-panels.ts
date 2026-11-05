@@ -412,7 +412,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       });
       return b;
     };
-    seg.appendChild(opt('masters', 'Masters'));
+    seg.appendChild(opt('masters', t('builder.masters')));
     seg.appendChild(opt('lichess', 'Lichess'));
     bar.appendChild(seg);
 

@@ -2248,5 +2248,19 @@
   "endgame.minor-right-bishop.name": "Rätt löpare och kantbonde",
   "endgame.minor-right-bishop.idea": "Till skillnad från fel löpare bevakar den här förvandlingsrutan. Eftersom den täcker a8 kan motståndarens kung inte blockera hörnet: eskortera bara din kantbonde hem.",
   "endgame.minor-two-knights.name": "Två springare kan inte göra matt",
-  "endgame.minor-two-knights.idea": "Två springare kan inte tvinga fram matt mot en ensam kung. Håll din kung borta från hörnen och kanten, ge springarna inget att fånga och partiet blir remi."
+  "endgame.minor-two-knights.idea": "Två springare kan inte tvinga fram matt mot en ensam kung. Håll din kung borta från hörnen och kanten, ge springarna inget att fånga och partiet blir remi.",
+  "eval.cloudTitle": "Kunde inte nå Lichess motor: körs lokalt. Tryck för att försöka igen.",
+  "eval.cloudLabel": "Kunde inte nå Lichess motor. Tryck för att försöka igen.",
+  "builder.masters": "Mästare",
+  "tag.aggressive": "aggressiv",
+  "tag.solid": "solid",
+  "tag.gambit": "gambit",
+  "tag.sideline": "sidolinje",
+  "tag.mainLine": "huvudlinje",
+  "showcase.opening.italian": "Italienskt",
+  "showcase.opening.caroKann": "Caro-Kann",
+  "showcase.opening.london": "Londonsystemet",
+  "showcase.opening.scandinavian": "Skandinaviskt",
+  "repertoire.defaultWhite": "Mina linjer som vit",
+  "repertoire.defaultBlack": "Mina linjer som svart"
 }

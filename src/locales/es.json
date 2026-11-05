@@ -2248,5 +2248,19 @@
   "endgame.minor-right-bishop.name": "El alfil bueno y el peón de torre",
   "endgame.minor-right-bishop.idea": "A diferencia del alfil malo, este vigila la casilla de coronación. Como cubre a8, el rey rival no puede bloquear la esquina: acompaña a tu peón de torre hasta el final.",
   "endgame.minor-two-knights.name": "Dos caballos no dan mate",
-  "endgame.minor-two-knights.idea": "Dos caballos no pueden forzar el mate contra un rey solo. Mantén a tu rey lejos de las esquinas y del borde, no des a los caballos nada que atrapar y la partida es tablas."
+  "endgame.minor-two-knights.idea": "Dos caballos no pueden forzar el mate contra un rey solo. Mantén a tu rey lejos de las esquinas y del borde, no des a los caballos nada que atrapar y la partida es tablas.",
+  "eval.cloudTitle": "No se ha podido conectar con la máquina de Lichess: funciona en local. Toca para reintentar.",
+  "eval.cloudLabel": "No se ha podido conectar con la máquina de Lichess. Toca para reintentar.",
+  "builder.masters": "Maestros",
+  "tag.aggressive": "agresiva",
+  "tag.solid": "sólida",
+  "tag.gambit": "gambito",
+  "tag.sideline": "línea secundaria",
+  "tag.mainLine": "línea principal",
+  "showcase.opening.italian": "Italiana",
+  "showcase.opening.caroKann": "Caro-Kann",
+  "showcase.opening.london": "Sistema Londres",
+  "showcase.opening.scandinavian": "Escandinava",
+  "repertoire.defaultWhite": "Mis líneas con blancas",
+  "repertoire.defaultBlack": "Mis líneas con negras"
 }

@@ -1,5 +1,7 @@
 # Bito Chess glossary
 
+Marçal edits translations himself in `npm run copy`, so they may differ from the English on purpose.
+
 Read this before every translation pass. It keeps the words the same across the app, so a
 correction here fixes every case and every later pass.
 
