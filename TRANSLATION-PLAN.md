@@ -3,9 +3,10 @@
 Status: **Phases 0 to 3 done, Phase 4 under way (2026-11-04).** First run, Home, opening
 training, the Pro popup and Settings go through `t()`, and English users see no change beyond
 small layout fixes. Marçal's Catalan guide is `catalan-instructions-bito.md`, and
-`src/locales/GLOSSARY.md` holds the approved words. Phase 4 is under way: every key is in
-Catalan (`src/locales/ca.json`), reachable with `?lang=ca`. Spanish, Swedish and the review page
-are next, once Marçal has read the Catalan. Pack names and notes
+`src/locales/GLOSSARY.md` holds the approved words. Phase 4 is nearly done: every converted screen is in
+Catalan, Spanish and Swedish (`src/locales/`), reachable with `?lang=ca`, `?lang=es` and `?lang=sv`.
+Marçal has read the Catalan on a phone. None is released yet. Next is reading Spanish, a Swedish
+player reading Swedish, and Phase 6. Pack names and notes
 wait for Phase 7. The builder, Middlegame, Tactics, Endgames and the other screens wait for
 Phase 6. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
 
@@ -233,8 +234,7 @@ Each phase can stop safely, because of the English fallback.
 Moving 144 files to keys is the largest single change the app has had, so do it in
 small rounds and don't mix it with features.
 
-Not built yet: `status.json` change tracking, length limits in the dictionary, and the Spanish and
-Swedish files. A selftest already fails if a translation loses a placeholder or keeps a key English
+Not built yet: the review page, `status.json` change tracking and length limits in the dictionary. A selftest already fails if a translation loses a placeholder or keeps a key English
 no longer has. The Language row and
 the first-run picker exist but stay hidden until a second language is in
 `RELEASED_LANGUAGES` (`src/language-choice.ts`), or under a `?lang=` preview.

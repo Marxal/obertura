@@ -25,7 +25,8 @@ two disagree, this file wins, because it records the decisions made after that g
 neutral. *Cagada* is used inside the app only: never in the landing page, legal text, app store
 text or emails.
 
-**Spanish:** keep its own list of calques from English, as Catalan's guide does.
+**Spanish:** keep its own list of calques from English, as Catalan's guide does. A past game is told in the past
+too: *Jugaste {move}*.
 
 **Swedish:** use fewer exclamation marks than Catalan, and watch long compound words on buttons.
 

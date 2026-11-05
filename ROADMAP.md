@@ -3093,3 +3093,10 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   now fixed for other languages.
 - Waiting for Marçal to read it. His corrections go in the glossary before Spanish and Swedish are generated.
 
+### Translation: Spanish and Swedish (Phase 4, second round)
+
+- **`src/locales/es.json`, `src/locales/sv.json`:** all 949 keys, from the approved glossary and Marçal's corrections
+  to the Catalan. Not released: only `?lang=es` and `?lang=sv` show them. Nobody has reviewed either yet.
+- ✅ **The selftest now guards all three,** and the layout check passes in both on all 54 screen checks. By eye,
+  a long Swedish word broke mid-word in the drill's header, so it now says *Hela repertoaren*.
+

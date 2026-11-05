@@ -5,6 +5,8 @@ import { appLocale, englishDictionary, t, tOrdinal, tParts, useDictionary, type 
 import { pickLanguage, RELEASED_LANGUAGES, type Language } from './language-choice';
 import { pseudoDictionary, pseudoText } from './locales/pseudo';
 import ca from './locales/ca.json';
+import es from './locales/es.json';
+import sv from './locales/sv.json';
 
 export interface TestResult {
   name: string;
@@ -81,7 +83,7 @@ export function runI18nSelfTest(): TestResult[] {
 
   // ── The real languages ─────────────────────────────────────────────────────
   // A placeholder a translation lost shows nothing, and one it invented shows {like this}.
-  for (const [lang, dictionary] of Object.entries({ ca }) as [string, Dictionary][]) {
+  for (const [lang, dictionary] of Object.entries({ ca, es, sv }) as [string, Dictionary][]) {
     const extra = Object.keys(dictionary).filter((key) => !(key in englishDictionary));
     check(`${lang}: no keys English doesn't have`, extra.length === 0, extra.join(', '));
     const broken = Object.entries(dictionary).filter(([key, message]) => {
