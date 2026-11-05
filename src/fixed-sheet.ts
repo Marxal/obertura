@@ -10,6 +10,7 @@
 // game it came from, each row a way back into the position. Nothing here is
 // destructive and nothing is a new exercise — it is a record, with a door.
 
+import { openingLabel } from './opening-names';
 import type { SpotRef } from './mistake-scan';
 import { CATEGORY_LABEL } from './mistake-run';
 import { Icons } from './icons';
@@ -150,7 +151,7 @@ function buildGroup(
   if (group.game.opening) {
     const opening = document.createElement('div');
     opening.className = 'fixed-game-opening';
-    opening.textContent = group.game.opening;
+    opening.textContent = openingLabel(group.game.opening);
     wrap.appendChild(opening);
   }
 

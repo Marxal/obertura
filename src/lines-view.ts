@@ -15,6 +15,7 @@
 //
 // DOM-free and storage-free; exercised under Node by lines-view.selftest.ts.
 
+import { openingLabel } from './opening-names';
 import type { MoveNode } from './tree';
 import type { Line, LinePriority } from './types';
 import { nameForPath } from './openings';
@@ -110,7 +111,7 @@ export function projectLine(
   const label = resolveLabel(originPath);
   return {
     id: makeLineId(rep.id, end.id),
-    name: label ?? opening ?? notationName(path),
+    name: label ?? openingLabel(opening) ?? notationName(path),
     tags: resolveTags(originPath),
     colour: rep.colour,
     openingName: opening,
@@ -348,7 +349,7 @@ function applyLineMeta(at: LineLocation, line: Line): void {
   // pinning, so auto-named lines keep a clean node.
   const auto = nameForPath(path.map(n => n.fen)) ?? notationName(path);
   const inheritedLabel = resolveLabel(above);
-  if (!line.name || line.name === auto || line.name === inheritedLabel) delete end.label;
+  if (!line.name || line.name === auto || line.name === openingLabel(auto) || line.name === inheritedLabel) delete end.label;
   else end.label = line.name;
 
   // Tags already carried by an ancestor stay there; only the extras are pinned.

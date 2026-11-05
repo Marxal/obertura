@@ -23,6 +23,7 @@
 // and a region that isn't rendered at all simply takes no room. All of it lives
 // in CSS — nothing here branches on screen width.
 
+import { openingLabel } from './opening-names';
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
 import { getAllGames, getAllLines } from './storage';
@@ -799,7 +800,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
   if (opRows.length > 0) {
     const section = statsSection(t('stats.accuracyByOpening'));
     for (const r of opRows.slice(0, 8)) {
-      section.appendChild(otrLine(r.family, winBar(r.accuracyPct), `${r.accuracyPct}% · ${r.attempts}`));
+      section.appendChild(otrLine(openingLabel(r.family), winBar(r.accuracyPct), `${r.accuracyPct}% · ${r.attempts}`));
     }
     region.appendChild(section);
   }
@@ -1008,7 +1009,7 @@ function openLinesSheet(
       text.className = 'stats-sheet-text';
       const name = document.createElement('span');
       name.className = 'stats-sheet-name';
-      name.textContent = line.name || line.openingName || t('drill.untitledLine');
+      name.textContent = line.name || openingLabel(line.openingName) || t('drill.untitledLine');
       text.appendChild(name);
       const meta = document.createElement('span');
       meta.className = 'stats-sheet-meta';
@@ -1564,7 +1565,7 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
   titleRow.appendChild(colourPip(row.colour));
   const name = document.createElement('span');
   name.className = 'pcard-name';
-  name.textContent = row.family;
+  name.textContent = openingLabel(row.family);
   titleRow.appendChild(name);
   const gamesMeta = document.createElement('span');
   gamesMeta.className = 'stats-op-games';
@@ -1585,7 +1586,7 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
       { value: row.losses, kind: 'loss' },
     ],
     {
-      ariaLabel: t('stats.wonDrawnLostScore', { family: row.family, wins: row.wins, draws: row.draws, losses: row.losses, scorePct: row.scorePct }),
+      ariaLabel: t('stats.wonDrawnLostScore', { family: openingLabel(row.family), wins: row.wins, draws: row.draws, losses: row.losses, scorePct: row.scorePct }),
       centre: `${row.scorePct}%`,
       caption: t('stats.score'),
     },
@@ -1601,8 +1602,8 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
     memorySegments(mem),
     {
       ariaLabel: hasLine
-        ? t('stats.memoryOfDrilledMoves', { family: row.family, solid: mem.solid, trained: mem.trained })
-        : t('stats.notInYourLines', { family: row.family }),
+        ? t('stats.memoryOfDrilledMoves', { family: openingLabel(row.family), solid: mem.solid, trained: mem.trained })
+        : t('stats.notInYourLines', { family: openingLabel(row.family) }),
       centre: hasLine && mem.recallPct !== null ? `${mem.recallPct}%` : '—',
       caption: t('stat.recall'),
       empty: !hasLine,
@@ -1691,7 +1692,7 @@ function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], st
   for (const fam of families) {
     const opt = document.createElement('option');
     opt.value = fam;
-    opt.textContent = fam;
+    opt.textContent = openingLabel(fam);
     select.appendChild(opt);
   }
   select.addEventListener('change', () => { opening = select.value; rebuild(); });
@@ -1801,7 +1802,7 @@ function renderScoringTabs(container: HTMLElement, stats: OpeningStat[]): void {
       name.className = 'stats-rank-name';
       name.appendChild(colourPip(s.colour));
       const t = document.createElement('span');
-      t.textContent = s.family;
+      t.textContent = openingLabel(s.family);
       name.appendChild(t);
       item.appendChild(name);
       const val = document.createElement('span');

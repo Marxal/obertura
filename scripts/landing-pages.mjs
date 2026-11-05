@@ -26,6 +26,10 @@ export const LANDING_LANGUAGES = {
 
 const SITE = 'https://bitochess.com/';
 
+// Text that reads the same in every language: names and moves. Not waiting for a translation.
+export const LANDING_KEEP = /^(bito chess|Bito Chess|Chess\.com|Lichess|Marçal|Marçal, marxal\.net|Ruy López|© 2026 Bito Chess|5 parts|\d+[.…]+[a-h]?x?[a-h][1-8])$/;
+export const LEGAL_KEEP = /^(Component|Data|Software|github\.com\/Marxal\/obertura|openfontlicense\.org|MIT|Apache-2\.0|BSD-2-Clause|[A-Z-]+-[0-9.]+(-or-later|-[A-Z]+)*|CC-BY.*|cburnett|Maestro|California|Mpchess|Kiwen-Suwi|Horsey|Gioco|Tatiana|Letter|Anarcandy|Colin M\.L\. Burnett|sadsnake1|Jerry S\.|Maxime Chupin|neverRare|cham, michael1241|usolando|caderek|[a-zA-Z-]+\/[a-zA-Z0-9.-]+|chessground|Stockfish|chess\.js|supabase-js|Vite|@bity.*|Lichess chess-openings|Chakra Petch|SIL Open Font License 1\.1|Cadson Demak|bito chess|Bito Chess|Supabase|Cloudflare|Stripe|Google|Resend|Web3Forms|© 2026 Bito Chess|creative@marxal\.net|stripe\.com\/.*|.*\.se|Umami|ARN|IMY|Lichess|Chess\.com|chess-api\.com|YouTube|EU \(Frankfurt\)|USA|ec\.europa\.eu.*|\.)$/;
+
 // The same letters as src/notation.ts, and a selftest holds them together. The page has
 // no notation setting, so it uses the language's letters as the English page uses its own.
 const LETTERS = {
@@ -88,10 +92,10 @@ export function landingText(html) {
 }
 
 // Page assets are relative to the site root, and this page sits one folder down. The home
-// page, privacy and terms exist in the same folder, so links to them stay as they are.
+// page, privacy, terms and licences exist in the same folder, so links to them stay.
 function fromSubfolder(html) {
   return html
-    .replace(/\b(href|src)="(?!https?:|mailto:|#|\/|\.\.\/|\.\/|data:|tel:|privacy\.html|terms\.html)([^"]+)"/g, '$1="../$2"')
+    .replace(/\b(href|src)="(?!https?:|mailto:|#|\/|\.\.\/|\.\/|data:|tel:|privacy\.html|terms\.html|licences\.html)([^"]+)"/g, '$1="../$2"')
     .replace(/\b(srcset|imagesrcset)="([^"]+)"/g, (_all, name, list) => `${name}="${list.split(',').map((item) => `../${item.trim()}`).join(', ')}"`)
     .replace(/url\('fonts\//g, "url('../fonts/")
     .replace(/content="(?!https?:)([\w./-]+\.(?:png|webp|jpg))"/g, 'content="../$1"');

@@ -8,6 +8,7 @@
 // opens (like the opening-library tree), so collapsed miniatures never render at
 // the wrong size and long lists stay cheap.
 
+import { openingLabel } from './opening-names';
 import type { Line } from './types';
 import { openingFamily } from './analysis';
 import { Icons } from './icons';
@@ -89,7 +90,7 @@ function buildFamilyGroup<T>(
 
   const name = document.createElement('span');
   name.className = 'lines-fam-name';
-  name.textContent = family;
+  name.textContent = openingLabel(family);
   head.appendChild(name);
 
   const count = document.createElement('span');

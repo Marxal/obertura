@@ -14,6 +14,7 @@
 // Explore and Engine are their own modules (explore-panel.ts, engine-panel.ts);
 // the quick engine is the dock's engine icon and its docked eval bar (main.ts).
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { nameForFen } from './openings';
 import { buildBook, bookNodeAt, loadBookEntries, type BookNode } from './book-tree';
@@ -228,7 +229,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       row.addEventListener('click', () => deps.onPlay(uci));
 
       row.appendChild(span('lib-bx-move', `${prefix} ${formatMove(san)}`));
-      row.appendChild(span('lib-bx-name', label));
+      row.appendChild(span('lib-bx-name', openingLabel(label)));
       const stat = span('lib-bx-count', `${child.count}`);
       row.appendChild(stat);
       statSlots.set(uci, stat);

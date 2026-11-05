@@ -3164,3 +3164,14 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - Still in English: opening names from the library (Phase 10), the licences page and the install description. The emails
   are written but not pasted into Supabase.
 
+### Translation: opening names, licences, emails ready to paste, `bitotext`
+
+- **Opening names (Phase 10):** all 10,956, in all three languages, from about 400 words and names per language, and a few rules. Surnames stay,
+  so "Sicilian Defense: Najdorf Variation" is "Defensa siciliana: Variant Najdorf". It costs 3 KB per language. Only what's shown
+  changes: English stays what's stored and matched, so statistics, traps and puzzles work as before. Library search takes either
+  language. A few names with typos in the source stay part English. Rule-built, so a chess player should sample them.
+- **Licences page** in all three languages. **`EMAIL-TEMPLATES.md`** now holds complete templates ready to paste, with the test steps.
+- **`bitotext`** in the terminal starts everything and opens the editor (a function in `~/.zshrc`, not in this repo).
+- **The protocol for changes** is in `CLAUDE.md`: build in English, then `npm run i18n:status` lists what's waiting (missing, or English
+  changed since translating) and Marçal decides when to translate. Selftests no longer fail on text that's merely untranslated.
+

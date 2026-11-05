@@ -7,6 +7,7 @@
 // its sort, its groups and its own re-render, and the host it is handed happens
 // to be a tab body rather than a view.
 
+import { openingLabel } from './opening-names';
 import type { Line } from './types';
 import {
   getAllLines,
@@ -222,7 +223,7 @@ function viewSavedLines(lines: Line[], sel: FilterSelection): Line[] {
 }
 
 function lineMatches(line: Line, query: string): boolean {
-  return `${line.name} ${line.openingName ?? ''}`.toLowerCase().includes(query);
+  return `${line.name} ${line.openingName ?? ''} ${openingLabel(line.openingName) ?? ''}`.toLowerCase().includes(query);
 }
 
 // The one book every one of these lines lives in, or null when they're spread
@@ -475,7 +476,7 @@ function buildDetailCard(
   titleRow.appendChild(colourPip(line.colour));
   const nameEl = document.createElement('span');
   nameEl.className = 'pcard-name';
-  nameEl.textContent = line.name || line.openingName || tr('drill.untitledLine');
+  nameEl.textContent = line.name || openingLabel(line.openingName) || tr('drill.untitledLine');
   titleRow.appendChild(nameEl);
   // A short-lived "New" chip on the line you just saved, so it's easy to spot.
   if (justSaved) {
@@ -491,10 +492,10 @@ function buildDetailCard(
   const info = document.createElement('div');
   info.className = 'dline-info';
 
-  if (line.openingName && line.openingName !== nameEl.textContent) {
+  if (line.openingName && openingLabel(line.openingName) !== nameEl.textContent) {
     const opening = document.createElement('div');
     opening.className = 'dline-opening';
-    opening.textContent = line.openingName;
+    opening.textContent = openingLabel(line.openingName);
     info.appendChild(opening);
   }
 
@@ -726,7 +727,7 @@ function openDeletePopup(line: Line, onDeleted: () => void): void {
 
   const warn = document.createElement('p');
   warn.className = 'delete-warn';
-  const label = line.name || line.openingName || tr('builder.thisLine');
+  const label = line.name || openingLabel(line.openingName) || tr('builder.thisLine');
   warn.textContent =
     tr('builder.andAllOfIts', { label: label });
   sheet.appendChild(warn);

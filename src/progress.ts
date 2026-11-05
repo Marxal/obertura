@@ -21,6 +21,7 @@
 // game can sit inside several lines' prep; it's assigned to the deepest match so
 // it's only counted once.
 
+import { openingLabel } from './opening-names';
 import type { ImportedGame } from './chesscom';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
@@ -206,7 +207,7 @@ export function crossReference(
 
     items.push({
       lineId: line.id,
-      title: named ? line.name.trim() : family,
+      title: named ? line.name.trim() : openingLabel(family),
       family,
       colour: line.colour,
       inTraining: line.inTraining,

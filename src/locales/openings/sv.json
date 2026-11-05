@@ -1,0 +1,744 @@
+{
+  "order": "before",
+  "names": {
+    "Sicilian": "Sicilianskt",
+    "Sicilian Defense": "Sicilianskt",
+    "Sicilian Defence": "Sicilianskt",
+    "Open Sicilian": "Öppet sicilianskt",
+    "Closed Sicilian": "Stängt sicilianskt",
+    "Classical Sicilian": "Klassiskt sicilianskt",
+    "Slow Sicilian": "Långsamt sicilianskt",
+    "King's Indian": "Kungsindiskt",
+    "King's Indian Defense": "Kungsindiskt",
+    "King's Indian Defence": "Kungsindiskt",
+    "King's Indian Attack": "Kungsindiskt i förhand",
+    "Queen's Indian": "Damindiskt",
+    "Queen's Indian Defense": "Damindiskt",
+    "Neo-Queen's Indian": "Neo-damindiskt",
+    "Nimzo-Indian": "Nimzoindiskt",
+    "Nimzo-Indian Defense": "Nimzoindiskt",
+    "Nimzo-Indian Defence": "Nimzoindiskt",
+    "Bogo-Indian": "Bogoindiskt",
+    "Bogo-Indian Defense": "Bogoindiskt",
+    "Old Indian": "Gammalindiskt",
+    "Old Indian Defense": "Gammalindiskt",
+    "Old Indian Defence": "Gammalindiskt",
+    "Indian Defense": "Indiskt försvar",
+    "Indian Defence": "Indiskt försvar",
+    "Indian": "Indiskt",
+    "Indian Game": "Indiskt parti",
+    "East Indian Defense": "Östindiskt försvar",
+    "Neo-Indian": "Neoindiskt",
+    "Neo-Old Indian": "Neo-gammalindiskt",
+    "Neo-King's Indian": "Neo-kungsindiskt",
+    "QGD": "Avböjd damgambit",
+    "QGA": "Antagen damgambit",
+    "KGD": "Avböjd kungsgambit",
+    "KGA": "Antagen kungsgambit",
+    "BDG": "Blackmar-Diemer-gambit",
+    "QGD Tarrasch": "Avböjd damgambit, Tarrasch",
+    "Queen's Gambit": "Damgambit",
+    "Queen's Gambit Declined": "Avböjd damgambit",
+    "Queen's Gambit Accepted": "Antagen damgambit",
+    "Queen's Gambit Refused": "Avböjd damgambit",
+    "King's Gambit": "Kungsgambit",
+    "King's Gambit Accepted": "Antagen kungsgambit",
+    "King's Gambit Declined": "Avböjd kungsgambit",
+    "Spanish": "Spanskt",
+    "Spanish Game": "Spanskt",
+    "Ruy Lopez": "Spanskt",
+    "English": "Engelskt",
+    "English Opening": "Engelskt",
+    "English Defense": "Engelskt försvar",
+    "King's English": "Kungsengelskt",
+    "French": "Franskt",
+    "French Defense": "Franskt",
+    "French Defence": "Franskt",
+    "Dutch": "Holländskt",
+    "Dutch Defense": "Holländskt",
+    "Dutch Defence": "Holländskt",
+    "Italian": "Italienskt",
+    "Italian Game": "Italienskt",
+    "Scotch": "Skotskt",
+    "Scotch Game": "Skotskt",
+    "Scotch Gambit": "Skotsk gambit",
+    "Slav": "Slaviskt",
+    "Slav Defense": "Slaviskt",
+    "Semi-Slav": "Halvslaviskt",
+    "Semi-Slav Defense": "Halvslaviskt",
+    "Catalan": "Katalanskt",
+    "Catalan Opening": "Katalanskt",
+    "Neo-Catalan": "Neokatalanskt",
+    "Scandinavian": "Skandinaviskt",
+    "Scandinavian Defense": "Skandinaviskt",
+    "Center Counter": "Skandinaviskt",
+    "Vienna": "Wienerparti",
+    "Vienna Game": "Wienerparti",
+    "Vienna Gambit": "Wienergambit",
+    "Russian": "Ryskt",
+    "Russian Game": "Ryskt",
+    "Petrov": "Ryskt",
+    "Petrov's Defense": "Ryskt",
+    "Petrov's Defence": "Ryskt",
+    "Petrov Defense": "Ryskt",
+    "Petrov Defence": "Ryskt",
+    "Two Knights": "Tvåspringarspel",
+    "Two Knights Defense": "Tvåspringarspel",
+    "Two Knights Defence": "Tvåspringarspel",
+    "2 Knights": "Tvåspringarspel",
+    "Three Knights": "Trespringarspel",
+    "Three Knights Opening": "Trespringarspel",
+    "3 Knights": "Trespringarspel",
+    "Four Knights": "Fyrspringarspel",
+    "Four Knights Game": "Fyrspringarspel",
+    "4 Knights": "Fyrspringarspel",
+    "Bishop's Opening": "Löparspel",
+    "King's Pawn": "Kungsbonde",
+    "King's Pawn Game": "Kungsbondespel",
+    "King's Pawn Opening": "Kungsbondeöppning",
+    "Queen's Pawn": "Dambonde",
+    "Queen's Pawn Game": "Dambondespel",
+    "Queen Pawn Game": "Dambondespel",
+    "Queen Pawn Opening": "Dambondeöppning",
+    "King's Knight Opening": "Kungsspringaröppning",
+    "Center Game": "Centrumspel",
+    "Centre Game": "Centrumspel",
+    "Open Game": "Öppet spel",
+    "Danish Gambit": "Nordisk gambit",
+    "Latvian Gambit": "Lettisk gambit",
+    "Elephant Gambit": "Elefantgambit",
+    "Polish": "Polskt",
+    "Polish Opening": "Polsk öppning",
+    "Polish Defense": "Polskt försvar",
+    "Hungarian Opening": "Ungersk öppning",
+    "Hungarian Defense": "Ungerskt försvar",
+    "Hungarian Defence": "Ungerskt försvar",
+    "Portuguese Opening": "Portugisisk öppning",
+    "Mexican Defense": "Mexikanskt försvar",
+    "Czech Defense": "Tjeckiskt försvar",
+    "Norwegian Defense": "Norskt försvar",
+    "Rat Defense": "Råttförsvaret",
+    "Lion Defense": "Lejonförsvaret",
+    "Kangaroo Defense": "Känguruförsvaret",
+    "Hippopotamus Defense": "Flodhästförsvaret",
+    "Modern": "Modernt",
+    "Modern Defense": "Modernt försvar",
+    "St. George Defense": "S:t Georgs försvar",
+    "St. George Defence": "S:t Georgs försvar",
+    "London System": "Londonsystemet",
+    "Stonewall Attack": "Stonewall-angreppet",
+    "Budapest": "Budapest",
+    "Budapest Gambit": "Budapestgambit",
+    "Evans Gambit": "Evansgambit",
+    "Fried Liver Attack": "Fried Liver-angreppet",
+    "Fried Liver": "Fried Liver",
+    "Giuoco Piano": "Giuoco Piano",
+    "Giuoco Pianissimo": "Giuoco Pianissimo",
+    "Noah's Ark Trap": "Noaks ark-fällan",
+    "Scholar's Mate": "Skolmatt",
+    "Fool's Mate": "Dåres matt",
+    "Parham Attack/Scholar's Mate": "Parham-angreppet / Skolmatt",
+    "Main Line": "Huvudlinje",
+    "Old Main Line": "Gammal huvudlinje",
+    "Classical": "Klassisk",
+    "Closed": "Stängd",
+    "Open": "Öppen",
+    "Exchange": "Avbytesvarianten",
+    "Advance": "Framskjutningsvarianten",
+    "Fianchetto": "Fianchetto",
+    "Symmetrical": "Symmetrisk",
+    "Modern Variation": "Modern variant",
+    "Dragon": "Draken",
+    "Accelerated Dragon": "Accelererad drake",
+    "Hedgehog": "Igelkotten",
+    "Poisoned Pawn": "Förgiftade bonden",
+    "Grand Prix": "Grand Prix",
+    "Grand Prix Attack": "Grand Prix-angreppet",
+    "English Attack": "Engelskt angrepp",
+    "Wing Gambit": "Flygelgambit",
+    "Marshall Attack": "Marshall-angreppet",
+    "Anti-Marshall": "Anti-Marshall",
+    "Maroczy Bind": "Maróczy-greppet",
+    "Maróczy Bind": "Maróczy-greppet",
+    "Four Pawns": "Fyra bönder",
+    "Four Pawns Attack": "Fyrbondeangreppet",
+    "Three Pawns Attack": "Trebondeangreppet",
+    "Five Pawns": "Fem bönder",
+    "Knight Sacrifice Line": "Springaroffret",
+    "Bishop Sacrifice Line": "Löparoffret",
+    "Mar del Plata": "Mar del Plata",
+    "Queenswap": "Dambyte",
+    "Queenswap Line": "Dambyteslinjen",
+    "Moscow": "Moskva",
+    "Berlin": "Berlin",
+    "Berlin Defense": "Berlinförsvaret",
+    "Berlin Defence": "Berlinförsvaret",
+    "London": "London",
+    "Prague": "Prag",
+    "Stockholm": "Stockholm",
+    "Zurich": "Zürich",
+    "Warsaw": "Warszawa",
+    "Vienna Variation": "Wienvarianten",
+    "with": "med",
+    "without": "utan",
+    "and": "och",
+    "or": "eller",
+    "vs": "mot",
+    "Line": "Linje",
+    "Variation": "Variant",
+    "Closed Variations": "Stängda varianter",
+    "London System Main Line": "Londonsystemet, huvudlinje",
+    "Vienna Hybrid": "Wienhybrid",
+    "Queen Gambit": "Damgambit",
+    "Chigorin": "Tjigorin",
+    "Fully Accepted": "Helt antagen"
+  },
+  "nouns": {
+    "Variation": [
+      "variant",
+      "varianten",
+      "c"
+    ],
+    "Variations": [
+      "varianter",
+      "varianterna",
+      "c"
+    ],
+    "Var": [
+      "variant",
+      "varianten",
+      "c"
+    ],
+    "Variaiton": [
+      "variant",
+      "varianten",
+      "c"
+    ],
+    "variation": [
+      "variant",
+      "varianten",
+      "c"
+    ],
+    "Line": [
+      "linje",
+      "linjen",
+      "c"
+    ],
+    "line": [
+      "linje",
+      "linjen",
+      "c"
+    ],
+    "Defense": [
+      "försvar",
+      "försvaret",
+      "n"
+    ],
+    "Defence": [
+      "försvar",
+      "försvaret",
+      "n"
+    ],
+    "Defenses": [
+      "försvar",
+      "försvaren",
+      "n"
+    ],
+    "Attack": [
+      "angrepp",
+      "angreppet",
+      "n"
+    ],
+    "Atack": [
+      "angrepp",
+      "angreppet",
+      "n"
+    ],
+    "Gambit": [
+      "gambit",
+      "gambiten",
+      "c"
+    ],
+    "Countergambit": [
+      "motgambit",
+      "motgambiten",
+      "c"
+    ],
+    "Counterattack": [
+      "motangrepp",
+      "motangreppet",
+      "n"
+    ],
+    "Counter-Attack": [
+      "motangrepp",
+      "motangreppet",
+      "n"
+    ],
+    "System": [
+      "system",
+      "systemet",
+      "n"
+    ],
+    "system": [
+      "system",
+      "systemet",
+      "n"
+    ],
+    "Opening": [
+      "öppning",
+      "öppningen",
+      "c"
+    ],
+    "Game": [
+      "parti",
+      "partiet",
+      "n"
+    ],
+    "Trap": [
+      "fälla",
+      "fällan",
+      "c"
+    ],
+    "Formation": [
+      "formation",
+      "formationen",
+      "c"
+    ],
+    "Sacrifice": [
+      "offer",
+      "offret",
+      "n"
+    ],
+    "Mate": [
+      "matt",
+      "matten",
+      "c"
+    ],
+    "Setup": [
+      "uppställning",
+      "uppställningen",
+      "c"
+    ],
+    "Spike": [
+      "spike",
+      "spiken",
+      "c"
+    ],
+    "Endgame": [
+      "slutspel",
+      "slutspelet",
+      "n"
+    ],
+    "Bind": [
+      "grepp",
+      "greppet",
+      "n"
+    ],
+    "Retreat": [
+      "reträtt",
+      "reträtten",
+      "c"
+    ],
+    "Break": [
+      "brytning",
+      "brytningen",
+      "c"
+    ],
+    "Push": [
+      "framstöt",
+      "framstöten",
+      "c"
+    ],
+    "Invitation": [
+      "inbjudan",
+      "inbjudan",
+      "c"
+    ]
+  },
+  "adjectives": {
+    "Classical": [
+      "klassisk",
+      "klassiskt"
+    ],
+    "classical": [
+      "klassisk",
+      "klassiskt"
+    ],
+    "Modern": [
+      "modern",
+      "modernt"
+    ],
+    "Closed": [
+      "stängd",
+      "stängt"
+    ],
+    "Open": [
+      "öppen",
+      "öppet"
+    ],
+    "Old": [
+      "gammal",
+      "gammalt"
+    ],
+    "New": [
+      "ny",
+      "nytt"
+    ],
+    "Normal": [
+      "normal",
+      "normalt"
+    ],
+    "Orthodox": [
+      "ortodox",
+      "ortodoxt"
+    ],
+    "Symmetrical": [
+      "symmetrisk",
+      "symmetriskt"
+    ],
+    "Symmetric": [
+      "symmetrisk",
+      "symmetriskt"
+    ],
+    "Central": [
+      "central",
+      "centralt"
+    ],
+    "Reversed": [
+      "omvänd",
+      "omvänt"
+    ],
+    "Inverted": [
+      "omvänd",
+      "omvänt"
+    ],
+    "Accelerated": [
+      "accelererad",
+      "accelererat"
+    ],
+    "Hyperaccelerated": [
+      "hyperaccelererad",
+      "hyperaccelererat"
+    ],
+    "Delayed": [
+      "fördröjd",
+      "fördröjt"
+    ],
+    "Deferred": [
+      "uppskjuten",
+      "uppskjutet"
+    ],
+    "Accepted": [
+      "antagen",
+      "antaget"
+    ],
+    "accepted": [
+      "antagen",
+      "antaget"
+    ],
+    "Declined": [
+      "avböjd",
+      "avböjt"
+    ],
+    "Refused": [
+      "avböjd",
+      "avböjt"
+    ],
+    "Double": [
+      "dubbel",
+      "dubbelt"
+    ],
+    "Early": [
+      "tidig",
+      "tidigt"
+    ],
+    "Improved": [
+      "förbättrad",
+      "förbättrat"
+    ],
+    "Traditional": [
+      "traditionell",
+      "traditionellt"
+    ],
+    "Quiet": [
+      "lugn",
+      "lugnt"
+    ],
+    "Sharp": [
+      "skarp",
+      "skarpt"
+    ],
+    "Flexible": [
+      "flexibel",
+      "flexibelt"
+    ],
+    "Positional": [
+      "positionell",
+      "positionellt"
+    ],
+    "Standard": [
+      "standard",
+      "standard"
+    ],
+    "Hybrid": [
+      "hybrid",
+      "hybrid"
+    ],
+    "Long": [
+      "lång",
+      "långt"
+    ],
+    "Small": [
+      "liten",
+      "litet"
+    ],
+    "Big": [
+      "stor",
+      "stort"
+    ],
+    "Great": [
+      "stor",
+      "stort"
+    ],
+    "Rare": [
+      "ovanlig",
+      "ovanligt"
+    ],
+    "Wild": [
+      "vild",
+      "vilt"
+    ],
+    "Slow": [
+      "långsam",
+      "långsamt"
+    ],
+    "Extended": [
+      "utökad",
+      "utökat"
+    ],
+    "Immediate": [
+      "omedelbar",
+      "omedelbart"
+    ],
+    "First": [
+      "första",
+      "första"
+    ],
+    "Second": [
+      "andra",
+      "andra"
+    ],
+    "Forgotten": [
+      "glömd",
+      "glömt"
+    ],
+    "Sicilian": [
+      "siciliansk",
+      "sicilianskt"
+    ],
+    "French": [
+      "fransk",
+      "franskt"
+    ],
+    "English": [
+      "engelsk",
+      "engelskt"
+    ],
+    "Italian": [
+      "italiensk",
+      "italienskt"
+    ],
+    "Spanish": [
+      "spansk",
+      "spanskt"
+    ],
+    "Russian": [
+      "rysk",
+      "ryskt"
+    ],
+    "German": [
+      "tysk",
+      "tyskt"
+    ],
+    "Hungarian": [
+      "ungersk",
+      "ungerskt"
+    ],
+    "Czech": [
+      "tjeckisk",
+      "tjeckiskt"
+    ],
+    "Swiss": [
+      "schweizisk",
+      "schweiziskt"
+    ],
+    "Austrian": [
+      "österrikisk",
+      "österrikiskt"
+    ],
+    "Yugoslav": [
+      "jugoslavisk",
+      "jugoslaviskt"
+    ],
+    "Dutch": [
+      "holländsk",
+      "holländskt"
+    ],
+    "Danish": [
+      "dansk",
+      "danskt"
+    ],
+    "Norwegian": [
+      "norsk",
+      "norskt"
+    ],
+    "Swedish": [
+      "svensk",
+      "svenskt"
+    ],
+    "Ukrainian": [
+      "ukrainsk",
+      "ukrainskt"
+    ],
+    "Mexican": [
+      "mexikansk",
+      "mexikanskt"
+    ],
+    "Portuguese": [
+      "portugisisk",
+      "portugisiskt"
+    ],
+    "Siberian": [
+      "sibirisk",
+      "sibiriskt"
+    ],
+    "Icelandic": [
+      "isländsk",
+      "isländskt"
+    ],
+    "Scandinavian": [
+      "skandinavisk",
+      "skandinaviskt"
+    ],
+    "Irish": [
+      "irländsk",
+      "irländskt"
+    ],
+    "Polish": [
+      "polsk",
+      "polskt"
+    ],
+    "American": [
+      "amerikansk",
+      "amerikanskt"
+    ],
+    "Argentine": [
+      "argentinsk",
+      "argentinskt"
+    ],
+    "Argentinian": [
+      "argentinsk",
+      "argentinskt"
+    ],
+    "Australian": [
+      "australisk",
+      "australiskt"
+    ],
+    "Bulgarian": [
+      "bulgarisk",
+      "bulgariskt"
+    ],
+    "Romanian": [
+      "rumänsk",
+      "rumänskt"
+    ],
+    "Chinese": [
+      "kinesisk",
+      "kinesiskt"
+    ],
+    "Lithuanian": [
+      "litauisk",
+      "litauiskt"
+    ],
+    "Finnish": [
+      "finsk",
+      "finskt"
+    ],
+    "Armenian": [
+      "armenisk",
+      "armeniskt"
+    ],
+    "Bavarian": [
+      "bayersk",
+      "bayerskt"
+    ],
+    "Western": [
+      "västlig",
+      "västligt"
+    ],
+    "Eastern": [
+      "östlig",
+      "östligt"
+    ],
+    "Catalan": [
+      "katalansk",
+      "katalanskt"
+    ],
+    "Slav": [
+      "slavisk",
+      "slaviskt"
+    ],
+    "Scotch": [
+      "skotsk",
+      "skotskt"
+    ],
+    "Indian": [
+      "indisk",
+      "indiskt"
+    ]
+  },
+  "phrases": {
+    "Exchange": "avbytes~",
+    "Advance": "framskjutnings~",
+    "Fianchetto": "fianchetto~",
+    "Knight": "springar~",
+    "Knights": "springar~",
+    "Bishop": "löpar~",
+    "Rook": "torn~",
+    "Queen": "dam~",
+    "King": "kungs~",
+    "Pawn": "bonde~",
+    "Pawns": "bonde~",
+    "Two Knights": "tvåspringar~",
+    "Three Knights": "trespringar~",
+    "Four Knights": "fyrspringar~",
+    "Four Pawns": "fyrbonde~",
+    "Three Pawns": "trebonde~",
+    "Two Pawns": "tvåbonde~",
+    "Wing": "flygel~",
+    "Kingside": "kungsflygel~",
+    "Queenside": "damflygel~",
+    "Dragon": "drak~",
+    "Hedgehog": "igelkotts~",
+    "Moscow": "Moskva~",
+    "Berlin": "Berlin~",
+    "London": "London~",
+    "Prague": "Prag~",
+    "Stockholm": "Stockholms~",
+    "Zurich": "Zürich~",
+    "Warsaw": "Warszawa~",
+    "Paris": "Paris~",
+    "Vienna": "Wien~",
+    "Lion": "lejon~",
+    "Elephant": "elefant~",
+    "Snake": "orm~",
+    "Rat": "rått~",
+    "Poisoned Pawn": "förgiftad bonde",
+    "Queen Gambit": "damgambit~",
+    "Fully Accepted": "helt antagen",
+    "Main Line": "huvudlinje~",
+    "Main": "huvud~",
+    "Fried Liver": "Fried Liver",
+    "Grand Prix": "Grand Prix"
+  }
+}

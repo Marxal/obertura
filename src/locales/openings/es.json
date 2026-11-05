@@ -1,0 +1,713 @@
+{
+  "names": {
+    "Sicilian": "Siciliana",
+    "Sicilian Defense": "Defensa siciliana",
+    "Sicilian Defence": "Defensa siciliana",
+    "Open Sicilian": "Siciliana Abierta",
+    "Closed Sicilian": "Siciliana Cerrada",
+    "Classical Sicilian": "Siciliana Clásica",
+    "Slow Sicilian": "Siciliana lenta",
+    "King's Indian": "India de rey",
+    "King's Indian Defense": "Defensa india de rey",
+    "King's Indian Defence": "Defensa india de rey",
+    "King's Indian Attack": "Ataque indio de rey",
+    "Queen's Indian": "India de dama",
+    "Queen's Indian Defense": "Defensa india de dama",
+    "Neo-Queen's Indian": "Neoindia de dama",
+    "Nimzo-Indian": "Nimzoindia",
+    "Nimzo-Indian Defense": "Defensa nimzoindia",
+    "Nimzo-Indian Defence": "Defensa nimzoindia",
+    "Bogo-Indian": "Bogoindia",
+    "Bogo-Indian Defense": "Defensa bogoindia",
+    "Old Indian": "India antigua",
+    "Old Indian Defense": "Defensa india antigua",
+    "Old Indian Defence": "Defensa india antigua",
+    "Indian Defense": "Defensa india",
+    "Indian Defence": "Defensa india",
+    "Indian": "India",
+    "Indian Game": "Juego indio",
+    "East Indian Defense": "Defensa india oriental",
+    "Neo-Indian": "Neoindia",
+    "Neo-Old Indian": "Neoindia antigua",
+    "Neo-King's Indian": "Neoindia de rey",
+    "QGD": "GDR",
+    "QGA": "GDA",
+    "KGD": "GRR",
+    "KGA": "GRA",
+    "BDG": "Gambito Blackmar-Diemer",
+    "QGD Tarrasch": "GDR Tarrasch",
+    "Queen's Gambit": "Gambito de dama",
+    "Queen's Gambit Declined": "Gambito de dama rehusado",
+    "Queen's Gambit Accepted": "Gambito de dama aceptado",
+    "Queen's Gambit Refused": "Gambito de dama rehusado",
+    "King's Gambit": "Gambito de rey",
+    "King's Gambit Accepted": "Gambito de rey aceptado",
+    "King's Gambit Declined": "Gambito de rey rehusado",
+    "Spanish": "Española",
+    "Spanish Game": "Española",
+    "Ruy Lopez": "Ruy López",
+    "English": "Inglesa",
+    "English Opening": "Apertura inglesa",
+    "English Defense": "Defensa inglesa",
+    "King's English": "Inglesa de rey",
+    "French": "Francesa",
+    "French Defense": "Defensa francesa",
+    "French Defence": "Defensa francesa",
+    "Dutch": "Holandesa",
+    "Dutch Defense": "Defensa holandesa",
+    "Dutch Defence": "Defensa holandesa",
+    "Italian": "Italiana",
+    "Italian Game": "Italiana",
+    "Scotch": "Escocesa",
+    "Scotch Game": "Escocesa",
+    "Scotch Gambit": "Gambito escocés",
+    "Slav": "Eslava",
+    "Slav Defense": "Defensa eslava",
+    "Semi-Slav": "Semieslava",
+    "Semi-Slav Defense": "Defensa semieslava",
+    "Catalan": "Catalana",
+    "Catalan Opening": "Apertura catalana",
+    "Neo-Catalan": "Neocatalana",
+    "Scandinavian": "Escandinava",
+    "Scandinavian Defense": "Defensa escandinava",
+    "Center Counter": "Escandinava",
+    "Vienna": "Vienesa",
+    "Vienna Game": "Vienesa",
+    "Vienna Gambit": "Gambito vienés",
+    "Russian": "Rusa",
+    "Russian Game": "Rusa",
+    "Petrov": "Petrov",
+    "Petrov's Defense": "Petrov",
+    "Petrov's Defence": "Petrov",
+    "Petrov Defense": "Petrov",
+    "Petrov Defence": "Petrov",
+    "Two Knights": "Dos Caballos",
+    "Two Knights Defense": "Dos Caballos",
+    "Two Knights Defence": "Dos Caballos",
+    "2 Knights": "Dos Caballos",
+    "Three Knights": "Tres Caballos",
+    "Three Knights Opening": "Tres Caballos",
+    "3 Knights": "Tres Caballos",
+    "Four Knights": "Cuatro Caballos",
+    "Four Knights Game": "Cuatro Caballos",
+    "4 Knights": "Cuatro Caballos",
+    "Bishop's Opening": "Apertura de alfil",
+    "King's Pawn": "Peón de rey",
+    "King's Pawn Game": "Juego de peón de rey",
+    "King's Pawn Opening": "Apertura de peón de rey",
+    "Queen's Pawn": "Peón de dama",
+    "Queen's Pawn Game": "Juego de peón de dama",
+    "Queen Pawn Game": "Juego de peón de dama",
+    "Queen Pawn Opening": "Apertura de peón de dama",
+    "King's Knight Opening": "Apertura del caballo de rey",
+    "Center Game": "Apertura del centro",
+    "Centre Game": "Apertura del centro",
+    "Open Game": "Juego abierto",
+    "Danish Gambit": "Gambito danés",
+    "Latvian Gambit": "Gambito letón",
+    "Elephant Gambit": "Gambito del elefante",
+    "Polish": "Polaca",
+    "Polish Opening": "Apertura polaca",
+    "Polish Defense": "Defensa polaca",
+    "Hungarian Opening": "Apertura húngara",
+    "Hungarian Defense": "Defensa húngara",
+    "Hungarian Defence": "Defensa húngara",
+    "Portuguese Opening": "Apertura portuguesa",
+    "Mexican Defense": "Defensa mexicana",
+    "Czech Defense": "Defensa checa",
+    "Norwegian Defense": "Defensa noruega",
+    "Rat Defense": "Defensa de la rata",
+    "Lion Defense": "Defensa del león",
+    "Kangaroo Defense": "Defensa del canguro",
+    "Hippopotamus Defense": "Defensa del hipopótamo",
+    "Modern": "Moderna",
+    "Modern Defense": "Defensa moderna",
+    "St. George Defense": "Defensa San Jorge",
+    "St. George Defence": "Defensa San Jorge",
+    "London System": "Sistema Londres",
+    "Stonewall Attack": "Ataque Stonewall",
+    "Budapest": "Budapest",
+    "Budapest Gambit": "Gambito de Budapest",
+    "Evans Gambit": "Gambito Evans",
+    "Fried Liver Attack": "Ataque Fegatello",
+    "Fried Liver": "Fegatello",
+    "Giuoco Piano": "Giuoco Piano",
+    "Giuoco Pianissimo": "Giuoco Pianissimo",
+    "Noah's Ark Trap": "Trampa del arca de Noé",
+    "Scholar's Mate": "Mate del pastor",
+    "Fool's Mate": "Mate del loco",
+    "Parham Attack/Scholar's Mate": "Ataque Parham / Mate del pastor",
+    "Main Line": "Línea principal",
+    "Old Main Line": "Línea principal antigua",
+    "Classical": "Clásica",
+    "Closed": "Cerrada",
+    "Open": "Abierta",
+    "Exchange": "Cambios",
+    "Advance": "Avance",
+    "Fianchetto": "Fianchetto",
+    "Symmetrical": "Simétrica",
+    "Modern Variation": "Variante moderna",
+    "Dragon": "Dragón",
+    "Accelerated Dragon": "Dragón acelerado",
+    "Hedgehog": "Erizo",
+    "Poisoned Pawn": "Peón envenenado",
+    "Grand Prix": "Grand Prix",
+    "Grand Prix Attack": "Ataque Grand Prix",
+    "English Attack": "Ataque inglés",
+    "Wing Gambit": "Gambito de flanco",
+    "Marshall Attack": "Ataque Marshall",
+    "Anti-Marshall": "Antimarshall",
+    "Maroczy Bind": "Atadura Maróczy",
+    "Maróczy Bind": "Atadura Maróczy",
+    "Four Pawns": "Cuatro peones",
+    "Four Pawns Attack": "Ataque de los cuatro peones",
+    "Three Pawns Attack": "Ataque de los tres peones",
+    "Five Pawns": "Cinco peones",
+    "Knight Sacrifice Line": "Línea del sacrificio de caballo",
+    "Bishop Sacrifice Line": "Línea del sacrificio de alfil",
+    "Mar del Plata": "Mar del Plata",
+    "Queenswap": "Cambio de damas",
+    "Queenswap Line": "Línea del cambio de damas",
+    "Moscow": "Moscú",
+    "Berlin": "Berlín",
+    "Berlin Defense": "Defensa berlinesa",
+    "Berlin Defence": "Defensa berlinesa",
+    "London": "Londres",
+    "Prague": "Praga",
+    "Stockholm": "Estocolmo",
+    "Zurich": "Zúrich",
+    "Warsaw": "Varsovia",
+    "Vienna Variation": "Variante vienesa",
+    "with": "con",
+    "without": "sin",
+    "and": "y",
+    "or": "o",
+    "vs": "contra",
+    "Line": "Línea",
+    "Variation": "Variante",
+    "Closed Variations": "Variantes cerradas",
+    "London System Main Line": "Sistema Londres, línea principal",
+    "Vienna Hybrid": "Híbrida vienesa",
+    "Queen Gambit": "Gambito de dama",
+    "Fully Accepted": "Totalmente aceptada"
+  },
+  "nouns": {
+    "Variation": [
+      "Variante",
+      "f"
+    ],
+    "Variations": [
+      "Variantes",
+      "f"
+    ],
+    "Var": [
+      "Variante",
+      "f"
+    ],
+    "Variaiton": [
+      "Variante",
+      "f"
+    ],
+    "variation": [
+      "Variante",
+      "f"
+    ],
+    "Line": [
+      "Línea",
+      "f"
+    ],
+    "line": [
+      "Línea",
+      "f"
+    ],
+    "Defense": [
+      "Defensa",
+      "f"
+    ],
+    "Defence": [
+      "Defensa",
+      "f"
+    ],
+    "Defenses": [
+      "Defensas",
+      "f"
+    ],
+    "Attack": [
+      "Ataque",
+      "m"
+    ],
+    "Atack": [
+      "Ataque",
+      "m"
+    ],
+    "Gambit": [
+      "Gambito",
+      "m"
+    ],
+    "Countergambit": [
+      "Contragambito",
+      "m"
+    ],
+    "Counterattack": [
+      "Contraataque",
+      "m"
+    ],
+    "Counter-Attack": [
+      "Contraataque",
+      "m"
+    ],
+    "System": [
+      "Sistema",
+      "m"
+    ],
+    "system": [
+      "Sistema",
+      "m"
+    ],
+    "Opening": [
+      "Apertura",
+      "f"
+    ],
+    "Game": [
+      "Juego",
+      "m"
+    ],
+    "Trap": [
+      "Trampa",
+      "f"
+    ],
+    "Formation": [
+      "Formación",
+      "f"
+    ],
+    "Sacrifice": [
+      "Sacrificio",
+      "m"
+    ],
+    "Mate": [
+      "Mate",
+      "m"
+    ],
+    "Setup": [
+      "Esquema",
+      "m"
+    ],
+    "Spike": [
+      "Spike",
+      "m"
+    ],
+    "Endgame": [
+      "Final",
+      "m"
+    ],
+    "Bind": [
+      "Atadura",
+      "f"
+    ],
+    "Retreat": [
+      "Retirada",
+      "f"
+    ],
+    "Break": [
+      "Ruptura",
+      "f"
+    ],
+    "Push": [
+      "Avance",
+      "m"
+    ],
+    "Invitation": [
+      "Invitación",
+      "f"
+    ]
+  },
+  "adjectives": {
+    "Main": [
+      "principal",
+      "principal"
+    ],
+    "Classical": [
+      "clásico",
+      "clásica"
+    ],
+    "classical": [
+      "clásico",
+      "clásica"
+    ],
+    "Modern": [
+      "moderno",
+      "moderna"
+    ],
+    "Closed": [
+      "cerrado",
+      "cerrada"
+    ],
+    "Open": [
+      "abierto",
+      "abierta"
+    ],
+    "Old": [
+      "antiguo",
+      "antigua"
+    ],
+    "New": [
+      "nuevo",
+      "nueva"
+    ],
+    "Normal": [
+      "normal",
+      "normal"
+    ],
+    "Orthodox": [
+      "ortodoxo",
+      "ortodoxa"
+    ],
+    "Symmetrical": [
+      "simétrico",
+      "simétrica"
+    ],
+    "Symmetric": [
+      "simétrico",
+      "simétrica"
+    ],
+    "Central": [
+      "central",
+      "central"
+    ],
+    "Reversed": [
+      "invertido",
+      "invertida"
+    ],
+    "Inverted": [
+      "invertido",
+      "invertida"
+    ],
+    "Accelerated": [
+      "acelerado",
+      "acelerada"
+    ],
+    "Hyperaccelerated": [
+      "hiperacelerado",
+      "hiperacelerada"
+    ],
+    "Delayed": [
+      "retrasado",
+      "retrasada"
+    ],
+    "Deferred": [
+      "aplazado",
+      "aplazada"
+    ],
+    "Accepted": [
+      "aceptado",
+      "aceptada"
+    ],
+    "accepted": [
+      "aceptado",
+      "aceptada"
+    ],
+    "Declined": [
+      "rehusado",
+      "rehusada"
+    ],
+    "Refused": [
+      "rehusado",
+      "rehusada"
+    ],
+    "Double": [
+      "doble",
+      "doble"
+    ],
+    "Early": [
+      "temprano",
+      "temprana"
+    ],
+    "Improved": [
+      "mejorado",
+      "mejorada"
+    ],
+    "Traditional": [
+      "tradicional",
+      "tradicional"
+    ],
+    "Quiet": [
+      "tranquilo",
+      "tranquila"
+    ],
+    "Sharp": [
+      "agudo",
+      "aguda"
+    ],
+    "Flexible": [
+      "flexible",
+      "flexible"
+    ],
+    "Positional": [
+      "posicional",
+      "posicional"
+    ],
+    "Standard": [
+      "estándar",
+      "estándar"
+    ],
+    "Hybrid": [
+      "híbrido",
+      "híbrida"
+    ],
+    "Long": [
+      "largo",
+      "larga"
+    ],
+    "Small": [
+      "pequeño",
+      "pequeña"
+    ],
+    "Big": [
+      "grande",
+      "grande"
+    ],
+    "Great": [
+      "grande",
+      "grande"
+    ],
+    "Rare": [
+      "raro",
+      "rara"
+    ],
+    "Wild": [
+      "salvaje",
+      "salvaje"
+    ],
+    "Slow": [
+      "lento",
+      "lenta"
+    ],
+    "Extended": [
+      "ampliado",
+      "ampliada"
+    ],
+    "Immediate": [
+      "inmediato",
+      "inmediata"
+    ],
+    "First": [
+      "primero",
+      "primera"
+    ],
+    "Second": [
+      "segundo",
+      "segunda"
+    ],
+    "Forgotten": [
+      "olvidado",
+      "olvidada"
+    ],
+    "Sicilian": [
+      "siciliano",
+      "siciliana"
+    ],
+    "French": [
+      "francés",
+      "francesa"
+    ],
+    "English": [
+      "inglés",
+      "inglesa"
+    ],
+    "Italian": [
+      "italiano",
+      "italiana"
+    ],
+    "Spanish": [
+      "español",
+      "española"
+    ],
+    "Russian": [
+      "ruso",
+      "rusa"
+    ],
+    "German": [
+      "alemán",
+      "alemana"
+    ],
+    "Hungarian": [
+      "húngaro",
+      "húngara"
+    ],
+    "Czech": [
+      "checo",
+      "checa"
+    ],
+    "Swiss": [
+      "suizo",
+      "suiza"
+    ],
+    "Austrian": [
+      "austriaco",
+      "austriaca"
+    ],
+    "Yugoslav": [
+      "yugoslavo",
+      "yugoslava"
+    ],
+    "Dutch": [
+      "holandés",
+      "holandesa"
+    ],
+    "Danish": [
+      "danés",
+      "danesa"
+    ],
+    "Norwegian": [
+      "noruego",
+      "noruega"
+    ],
+    "Swedish": [
+      "sueco",
+      "sueca"
+    ],
+    "Ukrainian": [
+      "ucraniano",
+      "ucraniana"
+    ],
+    "Mexican": [
+      "mexicano",
+      "mexicana"
+    ],
+    "Portuguese": [
+      "portugués",
+      "portuguesa"
+    ],
+    "Siberian": [
+      "siberiano",
+      "siberiana"
+    ],
+    "Icelandic": [
+      "islandés",
+      "islandesa"
+    ],
+    "Scandinavian": [
+      "escandinavo",
+      "escandinava"
+    ],
+    "Irish": [
+      "irlandés",
+      "irlandesa"
+    ],
+    "Polish": [
+      "polaco",
+      "polaca"
+    ],
+    "American": [
+      "americano",
+      "americana"
+    ],
+    "Argentine": [
+      "argentino",
+      "argentina"
+    ],
+    "Argentinian": [
+      "argentino",
+      "argentina"
+    ],
+    "Australian": [
+      "australiano",
+      "australiana"
+    ],
+    "Bulgarian": [
+      "búlgaro",
+      "búlgara"
+    ],
+    "Romanian": [
+      "rumano",
+      "rumana"
+    ],
+    "Chinese": [
+      "chino",
+      "china"
+    ],
+    "Lithuanian": [
+      "lituano",
+      "lituana"
+    ],
+    "Finnish": [
+      "finlandés",
+      "finlandesa"
+    ],
+    "Armenian": [
+      "armenio",
+      "armenia"
+    ],
+    "Bavarian": [
+      "bávaro",
+      "bávara"
+    ],
+    "Western": [
+      "occidental",
+      "occidental"
+    ],
+    "Eastern": [
+      "oriental",
+      "oriental"
+    ],
+    "Catalan": [
+      "catalán",
+      "catalana"
+    ],
+    "Slav": [
+      "eslavo",
+      "eslava"
+    ],
+    "Scotch": [
+      "escocés",
+      "escocesa"
+    ],
+    "Indian": [
+      "indio",
+      "india"
+    ]
+  },
+  "phrases": {
+    "Exchange": "de cambios",
+    "Advance": "del avance",
+    "Fianchetto": "del fianchetto",
+    "Knight": "del caballo",
+    "Knights": "de caballos",
+    "Bishop": "del alfil",
+    "Rook": "de la torre",
+    "Queen": "de la dama",
+    "King": "del rey",
+    "Pawn": "del peón",
+    "Pawns": "de peones",
+    "Two Knights": "de los dos caballos",
+    "Three Knights": "de los tres caballos",
+    "Four Knights": "de los cuatro caballos",
+    "Four Pawns": "de los cuatro peones",
+    "Three Pawns": "de los tres peones",
+    "Two Pawns": "de los dos peones",
+    "Wing": "de flanco",
+    "Kingside": "de flanco de rey",
+    "Queenside": "de flanco de dama",
+    "Dragon": "del dragón",
+    "Hedgehog": "del erizo",
+    "Moscow": "de Moscú",
+    "Berlin": "berlinesa",
+    "London": "de Londres",
+    "Prague": "de Praga",
+    "Stockholm": "de Estocolmo",
+    "Zurich": "de Zúrich",
+    "Warsaw": "de Varsovia",
+    "Paris": "de París",
+    "Vienna": "vienesa",
+    "Lion": "del león",
+    "Elephant": "del elefante",
+    "Snake": "de la serpiente",
+    "Rat": "de la rata",
+    "Poisoned Pawn": "del peón envenenado",
+    "Queen Gambit": "del gambito de dama",
+    "Fully Accepted": "totalmente aceptada",
+    "Main Line": "de la línea principal",
+    "Fried Liver": "Fegatello",
+    "Grand Prix": "Grand Prix"
+  }
+}

@@ -36,7 +36,19 @@
     "<strong>To delete your account,</strong> open Settings → Data → Delete your account. It happens immediately and for good: the account and the synced copy of your repertoire, games and statistics are removed from the service the moment you confirm, and from my backup copies as they’re replaced (see “How long I keep things”). The same screen offers to export a backup first, and lets you choose whether to erase the copy on your own device too — that copy is yours, and closing the account doesn’t touch it unless you say so.": "<strong>Per eliminar el teu compte,</strong> obre Configuració → Dades → Elimina el teu compte. És immediat i definitiu: el compte i la còpia sincronitzada del repertori, les partides i les estadístiques s’eliminen del servei quan confirmes, i de les meves còpies de seguretat a mesura que se substitueixen (mira «Quant temps conservo les coses»). La mateixa pantalla t’ofereix exportar abans una còpia i et deixa triar si esborres també la còpia del teu dispositiu: és teva, i tancar el compte no la toca tret que tu ho diguis.",
     "If you’d rather I did it, email <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> from the address you signed up with and say so. Either way there’s no charge, no form, and no reason required.": "Si prefereixes que ho faci jo, escriu a <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> des de l’adreça amb què et vas registrar i digues-m’ho. En tots dos casos és gratuït, sense formularis i sense haver de donar cap motiu.",
     "If you think I’ve handled your data badly, you can complain to the Swedish Authority for Privacy Protection (<strong>IMY</strong>, <a href=\"https://www.imy.se\" target=\"_blank\" rel=\"noopener noreferrer\">imy.se</a>), or to the supervisory authority where you live.": "Si creus que he tractat malament les teves dades, pots reclamar a l’Autoritat Sueca de Protecció de la Privacitat (<strong>IMY</strong>, <a href=\"https://www.imy.se\" target=\"_blank\" rel=\"noopener noreferrer\">imy.se</a>) o a l’autoritat de control d’on vius.",
-    "Bito Chess is built on open-source software and its own source is public. See the <a href=\"licences.html\">licences page</a> for the full list.": "Bito Chess està fet amb programari de codi obert i el seu codi és públic. Mira la <a href=\"licences.html\">pàgina de llicències</a> per a la llista completa."
+    "Bito Chess is built on open-source software and its own source is public. See the <a href=\"licences.html\">licences page</a> for the full list.": "Bito Chess està fet amb programari de codi obert i el seu codi és públic. Mira la <a href=\"licences.html\">pàgina de llicències</a> per a la llista completa.",
+    "<strong>Bito Chess</strong> · bitochess.com · Last updated: 13 August 2026": "<strong>Bito Chess</strong> · bitochess.com · Última actualització: 13 d’agost de 2026",
+    "Bito Chess is developed in the open at <a href=\"https://github.com/Marxal/obertura\" target=\"_blank\" rel=\"noopener noreferrer\">github.com/Marxal/obertura</a> (“obertura” is the repository’s original codename). The built app you use is produced from that repository with no closed additions.": "Bito Chess es desenvolupa en obert a <a href=\"https://github.com/Marxal/obertura\" target=\"_blank\" rel=\"noopener noreferrer\">github.com/Marxal/obertura</a> (“obertura” és el nom en clau original del repositori). L’app que fas servir es genera a partir d’aquest repositori, sense cap afegit tancat.",
+    "<strong>chessground</strong> — the board UI": "<strong>chessground</strong>: la interfície del tauler",
+    "<strong>Stockfish</strong> — the analysis engine": "<strong>Stockfish</strong>: la màquina d’anàlisi",
+    "<strong>chess.js</strong> — move generation and rules": "<strong>chess.js</strong>: generació de jugades i regles",
+    "<strong>supabase-js</strong> — accounts and sync": "<strong>supabase-js</strong>: comptes i sincronització",
+    "<strong>@bity/oauth2-auth-code-pkce</strong> — the Lichess sign-in flow": "<strong>@bity/oauth2-auth-code-pkce</strong>: l’inici de sessió amb Lichess",
+    "<strong>Vite</strong> — the build tool (development only)": "<strong>Vite</strong>: l’eina de compilació (només per al desenvolupament)",
+    "<strong>Lichess chess-openings</strong> — the offline opening-name table": "<strong>Lichess chess-openings</strong>: la taula de noms d’obertures sense connexió",
+    "The piece sets and board textures come from <a href=\"https://github.com/lichess-org/lila\" target=\"_blank\" rel=\"noopener noreferrer\">lichess-org/lila</a>, where each set’s own licence and author are recorded.": "Els jocs de peces i les textures de tauler vénen de <a href=\"https://github.com/lichess-org/lila\" target=\"_blank\" rel=\"noopener noreferrer\">lichess-org/lila</a>, on consten la llicència i l’autoria de cada joc.",
+    "<strong>Chakra Petch</strong> (Cadson Demak), used for the wordmark, is licensed under the <a href=\"https://openfontlicense.org\" target=\"_blank\" rel=\"noopener noreferrer\">SIL Open Font License 1.1</a> and is served from this site rather than from Google Fonts — see the <a href=\"privacy.html\">privacy policy</a> for why. Everything else is your device’s own system typeface.": "<strong>Chakra Petch</strong> (Cadson Demak), que es fa servir per al logotip, té llicència <a href=\"https://openfontlicense.org\" target=\"_blank\" rel=\"noopener noreferrer\">SIL Open Font License 1.1</a> i se serveix des d’aquest web i no des de Google Fonts: a la <a href=\"privacy.html\">política de privacitat</a> s’explica per què. La resta és la tipografia del sistema del teu dispositiu.",
+    "If you believe something Bito Chess ships is listed wrongly or not listed at all, email <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> and I’ll fix it.": "Si creus que alguna cosa que inclou Bito Chess apareix malament o no apareix, escriu a <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> i ho arreglaré."
   },
   "text": {
     "Skip to content": "Vés al contingut",
@@ -188,6 +200,23 @@
     "Being honest about the limits: this is a small project run by one person. I’ve built it carefully, but I’m not going to pretend it has the security apparatus of a bank. Don’t reuse an important password here, and use Google sign-in if you’d rather I never handle a password at all.": "Sent honest amb els límits: és un projecte petit portat per una sola persona. L’he construït amb cura, però no faré veure que té l’aparell de seguretat d’un banc. No hi reutilitzis una contrasenya important, i fes servir l’inici de sessió amb Google si prefereixes que no gestioni cap contrasenya.",
     "Changes": "Canvis",
     "If this policy changes I’ll update the date at the top. If a change actually matters — new data collected, a new company involved — I’ll say so in the app rather than quietly editing the page.": "Si aquesta política canvia, actualitzaré la data de dalt. Si un canvi és important de veritat (dades noves, una empresa nova), ho diré a l’app en lloc d’editar la pàgina discretament.",
-    "Open source": "Codi obert"
+    "Open source": "Codi obert",
+    "Licences — Bito Chess": "Llicències — Bito Chess",
+    "Bito Chess is built on other people’s open-source work, and its own source code is public. Everything it ships is listed below with its licence. Nothing on this page takes away a right one of those licences gives you.": "Bito Chess està fet amb la feina de codi obert d’altres persones, i el seu codi font és públic. Tot el que inclou apareix a continuació amb la seva llicència. Res d’aquesta pàgina et treu cap dret que et doni alguna d’aquestes llicències.",
+    "The app’s own source": "El codi de l’app",
+    "Software": "Programari",
+    "Component": "Component",
+    "Licence": "Llicència",
+    "Source": "Codi font",
+    "Data": "Dades",
+    "CC0-1.0 (public domain)": "CC0-1.0 (domini públic)",
+    "Artwork": "Il·lustracions",
+    "Piece set / texture": "Joc de peces / textura",
+    "By": "Autoria",
+    "Board textures": "Textures de tauler",
+    "the lila authors, pirouetti": "els autors de lila, pirouetti",
+    "Fonts": "Tipografies",
+    "Anything missing?": "Falta alguna cosa?",
+    "Every open-source component Bito Chess ships, its licence, and where to get the source.": "Cada component de codi obert que inclou Bito Chess, la seva llicència i on obtenir-ne el codi."
   }
 }

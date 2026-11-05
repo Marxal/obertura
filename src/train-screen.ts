@@ -1,3 +1,4 @@
+import { openingLabel } from './opening-names';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, getLine, saveLine } from './storage';
@@ -1822,7 +1823,7 @@ function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string
   const tally = new Map<string, OpeningTally>();
   for (const [id, s] of lineStats) {
     tally.set(id, {
-      name: s.openingName || s.lineName,
+      name: openingLabel(s.openingName) || s.lineName,
       correct: s.totalMoves - s.misses,
       incorrect: s.misses,
       // A finished line has no single "next move" to hint at, so no hintUci —

@@ -27,6 +27,7 @@
 //
 // (Distinct from explore.ts, the in-board explorer.)
 
+import { openingLabel } from './opening-names';
 import { watchSwitchScroll } from './switch-compact';
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
@@ -703,14 +704,14 @@ function myOpeningCard(row: OpeningRow): HTMLElement {
     className: `games-card opening-card opening-card--${row.need}`,
     ...(row.repUcis.length > 0 && {
       onMiniClick: () => openOpeningPeek(row),
-      miniLabel: t('open.lookAt', { family: row.family }),
+      miniLabel: t('open.lookAt', { family: openingLabel(row.family) }),
     }),
   });
 
   titleRow.appendChild(colourPip(row.colour));
   const nameEl = document.createElement('span');
   nameEl.className = 'pcard-name';
-  nameEl.textContent = row.family;
+  nameEl.textContent = openingLabel(row.family);
   titleRow.appendChild(nameEl);
 
   const chip = document.createElement('span');
@@ -766,7 +767,7 @@ function openOpeningPeek(row: OpeningRow): void {
   openPositionPeek({
     fen: fenFromUcis(row.repUcis),
     orientation: row.colour,
-    title: row.family,
+    title: openingLabel(row.family),
     subtitle: t('open.rowSubtitle', { need: NEED_LABEL[row.need], games: row.games, score: row.scorePct }),
     stats: [
       { value: String(row.games), label: t('recap.preview.games', { n: row.games }) },
@@ -1679,14 +1680,14 @@ function prepCard(line: Line, onOpen: (line: Line) => void): HTMLElement {
 
   const nameEl = document.createElement('div');
   nameEl.className = 'line-card-name';
-  nameEl.textContent = line.name || line.openingName || t('drill.untitledLine');
+  nameEl.textContent = line.name || openingLabel(line.openingName) || t('drill.untitledLine');
   body.appendChild(nameEl);
 
   const metaRow = document.createElement('div');
   metaRow.className = 'line-card-meta';
   metaRow.appendChild(chip(line.colour === 'white' ? t('builder.white') : t('builder.black')));
-  if (line.openingName && line.openingName !== nameEl.textContent) {
-    metaRow.appendChild(chip(line.openingName));
+  if (line.openingName && openingLabel(line.openingName) !== nameEl.textContent) {
+    metaRow.appendChild(chip(openingLabel(line.openingName)));
   }
   body.appendChild(metaRow);
 

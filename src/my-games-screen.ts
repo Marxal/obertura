@@ -10,6 +10,7 @@
 // Deferred: the opponent's rating on the card (not stored yet) and full-move
 // storage (cards show the position the capped opening moves reach).
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { getAllGames, deleteGame } from './storage';
 import { TIME_CLASS_LABELS, type ImportedGame } from './import-games';
@@ -392,7 +393,7 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   // matches height whether the opening wraps or not (see .mygames-card-opening).
   const op = document.createElement('div');
   op.className = 'mygames-card-opening';
-  op.textContent = g.opening ?? '';
+  op.textContent = openingLabel(g.opening) ?? '';
   text.appendChild(op);
 
   // Result badge + time-class on the left, date pushed to the right — one row.

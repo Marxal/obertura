@@ -37,6 +37,7 @@
 // NO SENTENCES THAT EXPLAIN THE OBVIOUS. The title says what to do and the board shows
 // where. Everything else here is a fact about this position.
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
@@ -820,7 +821,7 @@ function renderCard(
   function paintInfo(): void {
     const name = nameForPath(path.slice(0, at).map(p => p.fen));
     // Right under the board, because that's where you're about to play it.
-    openingEl.textContent = choosing ? t('reply.choosing') : name ?? '';
+    openingEl.textContent = choosing ? t('reply.choosing') : openingLabel(name) ?? '';
     openingEl.hidden = !choosing && !name;
 
     const note = stopNote();

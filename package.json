@@ -13,6 +13,7 @@
     "probe-sync-limit": "node scripts/probe-sync-limit.mjs",
     "preview": "vite preview",
     "i18n:scan": "node scripts/i18n-scan.mjs",
+    "i18n:status": "node scripts/i18n-status.mjs",
     "landing:preview": "node scripts/landing-preview.mjs",
     "copy": "node scripts/landing-preview.mjs --open",
     "i18n:layout": "node --experimental-strip-types --import ./scripts/register-ts.mjs scripts/i18n-layout-check.ts",

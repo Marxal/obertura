@@ -10,6 +10,7 @@
 // clean reps, a closing flourish, then onComplete (the caller decides whether to
 // chain into the full line).
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
@@ -83,7 +84,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   // "Fix it" is in the header now (run-header.ts); the block keeps the opening.
   const titleEl = document.createElement('div');
   titleEl.className = 'pt-line-name';
-  titleEl.textContent = move.openingName || t('fix.forgotten');
+  titleEl.textContent = openingLabel(move.openingName) || t('fix.forgotten');
   topEl.appendChild(titleEl);
 
   // Three rep pips, filled as each clean rep banks.

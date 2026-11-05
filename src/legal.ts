@@ -24,8 +24,8 @@ const DOC_BASE =
     // BASE_URL is '/obertura/'; the whole docs/ folder is copied inside it.
     : `${import.meta.env.BASE_URL}docs/`;
 
-// Privacy and terms exist in each released language (scripts/landing-pages.mjs). Licences
-// are English everywhere, and so is everything before a language is released.
+// The documents exist in each released language (scripts/landing-pages.mjs), and are in
+// English before a language is released.
 const LANGUAGE = activeLanguage();
 const TRANSLATED_BASE = __DEPLOY_TARGET__ === 'cloudflare' && LANGUAGE !== 'en' && RELEASED_LANGUAGES.includes(LANGUAGE)
   ? `${DOC_BASE}${LANGUAGE}/`
@@ -33,7 +33,7 @@ const TRANSLATED_BASE = __DEPLOY_TARGET__ === 'cloudflare' && LANGUAGE !== 'en' 
 
 export const PRIVACY_URL = `${TRANSLATED_BASE}privacy.html`;
 export const TERMS_URL = `${TRANSLATED_BASE}terms.html`;
-export const LICENCES_URL = `${DOC_BASE}licences.html`;
+export const LICENCES_URL = `${TRANSLATED_BASE}licences.html`;
 
 // The marketing landing page — index.html of that same folder, which is the
 // site root on Cloudflare and the docs folder on the GitHub Pages mirror. This

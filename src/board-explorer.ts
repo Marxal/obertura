@@ -10,6 +10,7 @@
 // your own), so it carries no persistence of its own — opened from a map, it
 // hands any "open in builder / prepare" action straight back to that map.
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
@@ -306,7 +307,7 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
     });
 
     const name = nameForPath(fens);
-    openingEl.textContent = name ?? '—';
+    openingEl.textContent = openingLabel(name) ?? '—';
 
     renderFullGameLink();
 

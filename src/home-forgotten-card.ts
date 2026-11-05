@@ -14,6 +14,7 @@
 // ONE POSITION AT A TIME, worst first. "Another position" deals the next; on a phone
 // so does swiping the card away (reply-card-swipe.ts), as on the other two boards.
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
@@ -155,7 +156,7 @@ function drawCard(
   ]);
   const foot = document.createElement('p');
   foot.className = 'peek-foot fm-foot';
-  foot.textContent = [m.openingName ?? m.lineName, m.due ? describeDue(m.due) : t('home.forgotten.notScheduled')].join(' · ');
+  foot.textContent = [openingLabel(m.openingName) ?? m.lineName, m.due ? describeDue(m.due) : t('home.forgotten.notScheduled')].join(' · ');
 
   body.append(boardEl, intro, status, noteEl, row, more, stats, foot);
   host.replaceChildren(body);

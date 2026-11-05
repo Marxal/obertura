@@ -38,7 +38,7 @@ isn't the personal one.
 | Traps and endgames | about 1,150 words | Traps as above. Endgame names and ideas are ordinary dictionary keys |
 | Landing page copy | about 4,900 words | `docs/LANDING-COPY.md` is the source |
 | Privacy and terms | about 4,600 words | Includes some markup in the count |
-| Opening names | 10,765 names in 407 families | Top 100 families cover 93% |
+| Opening names | 10,956 names, about 400 words and names per language | 3 KB gzipped per language: nearly all of a name is surnames and moves |
 
 Leave these in their original language: Lichess study titles, which come from
 other people through a pasted link, and players' names.
@@ -209,7 +209,7 @@ what keeps the unread parts consistent.
 - **Privacy and terms:** translated in `src/locales/legal/<lang>.json`, and generated the same way.
   **The English version governs** (Marçal, 2026-11-05): the terms say so, and each translation says so under
   its title with a link to the English. Licences stay in English.
-- **Changing any translated text:** `npm run copy` opens the editor at `localhost:4190/copy/`: landing, terms and
+- **Changing any translated text:** `bitotext` in the terminal, or `npm run copy`, opens the editor at `localhost:4190/copy/`: landing, terms and
   privacy, the app, starter packs and traps, with the English beside each sentence. It saves as you type and
   needs no build. The words may differ from the English. It refuses an empty sentence, a lost placeholder or
   link, a changed move, and *cagada* outside the app. It runs only on this computer and never reaches a build.
@@ -239,7 +239,7 @@ Each phase can stop safely, because of the English fallback.
 | 7 ✅ | Starter pack notes, traps, endgames | Written and checked by machine. Still to be sampled by a chess player |
 | 8 | Landing ✅, checkout ✅, privacy and terms ✅, emails (written, `EMAIL-TEMPLATES.md`, not live) | Each language's full path works, landing to purchase |
 | 9 | Release Catalan, then Spanish, then Swedish, each once reviewed. Phones in Spain's Spanish get Catalan from the first release. They can only switch to Spanish once it's released, so ideally release the two together | |
-| 10 | Opening names | |
+| 10 ✅ | Opening names, built from a word list by `src/opening-names.ts` (`src/locales/openings/`). Stored and matched in English, only shown translated | Sampled by a chess player |
 
 Moving 144 files to keys is the largest single change the app has had, so do it in
 small rounds and don't mix it with features.
@@ -249,15 +249,15 @@ no longer has. The Language row and
 the first-run picker exist but stay hidden until a second language is in
 `RELEASED_LANGUAGES` (`src/language-choice.ts`), or under a `?lang=` preview.
 
-## Rules once it's in (the first is in `CLAUDE.md`; the checks they mention aren't built yet)
+## Rules once it's in
 
-- New visible text goes through `t()`. A selftest fails on a hard-coded string on a
-  screen that's been converted.
-- Features ship in English. Translate per release, not per commit: there were 32
-  commits in the 30 days before this plan.
-- One command before deploying lists what's missing or out of date per language.
+The protocol for any change is in `CLAUDE.md`, under Translations: build in English, list what's waiting at the
+end of the round with `npm run i18n:status`, translate on Marçal's OK, publish together.
+
 - Landing copy still starts in `docs/LANDING-COPY.md`.
-- A language with too much out-of-date text gets fixed before its next release.
+- Selftests guard what would be wrong (a changed move, a lost placeholder), and never what's merely not translated
+  yet, because English is a fine fallback.
+- Not built: a selftest for hard-coded strings. `npm run i18n:scan -- --list` shows them.
 
 ## Questions to settle when starting
 

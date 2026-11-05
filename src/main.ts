@@ -1,3 +1,4 @@
+import { openingLabel } from './opening-names';
 import { Chess, type Square } from 'chess.js';
 import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
@@ -279,6 +280,12 @@ function currentTitle(): string {
   return (manualTitle ?? detectedName).trim();
 }
 
+// What the title says on screen. What's saved stays currentTitle(): an auto-named line
+// keeps its English name, so it can still be recognised as auto-named.
+function shownTitle(): string {
+  return (manualTitle ?? openingLabel(detectedName)).trim();
+}
+
 // Paint the title row: the live opening name (or the manual override) plus the
 // rename control. The rename input, when open, is left alone.
 function renderTitle(): void {
@@ -295,7 +302,7 @@ function renderTitle(): void {
     if (currentView === 'builder') updateHeaderTitle();
     return;
   }
-  const title = currentTitle();
+  const title = shownTitle();
   el.textContent = title || t('builder.unnamedLine');
   el.classList.toggle('opening-name--empty', !title);
   // The builder's header mirrors the line name, so keep it live as the opening
@@ -2786,7 +2793,7 @@ function draftSheetLines(drafted: ReturnType<typeof pendingLines>): DraftSheetLi
   return drafted.map(line => ({
     endId: line.endId,
     cutId: line.cutId,
-    name: nameForPath(line.nodes.map(n => n.fen)) ?? notate(line.nodes),
+    name: openingLabel(nameForPath(line.nodes.map(n => n.fen))) ?? notate(line.nodes),
     moves: notate(line.nodes),
     added: line.added,
     // A new line means to be trained unless said otherwise — the same default
@@ -3199,7 +3206,7 @@ function deleteCurrentLineOrGame(): void {
   if (inBook() && loadedLineId) {
     const plan = planLineRemoval();
     if (!plan) return;
-    const label = currentTitle() || t('builder.thisLine');
+    const label = shownTitle() || t('builder.thisLine');
     // The honest number: only the moves that belong to THIS line go. The ones it
     // shares with its neighbours stay, which is the thing the old flat model
     // could not promise.
@@ -3219,7 +3226,7 @@ function deleteCurrentLineOrGame(): void {
   }
   if (builderMode === 'builder' && loadedLineId) {
     const id = loadedLineId;
-    const label = currentTitle() || t('builder.thisLine');
+    const label = shownTitle() || t('builder.thisLine');
     showDialog({
       title: t('builder.deleteThisLine'),
       body: t('builder.andAllOfIts', { label: label }),
@@ -4535,7 +4542,7 @@ function updateHeaderTitle(): void {
       // clean, with just the "Back to train" button on the right.
       ? (suspendedSession ? ''
         : builderMode === 'analyser' ? (builderDesc || t('builder.unknown'))
-        : (currentTitle() || t('builder.newLine')))
+        : (shownTitle() || t('builder.newLine')))
     : currentView === 'settings' ? t('nav.settings')
     : 'bito chess';
   el.classList.toggle('header-title--screen', !onTab);
@@ -6515,7 +6522,7 @@ async function saveCurrentLine(): Promise<void> {
   // in place, or keep the original and branch this off as a new line. A fresh
   // line — or an unchanged one — skips straight to the save.
   if (loadedLineId && isBuilderDirty()) {
-    const label = currentTitle() || detectedNameForLine() || t('builder.thisLine');
+    const label = shownTitle() || openingLabel(detectedNameForLine()) || t('builder.thisLine');
     showDialog({
       title: t('builder.saveYourChanges'),
       body: t('builder.youVeChangedUpdate', { label: label }),

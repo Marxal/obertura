@@ -28,6 +28,7 @@
 // lookup by scripts/build-openings.mjs. It's LAZY-LOADED — a dynamic import so
 // the ~490 KB file only downloads when the Library is first opened.
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Api as CgApi } from 'chessground/api';
@@ -63,7 +64,7 @@ function loadLibrary(): Promise<IndexedEntry[]> {
   if (!libraryPromise) {
     libraryPromise = import('./openings-library.json').then(mod => {
       const raw = (mod.default ?? mod) as LibraryEntry[];
-      return raw.map(e => ({ ...e, haystack: `${e.name} ${e.eco}`.toLowerCase() }));
+      return raw.map(e => ({ ...e, haystack: `${e.name} ${openingLabel(e.name)} ${e.eco}`.toLowerCase() }));
     });
   }
   return libraryPromise;
@@ -313,7 +314,7 @@ function renderResults(
     head.className = 'lib-group-head';
     const famName = document.createElement('span');
     famName.className = 'lib-group-name';
-    famName.textContent = family;
+    famName.textContent = openingLabel(family);
     head.appendChild(famName);
     const famCount = document.createElement('span');
     famCount.className = 'lib-group-count';
@@ -341,7 +342,7 @@ function resultRow(entry: IndexedEntry, onOpen: (entry: IndexedEntry) => void): 
   text.className = 'lib-row-text';
   const variation = document.createElement('span');
   variation.className = 'lib-row-variation';
-  variation.textContent = variationOf(entry.name);
+  variation.textContent = openingLabel(variationOf(entry.name));
   text.appendChild(variation);
   const moves = document.createElement('span');
   moves.className = 'lib-row-moves';
@@ -397,7 +398,7 @@ function renderFamilyTree(
 
     const name = document.createElement('span');
     name.className = 'lib-fam-name';
-    name.textContent = family;
+    name.textContent = openingLabel(family);
     head.appendChild(name);
 
     const cnt = document.createElement('span');
@@ -477,7 +478,7 @@ function openDetail(
   back.addEventListener('click', close);
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = entry.name;
+  titleEl.textContent = openingLabel(entry.name);
   const ecoBadge = document.createElement('span');
   ecoBadge.className = 'rmap-title-count';
   ecoBadge.textContent = entry.eco;

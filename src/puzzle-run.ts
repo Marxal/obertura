@@ -16,6 +16,7 @@
 // Either way the session ends on a results screen: a per-puzzle review list,
 // "Play again", "Retry mistakes" and "Done".
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
@@ -1248,7 +1249,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     main.className = 'pz-result-main';
     const name = document.createElement('div');
     name.className = 'pz-result-name';
-    name.textContent = e.draw.family ?? prettyAngle(e.draw.angle);
+    name.textContent = openingLabel(e.draw.family) ?? prettyAngle(e.draw.angle);
     main.appendChild(name);
     const meta = document.createElement('div');
     meta.className = 'pz-result-meta';

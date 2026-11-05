@@ -39,7 +39,7 @@ export function checkEdit(item, value, lang) {
   if (isPlural ? !written.every((x) => wanted.includes(x)) : !same(wanted, written)) {
     return `Keep these as they are, each exactly once: ${wanted.join(' ') || 'none, so remove the {…}'}`;
   }
-  if (item.section !== 'app' && !same(sorted(item.en, MOVE), sorted(value, MOVE))) {
+  if (item.section !== 'app' && item.section !== 'openings' && !same(sorted(item.en, MOVE), sorted(value, MOVE))) {
     return `The moves and squares have to match the English, written in English letters: ${sorted(item.en, MOVE).join(' ') || 'none'}`;
   }
   if (lang === 'ca' && (item.section === 'landing' || item.section === 'legal') && /cagad/i.test(value)) {
@@ -69,7 +69,7 @@ function legal(lang) {
   const words = json(file);
   const seen = new Set();
   const groups = [];
-  for (const [title, page] of [['Terms', 'docs/terms.html'], ['Privacy', 'docs/privacy.html']]) {
+  for (const [title, page] of [['Terms', 'docs/terms.html'], ['Privacy', 'docs/privacy.html'], ['Licences', 'docs/licences.html']]) {
     const html = read(page);
     const found = [];
     for (const part of ['blocks', 'text']) {
@@ -119,6 +119,7 @@ function packs(lang) {
     ];
     for (const line of pack.lines) {
       const l = w.lines[line.name];
+      if (!l) continue; // new in English: `npm run i18n:status` lists it
       const prefix = ['packs', pack.id, 'lines', line.name];
       items.push(row('packs', [...prefix, 'name'], line.name, l.name, 'Line name'));
       if (line.plan) items.push(row('packs', [...prefix, 'plan'], line.plan, l.plan, `${line.name} · plan`));
@@ -138,6 +139,7 @@ function packs(lang) {
     ];
     for (const trap of group.traps) {
       const x = w.traps[trap.name];
+      if (!x) continue;
       const prefix = ['traps', group.id, 'traps', trap.name];
       items.push(row('packs', [...prefix, 'name'], trap.name, x.name, 'Trap name'));
       items.push(row('packs', [...prefix, 'bait'], trap.bait, x.bait, `${trap.name} · the bait`));
@@ -148,11 +150,29 @@ function packs(lang) {
   return { file, groups };
 }
 
+// Opening names are built from these words by src/opening-names.ts. The moves check doesn't
+// apply: there are none here, and the left side is the English word, not a sentence.
+function openings(lang) {
+  const file = `src/locales/openings/${lang}.json`;
+  const words = json(file);
+  const names = Object.entries(words.names).map(([k, v]) => row('openings', ['names', k], k, v));
+  const nouns = Object.entries(words.nouns).map(([k, v]) => row('openings', ['nouns', k, '0'], k, v[0]));
+  const adjectives = Object.entries(words.adjectives).flatMap(([k, v]) => v.map((form, i) => row('openings', ['adjectives', k, String(i)], k, form, lang === 'sv' ? (i ? 'Neuter' : 'Common') : (i ? 'Feminine' : 'Masculine'))));
+  const phrases = Object.entries(words.phrases).map(([k, v]) => row('openings', ['phrases', k], k, v));
+  return { file, groups: [
+    { title: 'Whole names', items: names },
+    { title: 'Attack, Defense, Variation…', items: nouns },
+    { title: 'Classical, Modern, Open…', items: adjectives },
+    { title: 'Exchange, Advance, Two Knights…', items: phrases },
+  ] };
+}
+
 const SECTIONS = {
   landing: { title: 'Landing page', build: landing },
   legal: { title: 'Terms and privacy', build: legal },
   app: { title: 'The app', build: app },
   packs: { title: 'Starter packs and traps', build: packs },
+  openings: { title: 'Opening names', build: openings },
 };
 
 export function copySections(lang) {

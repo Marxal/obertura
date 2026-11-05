@@ -18,6 +18,7 @@
 // left the hero saying only how many you solved today — a Home figure, not a
 // Train one.
 
+import { openingLabel } from './opening-names';
 import { getAllLines, getAllGames } from './storage';
 import { fetchNextPuzzle, toAngleKey, type Difficulty } from './puzzles';
 import { openingFamily } from './analysis';
@@ -514,7 +515,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         if (e.colour) row.appendChild(colourPip(e.colour));
         const name = document.createElement('span');
         name.className = 'pz-opening-name';
-        name.textContent = e.family;
+        name.textContent = openingLabel(e.family);
         row.appendChild(name);
         // How many puzzles you've done here (hidden until you've played some).
         const attempts = perf.get(e.angle)?.attempts ?? 0;

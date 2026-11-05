@@ -8,6 +8,7 @@
 // src/traps.json (built by scripts/build-traps.mjs); we lazy-load it so it stays
 // out of the initial bundle, like the starter packs and the opening library.
 
+import { openingLabel } from './opening-names';
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import type { Trap, TrapPack } from './traps';
 import { formatSanLine } from './notation';
@@ -60,7 +61,7 @@ export function trapCard(
 
   const fam = document.createElement('div');
   fam.className = 'stat-card-note';
-  fam.textContent = trap.family;
+  fam.textContent = openingLabel(trap.family);
   content.appendChild(fam);
 
   const movesEl = document.createElement('div');

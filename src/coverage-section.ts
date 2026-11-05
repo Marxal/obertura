@@ -29,6 +29,7 @@
 // the answering colour, through the existing Prepare mechanism — nobody has to
 // build from move one.
 
+import { openingLabel } from './opening-names';
 import { Icons } from './icons';
 import { formatMove } from './notation';
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
@@ -200,7 +201,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
       row.className = 'cvg-fam';
       const name = document.createElement('span');
       name.className = 'cvg-fam-name';
-      name.textContent = fam.family;
+      name.textContent = openingLabel(fam.family);
       row.appendChild(name);
       row.appendChild(bar(fam.pct));
       const count = document.createElement('span');
@@ -265,7 +266,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     const chips = document.createElement('div');
     chips.className = 'stat-card-chips';
     chips.appendChild(chipEl(gap.family && gap.family !== 'Unrecognised opening'
-      ? gap.family
+      ? openingLabel(gap.family)
       : t('last.moveN', { n: Math.floor(gap.ply / 2) + 1 })));
     chips.appendChild(chipEl(gap.lineCount === 1 ? t('open.1LineHere') : t('open.linesHere', { lineCount: gap.lineCount })));
     content.appendChild(chips);
@@ -354,7 +355,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
   function context(gap: Gap): string {
     const moves = gap.sans.length ? formatSans(gap.sans) : t('open.theStartingPosition');
     return gap.family && gap.family !== 'Unrecognised opening'
-      ? t('open.after', { family: gap.family, moves: moves })
+      ? t('open.after', { family: openingLabel(gap.family), moves: moves })
       : t('open.afterMoves', { moves: moves });
   }
 

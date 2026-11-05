@@ -27,11 +27,11 @@ function writeLandingLanguages(dist: string): void {
     mkdirSync(`${dist}/${lang}`, { recursive: true });
     writeFileSync(`${dist}/${lang}/index.html`, buildLanguagePage(english, lang, words, released));
     const legalWords = JSON.parse(readFileSync(new URL(`./src/locales/legal/${lang}.json`, import.meta.url), 'utf-8'));
-    for (const page of ['privacy.html', 'terms.html']) {
+    for (const page of ['privacy.html', 'terms.html', 'licences.html']) {
       writeFileSync(`${dist}/${lang}/${page}`, buildLegalPage(readFileSync(`${dist}/${page}`, 'utf-8'), page, lang, legalWords, released));
     }
   }
-  for (const page of ['privacy.html', 'terms.html']) {
+  for (const page of ['privacy.html', 'terms.html', 'licences.html']) {
     writeFileSync(`${dist}/${page}`, buildEnglishLegalPage(readFileSync(`${dist}/${page}`, 'utf-8'), page, released));
   }
   writeFileSync(`${dist}/index.html`, buildRootPage(english, released, BROWSER_REDIRECTS));

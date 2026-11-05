@@ -11,6 +11,7 @@
 // Currency is separate on purpose: pricing.ts reads the phone's languages, not this.
 
 import { englishDictionary, t, useDictionary, type Dictionary, type MessageKey } from './i18n';
+import { useOpeningWords, type OpeningWords } from './opening-names';
 import { BROWSER_REDIRECTS, RELEASED_LANGUAGES, isLanguage, pickLanguage, type Language } from './language-choice';
 
 export const LANGUAGE_KEY = 'obertura.language';
@@ -26,6 +27,13 @@ const DICTIONARIES: Partial<Record<Language, () => Promise<Dictionary>>> = {
   es: () => import('./locales/es.json').then((m) => m.default as Dictionary),
   sv: () => import('./locales/sv.json').then((m) => m.default as Dictionary),
   xx: () => import('./locales/pseudo').then((m) => m.pseudoDictionary(englishDictionary)),
+};
+
+// Opening names load with the language: 3 KB, and screens print them as soon as they're built.
+const OPENING_WORDS: Partial<Record<Language, () => Promise<OpeningWords>>> = {
+  ca: () => import('./locales/openings/ca.json').then((m) => m.default as unknown as OpeningWords),
+  es: () => import('./locales/openings/es.json').then((m) => m.default as unknown as OpeningWords),
+  sv: () => import('./locales/openings/sv.json').then((m) => m.default as unknown as OpeningWords),
 };
 
 let current: Language = 'en';
@@ -78,6 +86,8 @@ export async function loadLanguage(): Promise<void> {
       ]);
       useDictionary(dictionary, wanted === 'xx' ? 'en' : wanted);
       current = wanted;
+      // Without these, names stay in English and everything else still works.
+      useOpeningWords(await OPENING_WORDS[wanted]?.().catch(() => null) ?? null);
     } catch (err) {
       console.warn(`Couldn't load language "${wanted}", starting in English.`, err);
     }

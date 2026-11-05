@@ -180,7 +180,7 @@ function paintBar() {
   var see = document.getElementById('see');
   var appUrl = 'http://' + location.hostname + ':5173/obertura/?lang=' + state.lang;
   see.href = state.section === 'legal' ? '/' + state.lang + '/terms.html'
-    : state.section === 'app' || state.section === 'packs' ? appUrl
+    : state.section === 'app' || state.section === 'packs' || state.section === 'openings' ? appUrl
     : '/' + state.lang + '/';
 }
 function remember() {

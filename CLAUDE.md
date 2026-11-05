@@ -71,11 +71,26 @@ again — cut a tag and bump the version *before* starting each risky round, per
    ask Claude Code to do this rather than typing raw git.
 
 ## Translations
+**How a change works from now on (Marçal, 2026-11-05):**
+1. **Build and test in English.** New text goes through `t()` and shows English in every language until
+   translated. Don't translate mid-feature: text that's still changing is wasted work.
+2. **At the end of the round, run `npm run i18n:status` and tell Marçal what it lists,** in plain words and
+   with a count, even when the answer is "nothing to translate". This is part of finishing a round.
+3. **Translate on his OK,** in every language, then `npm run i18n:status -- --done`. He can read it with `bitotext`.
+4. **Publish together:** translations go out with the feature, so another language doesn't see it half-English.
+   A small urgent fix can go first in English and be translated next round. Say so when that happens.
+5. **Changes to terms or privacy, and prices, never go out untranslated.**
+
+**His own words win.** Translations may differ from the English on purpose, because he edits them in `bitotext`.
+If the English of a sentence changes, show him his version and the new English together rather than overwriting it.
+When he says **"publish the texts"**: commit what the editor changed, merge `dev` to `main`, push, confirm it's live.
+
 All visible text goes through `t('key')` from `src/i18n.ts`, with the English in
 `src/locales/en.json`. Write whole sentences with `{name}` placeholders; never join
 fragments. A chip inside a sentence uses `tParts()`. Words come from
 `src/locales/GLOSSARY.md`. New features ship in English and fall back to it per key.
 Starter pack notes and traps are translated in `src/locales/content/`, never in their source files.
+Show an opening name through `openingLabel()`: the English one stays what's stored and matched.
 Layout check: `npm run i18n:layout`. The plan is `TRANSLATION-PLAN.md`.
 
 ## The documentation

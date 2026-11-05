@@ -23,8 +23,8 @@ two disagree, this file wins, because it records the decisions made after that g
 - Moves: write them in English letters in the translation files (*Nf3*). The app shows piece symbols, or
   the language's own letters if someone picks letters: *Cf3* in Catalan and Spanish, *Sf3* in Swedish. A
   translation written with *Cf3* would fail the move check, and could be taken for the wrong piece.
-- Opening names from the library aren't translated yet (Phase 10). Names we wrote ourselves, for
-  starter pack lines and traps, are translated: see below.
+- Opening names are shown translated, built from `src/locales/openings/<lang>.json`, but stored in English.
+  Surnames stay. Pack lines and traps have their own names: see below.
 - "Bito" and "Bito Chess" are never translated.
 
 **Piece letters:** *R D T A C* in Catalan and Spanish, *K D T L S* in Swedish.

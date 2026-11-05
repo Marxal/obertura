@@ -13,6 +13,7 @@
 // replies are auto-played in training and never tested, and they read as muted
 // text here to make that difference obvious.
 
+import { openingLabel } from './opening-names';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { Api } from 'chessground/api';
@@ -136,7 +137,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title peek-title';
-  h.textContent = line.name || line.openingName || t('drill.untitledLine');
+  h.textContent = line.name || openingLabel(line.openingName) || t('drill.untitledLine');
   sheet.appendChild(h);
 
   // ── The line's own numbers, as four plain figures ──────────────────────────

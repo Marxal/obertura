@@ -1,3 +1,4 @@
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
@@ -308,7 +309,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     {
       intro,
       tasks,
-      titleText: line.openingName || line.name || t('drill.untitledLine'),
+      titleText: openingLabel(line.openingName) || line.name || t('drill.untitledLine'),
       watchPlies: moves.map(ply),
     },
     opts,

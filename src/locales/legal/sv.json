@@ -36,7 +36,19 @@
     "<strong>To delete your account,</strong> open Settings → Data → Delete your account. It happens immediately and for good: the account and the synced copy of your repertoire, games and statistics are removed from the service the moment you confirm, and from my backup copies as they’re replaced (see “How long I keep things”). The same screen offers to export a backup first, and lets you choose whether to erase the copy on your own device too — that copy is yours, and closing the account doesn’t touch it unless you say so.": "<strong>För att radera ditt konto,</strong> öppna Inställningar → Data → Radera ditt konto. Det sker direkt och för gott: kontot och den synkade kopian av din repertoar, dina partier och din statistik tas bort från tjänsten när du bekräftar, och från mina säkerhetskopior när de ersätts (se ”Hur länge jag sparar saker”). Samma skärm erbjuder en säkerhetskopia först och låter dig välja om kopian på din egen enhet också ska raderas: den kopian är din och att stänga kontot rör den inte om du inte säger till.",
     "If you’d rather I did it, email <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> from the address you signed up with and say so. Either way there’s no charge, no form, and no reason required.": "Om du hellre vill att jag gör det, mejla <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> från adressen du registrerade dig med och säg till. Hur som helst kostar det inget, inget formulär och inget skäl behövs.",
     "If you think I’ve handled your data badly, you can complain to the Swedish Authority for Privacy Protection (<strong>IMY</strong>, <a href=\"https://www.imy.se\" target=\"_blank\" rel=\"noopener noreferrer\">imy.se</a>), or to the supervisory authority where you live.": "Om du tycker att jag hanterat din data dåligt kan du klaga hos Integritetsskyddsmyndigheten (<strong>IMY</strong>, <a href=\"https://www.imy.se\" target=\"_blank\" rel=\"noopener noreferrer\">imy.se</a>) eller tillsynsmyndigheten där du bor.",
-    "Bito Chess is built on open-source software and its own source is public. See the <a href=\"licences.html\">licences page</a> for the full list.": "Bito Chess bygger på öppen källkod och den egna källkoden är offentlig. Se <a href=\"licences.html\">licenssidan</a> för hela listan."
+    "Bito Chess is built on open-source software and its own source is public. See the <a href=\"licences.html\">licences page</a> for the full list.": "Bito Chess bygger på öppen källkod och den egna källkoden är offentlig. Se <a href=\"licences.html\">licenssidan</a> för hela listan.",
+    "<strong>Bito Chess</strong> · bitochess.com · Last updated: 13 August 2026": "<strong>Bito Chess</strong> · bitochess.com · Senast uppdaterad: 13 augusti 2026",
+    "Bito Chess is developed in the open at <a href=\"https://github.com/Marxal/obertura\" target=\"_blank\" rel=\"noopener noreferrer\">github.com/Marxal/obertura</a> (“obertura” is the repository’s original codename). The built app you use is produced from that repository with no closed additions.": "Bito Chess utvecklas öppet på <a href=\"https://github.com/Marxal/obertura\" target=\"_blank\" rel=\"noopener noreferrer\">github.com/Marxal/obertura</a> (“obertura” är arkivets ursprungliga kodnamn). Appen du använder byggs från det arkivet utan några slutna tillägg.",
+    "<strong>chessground</strong> — the board UI": "<strong>chessground</strong>: brädets gränssnitt",
+    "<strong>Stockfish</strong> — the analysis engine": "<strong>Stockfish</strong>: analysmotorn",
+    "<strong>chess.js</strong> — move generation and rules": "<strong>chess.js</strong>: draggenerering och regler",
+    "<strong>supabase-js</strong> — accounts and sync": "<strong>supabase-js</strong>: konton och synk",
+    "<strong>@bity/oauth2-auth-code-pkce</strong> — the Lichess sign-in flow": "<strong>@bity/oauth2-auth-code-pkce</strong>: inloggningen med Lichess",
+    "<strong>Vite</strong> — the build tool (development only)": "<strong>Vite</strong>: byggverktyget (bara under utveckling)",
+    "<strong>Lichess chess-openings</strong> — the offline opening-name table": "<strong>Lichess chess-openings</strong>: öppningstabellen offline",
+    "The piece sets and board textures come from <a href=\"https://github.com/lichess-org/lila\" target=\"_blank\" rel=\"noopener noreferrer\">lichess-org/lila</a>, where each set’s own licence and author are recorded.": "Pjäsuppsättningarna och brädtexturerna kommer från <a href=\"https://github.com/lichess-org/lila\" target=\"_blank\" rel=\"noopener noreferrer\">lichess-org/lila</a>, där varje uppsättnings licens och upphovsperson finns angivna.",
+    "<strong>Chakra Petch</strong> (Cadson Demak), used for the wordmark, is licensed under the <a href=\"https://openfontlicense.org\" target=\"_blank\" rel=\"noopener noreferrer\">SIL Open Font License 1.1</a> and is served from this site rather than from Google Fonts — see the <a href=\"privacy.html\">privacy policy</a> for why. Everything else is your device’s own system typeface.": "<strong>Chakra Petch</strong> (Cadson Demak), som används för ordmärket, har licensen <a href=\"https://openfontlicense.org\" target=\"_blank\" rel=\"noopener noreferrer\">SIL Open Font License 1.1</a> och levereras från den här webbplatsen i stället för från Google Fonts: se <a href=\"privacy.html\">integritetspolicyn</a> för varför. Allt annat är enhetens eget systemtypsnitt.",
+    "If you believe something Bito Chess ships is listed wrongly or not listed at all, email <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> and I’ll fix it.": "Om du tror att något som ingår i Bito Chess är fel listat eller inte listat alls, mejla <a href=\"mailto:creative@marxal.net\">creative@marxal.net</a> så fixar jag det."
   },
   "text": {
     "Skip to content": "Hoppa till innehållet",
@@ -188,6 +200,23 @@
     "Being honest about the limits: this is a small project run by one person. I’ve built it carefully, but I’m not going to pretend it has the security apparatus of a bank. Don’t reuse an important password here, and use Google sign-in if you’d rather I never handle a password at all.": "För att vara ärlig om gränserna: det här är ett litet projekt som drivs av en person. Jag har byggt det noggrant, men jag låtsas inte att det har en banks säkerhetsapparat. Återanvänd inte ett viktigt lösenord här, och logga in med Google om du hellre vill att jag aldrig hanterar något lösenord.",
     "Changes": "Ändringar",
     "If this policy changes I’ll update the date at the top. If a change actually matters — new data collected, a new company involved — I’ll say so in the app rather than quietly editing the page.": "Om den här policyn ändras uppdaterar jag datumet högst upp. Om en ändring verkligen spelar roll (ny data, ett nytt företag) säger jag det i appen i stället för att i tysthet redigera sidan.",
-    "Open source": "Öppen källkod"
+    "Open source": "Öppen källkod",
+    "Licences — Bito Chess": "Licenser — Bito Chess",
+    "Bito Chess is built on other people’s open-source work, and its own source code is public. Everything it ships is listed below with its licence. Nothing on this page takes away a right one of those licences gives you.": "Bito Chess bygger på andras arbete med öppen källkod, och den egna källkoden är offentlig. Allt som ingår listas nedan med sin licens. Inget på den här sidan tar bort en rättighet som någon av licenserna ger dig.",
+    "The app’s own source": "Appens egen källkod",
+    "Software": "Programvara",
+    "Component": "Komponent",
+    "Licence": "Licens",
+    "Source": "Källa",
+    "Data": "Data",
+    "CC0-1.0 (public domain)": "CC0-1.0 (allmän egendom)",
+    "Artwork": "Grafik",
+    "Piece set / texture": "Pjäsuppsättning / textur",
+    "By": "Av",
+    "Board textures": "Brädtexturer",
+    "the lila authors, pirouetti": "lila-författarna, pirouetti",
+    "Fonts": "Typsnitt",
+    "Anything missing?": "Saknas något?",
+    "Every open-source component Bito Chess ships, its licence, and where to get the source.": "Varje komponent med öppen källkod i Bito Chess, dess licens och var källkoden finns."
   }
 }

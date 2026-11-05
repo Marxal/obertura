@@ -61,6 +61,7 @@
 // they play?" — they are things to prepare for, and tapping one builds the branch
 // that meets it.
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { buildBook, bookNodeAt, loadBookEntries, type BookNode } from './book-tree';
 import { getAllGames } from './storage';
@@ -753,7 +754,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     const chipRow = document.createElement('span');
     chipRow.className = 'explore-card-chiprow';
     chipRow.appendChild(sourceChip(c.source));
-    if (c.opening) chipRow.appendChild(span('explore-card-opening', c.opening));
+    if (c.opening) chipRow.appendChild(span('explore-card-opening', openingLabel(c.opening)));
     body.appendChild(chipRow);
     body.appendChild(span('explore-card-detail', headline(c, faced)));
     head.appendChild(body);

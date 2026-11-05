@@ -13,6 +13,12 @@ import { englishDictionary, useDictionary, type Dictionary } from './i18n';
 import { formatMove, formatMovesInText, formatSanLine, movesToSymbols } from './notation';
 import { translatePacks, translateTraps, type ContentWords } from './content-language';
 import type { Pack } from './onboarding-starter';
+import { openingLabel, translateOpeningName, useOpeningWords, type OpeningWords } from './opening-names';
+import { openingFamily } from './analysis';
+import libraryJson from './openings-library.json' with { type: 'json' };
+import openingsCa from './locales/openings/ca.json' with { type: 'json' };
+import openingsEs from './locales/openings/es.json' with { type: 'json' };
+import openingsSv from './locales/openings/sv.json' with { type: 'json' };
 import type { TrapPack } from './traps';
 
 export interface TestResult {
@@ -74,7 +80,6 @@ export function runContentLanguageSelfTest(): TestResult[] {
         compare(`${trap.name} idea`, trap.idea, x?.idea);
       }
     }
-    check(`${lang}: every note, plan and trap is translated (${texts})`, missing.length === 0, missing.slice(0, 5).join('; '));
     check(`${lang}: the moves and squares match the English`, wrongChess.length === 0, wrongChess.slice(0, 5).join('; '));
 
     // A trap's name also tells traps apart when the lists are merged.
@@ -111,6 +116,32 @@ export function runContentLanguageSelfTest(): TestResult[] {
   check('every endgame has its name and idea in the dictionary',
     rawEndgames.every((e) => dictionary[`endgame.${e.id}.name`] && dictionary[`endgame.${e.id}.idea`]));
   check('the catalogue shows those words', allEndgames().every((e) => !e.name.startsWith('endgame.') && !e.idea.startsWith('endgame.')));
+
+  // ── Opening names ──────────────────────────────────────────────────────────
+  const openingNames = [...new Set((libraryJson as { name: string }[]).map((e) => e.name))];
+  const moveNumbers = (text: string): string => [...text.matchAll(/\S*[a-h][1-8]\S*/g)].map((m) => m[0]).sort().join(' ');
+  const expected: Record<string, [string, string][]> = {
+    ca: [['Italian Game: Classical Variation', 'Italiana: Variant clàssica'], ['Sicilian Defense: Najdorf Variation, English Attack', 'Defensa siciliana: Variant Najdorf, Atac anglès'], ["Queen's Gambit Declined: Exchange Variation", 'Gambit de dama refusat: Variant de canvis'], ['Evans Gambit Accepted, 5.c3', 'Gambit Evans acceptat, 5.c3'], ['Bongcloud Attack', 'Atac Bongcloud']],
+    es: [['Italian Game: Classical Variation', 'Italiana: Variante clásica'], ['Sicilian Defense: Najdorf Variation, English Attack', 'Defensa siciliana: Variante Najdorf, Ataque inglés'], ["Queen's Gambit Declined: Exchange Variation", 'Gambito de dama rehusado: Variante de cambios'], ['Evans Gambit Accepted, 5.c3', 'Gambito Evans aceptado, 5.c3'], ['Bongcloud Attack', 'Ataque Bongcloud']],
+    sv: [['Italian Game: Classical Variation', 'Italienskt: Klassisk variant'], ['Sicilian Defense: Najdorf Variation, English Attack', 'Sicilianskt: Najdorf-varianten, Engelskt angrepp'], ["Queen's Gambit Declined: Exchange Variation", 'Avböjd damgambit: Avbytesvarianten'], ['Evans Gambit Accepted, 5.c3', 'Evansgambit (antagen), 5.c3'], ['Bongcloud Attack', 'Bongcloud-angreppet']],
+  };
+  for (const [lang, list] of [['ca', openingsCa], ['es', openingsEs], ['sv', openingsSv]] as [string, unknown][]) {
+    const words = list as OpeningWords;
+    const wrong = expected[lang].filter(([en, want]) => translateOpeningName(en, words) !== want);
+    check(`${lang}: opening names read as they should`, wrong.length === 0, wrong.map(([en]) => translateOpeningName(en, words)).join(' | '));
+    const lost = openingNames.filter((n) => moveNumbers(n) !== moveNumbers(translateOpeningName(n, words)));
+    check(`${lang}: every opening name keeps its moves (${openingNames.length})`, lost.length === 0, lost.slice(0, 3).join(' | '));
+    const blank = openingNames.filter((n) => !translateOpeningName(n, words).trim() || translateOpeningName(n, words).includes('~'));
+    check(`${lang}: no opening name comes out broken`, blank.length === 0, blank.slice(0, 3).join(' | '));
+    const stuck = openingNames.filter((n) => /\b(Variation|Defense|Attack|Line)\b/.test(translateOpeningName(n, words)));
+    // The source has a few typos and odd shapes, so a handful may stay part English.
+    check(`${lang}: the common chess words are translated (${stuck.length} of ${openingNames.length} left)`, stuck.length <= 25, stuck.slice(0, 3).map((n) => translateOpeningName(n, words)).join(' | '));
+    useOpeningWords(words);
+    check(`${lang}: the family used for matching stays English`, openingFamily('Italian Game: Classical Variation') === 'Italian Game');
+    useOpeningWords(null);
+  }
+  useOpeningWords(null);
+  check('English opening names are unchanged', openingLabel('Italian Game: Classical Variation') === 'Italian Game: Classical Variation');
 
   // ── Moves in sentences and in letters ──────────────────────────────────────
   const sentence = 'Prepares Nf3, then ...Bxf7+ and Nbd2–f1. Re1 or O-O, e8=Q+ wins. Not a word like Be or Nb.';

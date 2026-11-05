@@ -24,7 +24,7 @@ const words = (folder, lang) => JSON.parse(read(`src/locales/${folder}/${lang}.j
 
 function page(path) {
   if (path === '/') return buildRootPage(read('docs/index.html'), LANGUAGES, {});
-  const match = path.match(/^\/(ca|es|sv)\/(index\.html|privacy\.html|terms\.html)?$/);
+  const match = path.match(/^\/(ca|es|sv)\/(index\.html|privacy\.html|terms\.html|licences\.html)?$/);
   if (!match) return null;
   const [, lang, file = 'index.html'] = match;
   if (file === 'index.html') return buildLanguagePage(read('docs/index.html'), lang, words('landing', lang), LANGUAGES);

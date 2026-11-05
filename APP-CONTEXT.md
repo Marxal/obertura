@@ -2261,6 +2261,7 @@ Every non-selftest module in `src/`, exactly once.
 | `i18n.ts` | `t()`, plurals and the English fallback; `locales/en.json` is the source (`TRANSLATION-PLAN.md`) |
 | `language-choice.ts` | which language to run in, as a pure decision |
 | `language.ts` | loading the language at startup, `?lang=` previews, saving a choice |
+| `opening-names.ts` | opening names in the reader's language, built from a word list. Display only: the English name is what's stored and matched |
 | `content-language.ts` | laying translated starter pack notes and traps over the English, plus level and style labels |
 | `language-picker.ts` | the Language control, hidden until a second language is released |
 | `locales/pseudo.ts` | the fake language `xx`, for finding untranslated text and overflow |

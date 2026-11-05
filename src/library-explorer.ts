@@ -13,6 +13,7 @@
 // three library view modes; createLibraryExplorer returns its root element plus
 // redraw()/destroy() for the host to drive on show/close.
 
+import { openingLabel } from './opening-names';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
@@ -197,7 +198,7 @@ export function createLibraryExplorer(
       lastMove: lastMoves[lastMoves.length - 1],
     });
 
-    openingEl.textContent = nameForPath(fens) ?? t('builder.startingPosition');
+    openingEl.textContent = openingLabel(nameForPath(fens)) ?? t('builder.startingPosition');
 
     resetBtn.disabled = backBtn.disabled = ucis.length === 0;
     fwdBtn.disabled = forward.length === 0;
@@ -251,7 +252,7 @@ export function createLibraryExplorer(
 
       const name = document.createElement('span');
       name.className = 'lib-bx-name';
-      name.textContent = label;
+      name.textContent = openingLabel(label);
       row.appendChild(name);
 
       const count = document.createElement('span');

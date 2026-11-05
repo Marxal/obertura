@@ -33,6 +33,7 @@
 // (trunkOf) — the shared stem of how this person really plays it, ending on one
 // of their own moves.
 
+import { openingLabel } from './opening-names';
 import { buildPositionCard, fenFromUcis, colourPip } from './card-position';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
@@ -528,13 +529,13 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       // The miniature and "See the line" open the preview; the rest of the card
       // toggles the tick (UX-AUDIT 2.2.3).
       onMiniClick: () => openPreview(opening),
-      miniLabel: t('recap.card.playThrough', { opening: opening.name }),
+      miniLabel: t('recap.card.playThrough', { opening: openingLabel(opening.name) }),
     });
 
     titleRow.appendChild(colourPip(opening.colour));
     const name = document.createElement('span');
     name.className = 'recap-card-name';
-    name.textContent = opening.name;
+    name.textContent = openingLabel(opening.name);
     titleRow.appendChild(name);
 
     const meta = document.createElement('p');
@@ -567,7 +568,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       more.type = 'button';
       more.className = 'recap-card-more';
       more.textContent = '＋';
-      more.setAttribute('aria-label', t('recap.card.addMove', { opening: opening.name }));
+      more.setAttribute('aria-label', t('recap.card.addMove', { opening: openingLabel(opening.name) }));
       more.addEventListener('click', (e) => { e.stopPropagation(); deepenLine(opening); });
       tools.appendChild(more);
     }

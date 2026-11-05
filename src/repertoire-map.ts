@@ -10,6 +10,7 @@
 // The merge itself (path- or position-keyed, and the loop guards the latter
 // needs) lives in map-merge.ts, DOM-free so it can be self-tested.
 
+import { openingLabel } from './opening-names';
 import type { Line } from './types';
 import { Chessground } from 'chessground';
 import type { Api as CgApi } from 'chessground/api';
@@ -711,7 +712,7 @@ function makePreview(
 
     // The handle says what you tapped, whether or not the board is up.
     handleSan.textContent = formatMove(n.san);
-    handleName.textContent = nameForFen(n.fen) ?? '';
+    handleName.textContent = openingLabel(nameForFen(n.fen)) ?? '';
 
     const assoc = lines.find(l => n.lineIds.includes(l.id));
     // Only when the sheet is up: a board mounted into a hidden box measures zero
@@ -724,7 +725,7 @@ function makePreview(
     if (opening) {
       const nm = document.createElement('div');
       nm.className = 'rmap-pos-opening';
-      nm.textContent = opening;
+      nm.textContent = openingLabel(opening);
       infoCol.appendChild(nm);
     }
 
@@ -781,7 +782,7 @@ function makePreview(
     } else if (assoc) {
       const titleEl = document.createElement('div');
       titleEl.className = 'rmap-pos-line-title';
-      titleEl.textContent = assoc.name || assoc.openingName || '';
+      titleEl.textContent = assoc.name || openingLabel(assoc.openingName) || '';
       if (titleEl.textContent) infoCol.appendChild(titleEl);
 
       const openBtn = document.createElement('button');
