@@ -2349,6 +2349,7 @@ one that fails soft — see §18.
 | `build-openings.mjs` | `openings-data.json` |
 | `build-explorer-stats.mjs` | `explorer-stats.json` — **needs `LICHESS_TOKEN`** (build-time only, never shipped) |
 | `build-starter-packs.mjs` | `starter-packs.json` (source in `scripts/starter-packs/`) |
+| `landing-pages.mjs` | the landing page's language versions, run by `vite.config.ts` during the Cloudflare build |
 | `build-traps.mjs` / `build-traps-from-lichess.mjs` | `traps.json` |
 | `build-puzzle-openings.mjs` | `puzzle-openings.json` |
 | `run-selftests.ts` + `register-ts.mjs` + `ts-resolve.mjs` | the headless test runner |

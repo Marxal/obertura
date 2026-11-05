@@ -3,8 +3,9 @@
 Status: **Phases 0 to 4, 6 and 7 done (2026-11-05).** Every screen, starter pack note, trap and endgame
 is in Catalan, Spanish and Swedish (`src/locales/`), reachable with `?lang=ca`, `?lang=es` and `?lang=sv`.
 None is released. Marçal has read the first 949 keys of Catalan on a phone. The rest of the Catalan, all
-the Spanish and all the Swedish are unread, including all of Phase 7. Still to do: Phase 5 (reading it),
-Phase 8 (landing, privacy, terms, emails, checkout), then release.
+the Spanish and all the Swedish are unread, including all of Phase 7. Of Phase 8, the landing page and
+checkout are done, and the emails are written but not live. Still to do: Phase 5 (reading it), privacy and
+terms, the emails, then release.
 
 Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
 and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
@@ -199,17 +200,18 @@ what keeps the unread parts consistent.
 
 ## Outside the app's text
 
-- **Landing page:** generate the language versions from one template and the
-  dictionaries with a small build script. Today `docs/index.html` is a hand-copied
-  mirror of `docs/LANDING-COPY.md`. Four hand-copied mirrors would mean every edit
-  happens four times.
+- **Landing page:** `docs/index.html` stays the only page anyone edits. The build generates `/ca/`,
+  `/es/` and `/sv/` from it (`scripts/landing-pages.mjs`), with the translations in
+  `src/locales/landing/<lang>.json`, keyed by the English. A selftest lists any English with no translation,
+  any translation whose English has gone, and any move that doesn't match. Only released languages get an
+  address, so a deploy changes nothing until release. `LANDING_PREVIEW=1` builds them all, for looking at.
 - **Privacy and terms:** translate them, and get legal advice on which version
   governs. Not decided here.
-- **Sign-in emails:** Supabase has one template per project. Branching on user
-  metadata should work, with the language saved at sign-up. **Untested, so test first.**
+- **Sign-in emails:** Supabase has one template per project. The language is saved at sign-up, and
+  the wording and test steps are in `EMAIL-TEMPLATES.md`. **Untested, so test first.**
 - **Checkout:** Stripe Checkout supports `es` and `sv` but not Catalan (checked
-  against the API reference, 2026-11). Pass `es` for Catalan users.
-  `worker/stripe-checkout.ts` sets no locale today, so it follows the browser.
+  against the API reference, 2026-11). Catalan users get `es` (`worker/checkout-locale.ts`), and
+  anyone else follows the browser, as before.
 - **Opening names:** second phase. A glossary rule (family plus "Variation", "Attack"
   and so on, with the word order per language) covers 93% from the top 100 families.
   Anything else stays English. Until then, all opening names stay English.
@@ -229,7 +231,7 @@ Each phase can stop safely, because of the English fallback.
 | 5 | Marçal reviews Catalan first, then Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
 | 6 ✅ | The remaining screens, one or two rounds at a time | No untranslated text in the fake language, apart from names, opening names and what Phase 7 covers |
 | 7 ✅ | Starter pack notes, traps, endgames | Written and checked by machine. Still to be sampled by a chess player |
-| 8 | Landing, privacy, terms, emails, checkout | Each language's full path works, landing to purchase |
+| 8 | Landing ✅, checkout ✅, emails (written, `EMAIL-TEMPLATES.md`, not live), privacy and terms (not started) | Each language's full path works, landing to purchase |
 | 9 | Release Catalan, then Spanish, then Swedish, each once reviewed. Phones in Spain's Spanish get Catalan from the first release. They can only switch to Spanish once it's released, so ideally release the two together | |
 | 10 | Opening names | |
 

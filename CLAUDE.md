@@ -93,6 +93,7 @@ Keep this map in mind before reading anything large.
   repo root and don't renumber their sections:** `REPERTOIRE-REDESIGN.md` (the
   data model), `TRANSPOSITIONS.md` (saving, drilling, duplicates),
   `SUPABASE-SYNC.md` (accounts, sync, SQL), `STRIPE-SETUP.md` (the buy flow).
+  `EMAIL-TEMPLATES.md` holds the sign-in emails' translations, not live yet.
 - **Owner notes:** `TRANSLATION-PLAN.md` (Catalan, Spanish, Swedish: under way; words in
   `src/locales/GLOSSARY.md`, Catalan's voice in `catalan-instructions-bito.md`),
   `PUBLISHING.md` (store plans not yet built),
@@ -110,7 +111,10 @@ A confidently wrong document costs more than a missing one.
 `docs/` holds four hand-written static pages, copied wholesale by both deploy
 targets: `index.html` (the landing page), `privacy.html`, `terms.html` and
 `licences.html`, sharing `legal.css`. Nothing generates them. The landing copy's
-source of truth is `docs/LANDING-COPY.md` — edit there first, then mirror.
+source of truth is `docs/LANDING-COPY.md` — edit there first, then mirror. The
+landing page's language versions are generated from `index.html` by the build
+(`scripts/landing-pages.mjs`). Changed landing text needs its translation updated in
+`src/locales/landing/`, and a selftest says which.
 `src/legal.ts` resolves the right URL for each host so the app can link to them.
 
 No Google Fonts, anywhere. Chakra Petch is self-hosted (`src/fonts/` for the

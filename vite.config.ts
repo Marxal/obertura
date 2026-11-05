@@ -1,6 +1,8 @@
 import { defineConfig, type Plugin } from 'vite';
-import { readFileSync, cpSync } from 'node:fs';
+import { readFileSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { buildLanguagePage, buildRootPage, buildSitemap, LANDING_LANGUAGES } from './scripts/landing-pages.mjs';
+import { BROWSER_REDIRECTS, RELEASED_LANGUAGES } from './src/language-choice';
 
 // Read the app name + version straight from package.json so the About screen and
 // feedback form always reflect the real build (see about.ts / feedback.ts).
@@ -13,6 +15,22 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 //    marketing landing page) can take over the dist root instead.
 const target = process.env.DEPLOY_TARGET === 'cloudflare' ? 'cloudflare' : 'github';
 
+// The landing page's language versions, generated from docs/index.html. Only released
+// languages get a public address, so a deploy changes nothing until a language is released.
+// LANDING_PREVIEW=1 builds them all, for looking at them locally.
+function writeLandingLanguages(dist: string): void {
+  const released = RELEASED_LANGUAGES.filter((l) => l in LANDING_LANGUAGES);
+  const build = process.env.LANDING_PREVIEW === '1' ? Object.keys(LANDING_LANGUAGES) : released;
+  const english = readFileSync(`${dist}/index.html`, 'utf-8');
+  for (const lang of build) {
+    const words = JSON.parse(readFileSync(new URL(`./src/locales/landing/${lang}.json`, import.meta.url), 'utf-8'));
+    mkdirSync(`${dist}/${lang}`, { recursive: true });
+    writeFileSync(`${dist}/${lang}/index.html`, buildLanguagePage(english, lang, words, released));
+  }
+  writeFileSync(`${dist}/index.html`, buildRootPage(english, released, BROWSER_REDIRECTS));
+  writeFileSync(`${dist}/sitemap.xml`, buildSitemap(readFileSync(`${dist}/sitemap.xml`, 'utf-8'), released));
+}
+
 // Copies docs/ (landing page + its images) into the dist root once the app
 // itself has finished building into dist/app/, so the two coexist.
 function cloudflareLandingPage(): Plugin {
@@ -20,9 +38,11 @@ function cloudflareLandingPage(): Plugin {
     name: 'cloudflare-landing-page',
     apply: 'build',
     closeBundle() {
-      cpSync(fileURLToPath(new URL('./docs', import.meta.url)), fileURLToPath(new URL('./dist', import.meta.url)), {
+      const dist = fileURLToPath(new URL('./dist', import.meta.url));
+      cpSync(fileURLToPath(new URL('./docs', import.meta.url)), dist, {
         recursive: true,
       });
+      writeLandingLanguages(dist);
     },
   };
 }

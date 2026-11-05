@@ -39,6 +39,7 @@
 // happened"; the focus watcher behind it covers the case where this URL is never
 // reached at all.
 
+import { checkoutLocale } from './checkout-locale';
 import {
   type StripeEnv,
   PRICE_ID_RE,
@@ -71,9 +72,9 @@ export async function handleStripeCheckout(request: Request, env: StripeEnv): Pr
   const user = await verifyUser(request, supabase);
   if (!user) return problem(401, 'sign in first');
 
-  let body: { price_id?: unknown };
+  let body: { price_id?: unknown; language?: unknown };
   try {
-    body = (await request.json()) as { price_id?: unknown };
+    body = (await request.json()) as { price_id?: unknown; language?: unknown };
   } catch {
     return problem(400, 'bad request');
   }
@@ -106,6 +107,7 @@ export async function handleStripeCheckout(request: Request, env: StripeEnv): Pr
       // stripe-prices.ts about why that is filtered rather than merely unused.
       mode: 'payment',
       line_items: [{ price: priceId, quantity: 1 }],
+      locale: checkoutLocale(body?.language),
 
       // Pre-filled from the verified token, so nobody retypes an address the
       // account already knows. Stripe shows it locked to that address, which

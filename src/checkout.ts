@@ -53,6 +53,7 @@
 // read and gets an undefined that only shows up in the built bundle. Keeping one
 // direction dynamic means never having to think about it.
 
+import { activeLanguage } from './language';
 import { getAuthUser } from './auth';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { isEntitled, refreshEntitlement } from './entitlement';
@@ -156,7 +157,7 @@ async function goToCheckout(): Promise<void> {
           // asking. See worker/stripe-checkout.ts.
           authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ price_id: price.id }),
+        body: JSON.stringify({ price_id: price.id, language: activeLanguage() }),
         signal: controller.signal,
       });
       if (!res.ok) {

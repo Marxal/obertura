@@ -3125,3 +3125,18 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - A pack line already added keeps the language it was added in, because its notes are saved as that person's own.
 - Moves inside notes still use English letters (*Nf3*), while the move lists above them use piece symbols.
 
+### Translation: landing page, checkout and sign-in emails (Phase 8, first round)
+
+- **`/ca/`, `/es/` and `/sv/` are generated from `docs/index.html`,** so there's one page to edit. That covers the text,
+  the interactive boards and exercises, the search-result text and the weekday letters. Only released languages get an
+  address, and with none released the live page and sitemap come out byte-identical.
+- **`/` redirects by the same rule as the app** once a language is released. A saved choice is never redirected, and a
+  selftest runs the redirect against the app's own decision so they can't disagree.
+- ✅ **A language page sends you into the app in that language,** and the footer switcher saves a choice.
+- ✅ **Checkout:** Catalan and Spanish get Stripe in Spanish, since it has no Catalan, and Swedish gets Swedish. Everyone
+  else follows the browser, as before. Not yet tried against Stripe.
+- **Sign-in emails:** the language is saved at sign-up, and the wording and test steps are in `EMAIL-TEMPLATES.md`. The
+  templates are in Supabase's dashboard, so nothing changes until they're pasted there.
+- Not started: privacy and terms, which need a decision on which version governs.
+- Found, not changed: the landing page's search data (`application/ld+json`) lists Full Access at 9 EUR, and the page says 12€.
+

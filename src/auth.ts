@@ -13,6 +13,7 @@
 // replacing it. Whether the gate eventually retires on the public build is a
 // separate decision, made later.
 
+import { activeLanguage } from './language';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { showToast } from './toast';
 import { track, trackOncePerLaunch } from './metrics';
@@ -329,7 +330,8 @@ export async function signUpWithPassword(email: string, password: string): Promi
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { emailRedirectTo: authRedirectUrl() },
+      // What the sign-in emails read to choose their language (EMAIL-TEMPLATES.md).
+      options: { emailRedirectTo: authRedirectUrl(), data: { language: activeLanguage() } },
     });
     if (error) return { ok: false, message: friendlyAuthError(error) };
     // ONCE ever on this device, not once per call. Re-registering is the normal

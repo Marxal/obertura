@@ -4008,7 +4008,7 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
           accept: 'application/json',
           authorization: 'Bearer ' + session.token
         },
-        body: JSON.stringify({ price_id: quote.id })
+        body: JSON.stringify({ price_id: quote.id, language: document.documentElement.lang })
       })
         .then(function (res) { return res.ok ? res.json() : null; })
         .then(function (data) {
