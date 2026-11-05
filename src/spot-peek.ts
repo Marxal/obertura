@@ -19,6 +19,7 @@ import type { DrawShape } from 'chessground/draw';
 import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { t } from './i18n';
 
 export interface SpotPeekArrow {
   uci: string;
@@ -117,7 +118,7 @@ export function openSpotPeek(initial: SpotPeekOptions): void {
   analyse.hidden = true;
   analyse.appendChild(Icons.review(18));
   const analyseLbl = document.createElement('span');
-  analyseLbl.textContent = 'Analyse game';
+  analyseLbl.textContent = t('html.analyseGame');
   analyse.appendChild(analyseLbl);
   btnRow.appendChild(analyse);
 
@@ -126,7 +127,7 @@ export function openSpotPeek(initial: SpotPeekOptions): void {
   closeBtn.className = 'peek-action';
   closeBtn.appendChild(Icons.back(18));
   const closeLbl = document.createElement('span');
-  closeLbl.textContent = 'Close';
+  closeLbl.textContent = t('common.close');
   closeBtn.appendChild(closeLbl);
   closeBtn.addEventListener('click', close);
   btnRow.appendChild(closeBtn);
@@ -162,12 +163,12 @@ export function openSpotPeek(initial: SpotPeekOptions): void {
         prevBtn = document.createElement('button');
         prevBtn.type = 'button';
         prevBtn.className = 'peek-nav peek-nav--prev';
-        prevBtn.setAttribute('aria-label', 'Previous position');
+        prevBtn.setAttribute('aria-label', t('open.previousPosition'));
         prevBtn.appendChild(Icons.back(20));
         nextBtn = document.createElement('button');
         nextBtn.type = 'button';
         nextBtn.className = 'peek-nav peek-nav--next';
-        nextBtn.setAttribute('aria-label', 'Next position');
+        nextBtn.setAttribute('aria-label', t('common.nextPosition'));
         nextBtn.appendChild(Icons.chevronRight(20));
         boardWrap.appendChild(prevBtn);
         boardWrap.appendChild(nextBtn);

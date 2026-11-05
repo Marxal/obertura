@@ -8,6 +8,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { Review } from './scheduler';
 import type { PositionIndex } from './position-index';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -115,5 +116,5 @@ export function inheritReviews(line: Line, index: PositionIndex): InheritResult 
  */
 export function inheritanceNote(r: InheritResult): string | null {
   if (r.inherited <= 0) return null;
-  return `${r.inherited} of these ${r.userMoves} moves you already know.`;
+  return t('open.ofTheseMovesYou', { inherited: r.inherited, userMoves: r.userMoves });
 }

@@ -6,11 +6,12 @@ import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import type { ImportedGame } from './import-core';
 import { agoText, timesText } from './reply-games';
+import { t } from './i18n';
 
 const RESULT: Record<ImportedGame['result'], { label: string; className: string }> = {
-  win: { label: 'Won', className: 'nr-result--win' },
-  draw: { label: 'Drew', className: 'nr-result--draw' },
-  loss: { label: 'Lost', className: 'nr-result--loss' },
+  win: { label: t('showcase.won'), className: 'nr-result--win' },
+  draw: { label: t('showcase.drew'), className: 'nr-result--draw' },
+  loss: { label: t('showcase.lost'), className: 'nr-result--loss' },
 };
 
 function gameRow(game: ImportedGame, onOpen: () => void): HTMLElement {
@@ -85,7 +86,7 @@ export function openFacedGames(
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'dialog-btn btn-secondary';
-  done.textContent = 'Close';
+  done.textContent = t('common.close');
   done.addEventListener('click', close);
   row.appendChild(done);
   sheet.appendChild(row);

@@ -38,7 +38,7 @@ import {
 } from './line-status';
 import { openLinePeek } from './line-peek';
 import { addedLabel, addedExact } from './line-info';
-import { t } from './i18n';
+import { t as tr } from './i18n';
 
 // Game analysis walks every imported game through a merged repertoire tree — at
 // a year's worth of games that's a visible hitch on a phone. It was being re-run
@@ -138,7 +138,7 @@ export function renderLinesScreen(
 }
 
 async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> {
-  container.innerHTML = `<p class="lines-loading">${t('common.loading')}</p>`;
+  container.innerHTML = `<p class="lines-loading">${tr('common.loading')}</p>`;
   let allLines: Line[];
   let games: ImportedGame[];
   try {
@@ -173,10 +173,10 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
 // ── Saved lines tab ──────────────────────────────────────────────────────────
 
 const SAVED_ORDERS: { key: SortMode; label: string }[] = [
-  { key: 'latest', label: 'Latest' },
-  { key: 'weakest', label: 'Weakest' },
-  { key: 'strongest', label: 'Strongest' },
-  { key: 'name', label: 'Name' },
+  { key: 'latest', label: tr('open.latest') },
+  { key: 'weakest', label: tr('settings.weakest') },
+  { key: 'strongest', label: tr('open.strongest') },
+  { key: 'name', label: tr('repertoire.name') },
 ];
 
 // Every distinct opponent tag ("vs <name>") across the lines, sorted.
@@ -278,7 +278,7 @@ function renderSavedTab(
       tagCounts: countLinesByTag(colour === 'all' ? lines : lines.filter(l => l.colour === colour)),
     }),
     search: true,
-    searchPlaceholder: 'Search by name',
+    searchPlaceholder: tr('open.searchByName'),
     group: true,
     // My Lines is the one list that can also draw its lines as a tree.
     groupTree: true,
@@ -302,15 +302,15 @@ function renderSavedTab(
     if (shown.length === 0) {
       if (lines.length === 0) {
         list.appendChild(buildEmptyState({
-          line: 'No saved lines yet.',
-          cta: { label: '+ Add a line', onClick: () => deps.onAddLine('white') },
+          line: tr('stats.noSavedLinesYet'),
+          cta: { label: tr('open.addALine'), onClick: () => deps.onAddLine('white') },
           secondaryActions: [
-            { label: 'Pick a starter pack', onClick: () => deps.onPickStarterPack() },
+            { label: tr('open.pickAStarterPack'), onClick: () => deps.onPickStarterPack() },
           ],
           // The openings-from-your-games route now lives on Explore, so the
           // quiet alternative points there rather than at a tab that has gone.
           ...(deps.onSeeMyOpenings && {
-            link: { label: 'or see the openings you play', onClick: deps.onSeeMyOpenings },
+            link: { label: tr('open.orSeeTheOpenings'), onClick: deps.onSeeMyOpenings },
           }),
         }));
         return;
@@ -318,8 +318,8 @@ function renderSavedTab(
       const empty = document.createElement('p');
       empty.className = 'lines-empty';
       empty.textContent = filter.selection.query
-        ? `No lines matching “${filter.selection.query}”.`
-        : 'No lines here yet.';
+        ? tr('open.noLinesMatching', { query: filter.selection.query })
+        : tr('open.noLinesHereYet');
       list.appendChild(empty);
       return;
     }
@@ -344,7 +344,7 @@ function renderSavedTab(
       renderLinesTree(
         list, shown, filter.selection.colour, deps.onOpenLine,
         book ? {
-          label: 'Branch actions',
+          label: tr('open.branchActions'),
           onAct: (ctx) => {
             void openBranchSheet({
               repertoireId: book,
@@ -370,7 +370,7 @@ function renderSavedTab(
         const hit = shown.find(l => l.id === highlightLineId);
         if (hit) {
           expandedFamilies.add(deep
-            ? (hit.openingName || hit.name || 'Unnamed opening')
+            ? (hit.openingName || hit.name || tr('open.unnamedOpening'))
             : openingFamily(hit.openingName));
         }
       }
@@ -413,7 +413,7 @@ function buildMoreLinesRow(deps: LinesDeps): HTMLElement {
   build.className = 'btn-secondary lines-more-btn';
   build.appendChild(Icons.plus(16));
   const label = document.createElement('span');
-  label.textContent = 'Create more lines';
+  label.textContent = tr('open.createMoreLines');
   build.appendChild(label);
   build.addEventListener('click', () => deps.onAddLine('white'));
   row.appendChild(build);
@@ -421,7 +421,7 @@ function buildMoreLinesRow(deps: LinesDeps): HTMLElement {
   const packs = document.createElement('button');
   packs.type = 'button';
   packs.className = 'lines-more-link';
-  packs.textContent = 'or pick a starter pack';
+  packs.textContent = tr('open.orPickAStarter');
   packs.addEventListener('click', () => deps.onPickStarterPack());
   row.appendChild(packs);
 
@@ -448,14 +448,14 @@ function buildDetailCard(
     onDrill: deps.onTrainLine
       ? (l) => deps.onTrainLine!(l.id, l.inTraining)
       : undefined,
-    drillLabel: line.inTraining ? 'Drill line' : 'Add to training',
+    drillLabel: line.inTraining ? tr('home.forgotten.drill') : tr('open.addToTraining'),
   });
 
   const { card, titleRow: titleRowWrap, content } = buildPositionCard({
     fen: lineFinalFen(line.tree),
     orientation: line.colour,
     onMiniClick: peek,
-    miniLabel: 'Look at this line',
+    miniLabel: tr('open.lookAtThisLine'),
   });
 
   // Just saved from the builder: draw attention and scroll it into view.
@@ -475,13 +475,13 @@ function buildDetailCard(
   titleRow.appendChild(colourPip(line.colour));
   const nameEl = document.createElement('span');
   nameEl.className = 'pcard-name';
-  nameEl.textContent = line.name || line.openingName || 'Untitled line';
+  nameEl.textContent = line.name || line.openingName || tr('drill.untitledLine');
   titleRow.appendChild(nameEl);
   // A short-lived "New" chip on the line you just saved, so it's easy to spot.
   if (justSaved) {
     const newBadge = document.createElement('span');
     newBadge.className = 'dline-new-badge';
-    newBadge.textContent = 'New';
+    newBadge.textContent = tr('due.new');
     titleRow.appendChild(newBadge);
   }
   titleRow.addEventListener('click', peek);
@@ -525,7 +525,7 @@ function buildDetailCard(
   if (playCount > 0) {
     const played = document.createElement('div');
     played.className = 'dline-played';
-    played.textContent = `Played ${playCount}× in your games`;
+    played.textContent = tr('open.playedInYourGames', { playCount: playCount });
     info.appendChild(played);
   }
 
@@ -544,9 +544,9 @@ function buildDetailCard(
     grow.className = 'dline-grow';
     grow.appendChild(Icons.sprout(14));
     const growLabel = document.createElement('span');
-    growLabel.textContent = 'Keep growing this line';
+    growLabel.textContent = tr('open.keepGrowingThisLine');
     grow.appendChild(growLabel);
-    grow.title = 'You know this one — open it and add the next moves';
+    grow.title = tr('open.youKnowThisOne');
     grow.addEventListener('click', (e) => { e.stopPropagation(); deps.onOpenLine(line); });
     info.appendChild(grow);
   }
@@ -601,7 +601,7 @@ function buildDetailCard(
     const trainBtn = document.createElement('button');
     trainBtn.type = 'button';
     trainBtn.className = 'dline-icon';
-    const trainLabel = line.inTraining ? 'Train this line' : 'Add to training';
+    const trainLabel = line.inTraining ? tr('open.trainThisLine') : tr('open.addToTraining');
     trainBtn.setAttribute('aria-label', trainLabel);
     trainBtn.title = trainLabel;
     trainBtn.appendChild(Icons.zap(16));
@@ -616,8 +616,8 @@ function buildDetailCard(
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
   editBtn.className = 'dline-icon';
-  editBtn.setAttribute('aria-label', 'Open in builder');
-  editBtn.title = 'Open in builder';
+  editBtn.setAttribute('aria-label', tr('reply.openBuilder'));
+  editBtn.title = tr('reply.openBuilder');
   editBtn.appendChild(Icons.pencil(16));
   editBtn.addEventListener('click', () => deps.onOpenLine(line));
   iconRow.appendChild(editBtn);
@@ -630,8 +630,8 @@ function buildDetailCard(
   const optionsBtn = document.createElement('button');
   optionsBtn.type = 'button';
   optionsBtn.className = 'dline-icon';
-  optionsBtn.setAttribute('aria-label', 'Line options');
-  optionsBtn.title = 'Line options';
+  optionsBtn.setAttribute('aria-label', tr('open.lineOptions'));
+  optionsBtn.title = tr('open.lineOptions');
   optionsBtn.appendChild(Icons.settings(16));
   optionsBtn.addEventListener('click', () => {
     void openBranchSheetForLine(line.id, {
@@ -644,8 +644,8 @@ function buildDetailCard(
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'dline-icon dline-icon--danger';
-  deleteBtn.setAttribute('aria-label', 'Delete line');
-  deleteBtn.title = 'Delete';
+  deleteBtn.setAttribute('aria-label', tr('builder.deleteLine'));
+  deleteBtn.title = tr('repertoire.delete13');
   deleteBtn.appendChild(Icons.trash(16));
   deleteBtn.addEventListener('click', () =>
     openDeletePopup(line, () => refresh())
@@ -705,7 +705,7 @@ function buildTrainingRow(line: Line): HTMLElement | null {
   row.className = 'dline-training';
   row.textContent = text;
   if (t.recallPct !== null) {
-    row.title = `${t.drilled} of ${t.total} moves drilled — ${t.recallPct}% of those come back clean`;
+    row.title = tr('open.ofMovesDrilledOf', { drilled: t.drilled, total: t.total, recallPct: t.recallPct });
   }
   return row;
 }
@@ -721,15 +721,14 @@ function openDeletePopup(line: Line, onDeleted: () => void): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Delete this line?';
+  title.textContent = tr('builder.deleteThisLine');
   sheet.appendChild(title);
 
   const warn = document.createElement('p');
   warn.className = 'delete-warn';
-  const label = line.name || line.openingName || 'this line';
+  const label = line.name || line.openingName || tr('builder.thisLine');
   warn.textContent =
-    `“${label}” and all of its training data — confidence, review history and ` +
-    `schedule — will be permanently deleted. This can’t be undone.`;
+    tr('builder.andAllOfIts', { label: label });
   sheet.appendChild(warn);
 
   const btnRow = document.createElement('div');
@@ -739,7 +738,7 @@ function openDeletePopup(line: Line, onDeleted: () => void): void {
   confirmBtn.type = 'button';
   confirmBtn.className = 'btn-danger delete-confirm-btn';
   confirmBtn.appendChild(Icons.trash(15));
-  confirmBtn.appendChild(document.createTextNode('Delete'));
+  confirmBtn.appendChild(document.createTextNode(tr('repertoire.delete13')));
   confirmBtn.addEventListener('click', async () => {
     await deleteLine(line.id);
     close();
@@ -749,7 +748,7 @@ function openDeletePopup(line: Line, onDeleted: () => void): void {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = tr('common.cancel');
   cancelBtn.addEventListener('click', close);
 
   btnRow.appendChild(confirmBtn);

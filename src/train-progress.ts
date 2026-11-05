@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // The Train screen's rated doors show the way to the next hundred of the rating
 // as the ring round their icon (train-doors.ts). Pure, so it is tested under
 // plain Node (train-progress.selftest.ts).
@@ -10,5 +11,5 @@
 export function ratingProgress(rating: number): { value: number; max: number; label: string } {
   const r = Math.max(0, Math.round(rating));
   const next = Math.floor(r / 100) * 100 + 100;
-  return { value: r - (next - 100), max: 100, label: `${next - r} pts to ${next}` };
+  return { value: r - (next - 100), max: 100, label: t('train.ptsTo', { pts: next - r, next }) };
 }

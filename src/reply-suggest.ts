@@ -17,6 +17,7 @@ import { topMoves } from './next-reply';
 import { meterBar } from './reply-facts';
 import { wdlBar } from './wdl-bar';
 import type { StatsAt } from './rare-branch';
+import { t as tr } from './i18n';
 
 const ENGINE_COLOR = '#2f9e5f';
 const ENGINE_DEPTH = 14;
@@ -73,7 +74,7 @@ export function buildSuggest(opts: {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn-secondary nr-action';
-  button.append(Icons.bulb(15), 'Suggest');
+  button.append(Icons.bulb(15), tr('open.suggest'));
 
   let open = false;
   let active = true;
@@ -128,7 +129,7 @@ export function buildSuggest(opts: {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'nr-tab';
-      b.textContent = t === 'usual' ? 'Most played' : 'Engine';
+      b.textContent = t === 'usual' ? tr('stats.mostPlayed') : tr('story.engine');
       b.setAttribute('aria-pressed', String(t === tab()));
       b.addEventListener('click', () => {
         preferred = t;
@@ -156,7 +157,7 @@ export function buildSuggest(opts: {
       setArrows(engineRows.map(r => r.dataset.uci ?? ''));
       return;
     }
-    list.replaceChildren(text('nr-note', 'Thinking…'));
+    list.replaceChildren(text('nr-note', tr('reply.fact.thinking')));
     setArrows([]);
     if (engineFen !== fen) void askEngine(fen);
   };
@@ -182,7 +183,7 @@ export function buildSuggest(opts: {
     if (disposed || asked !== fen) return;   // the board has moved on
     if (found.length === 0) {
       engineFen = null;
-      if (tab() === 'engine') list.replaceChildren(text('nr-note', 'The engine isn’t available right now.'));
+      if (tab() === 'engine') list.replaceChildren(text('nr-note', tr('open.theEngineIsnT')));
       return;
     }
     engineRows = found.map((m) => {

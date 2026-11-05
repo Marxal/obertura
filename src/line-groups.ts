@@ -11,6 +11,7 @@
 import type { Line } from './types';
 import { openingFamily } from './analysis';
 import { Icons } from './icons';
+import { t } from './i18n';
 
 // Optional per-group extras: a control rendered on the group header, after the
 // count (Train uses it for the "pause this whole branch" switch).
@@ -40,7 +41,7 @@ export function renderVariationGroups(
   expanded: Set<string>,
   opts?: GroupOptions<Line>,
 ): void {
-  renderGroups(host, lines, l => l.openingName || l.name || 'Unnamed opening', card, expanded, opts);
+  renderGroups(host, lines, l => l.openingName || l.name || t('open.unnamedOpening'), card, expanded, opts);
 }
 
 // The generic flavour: group ANY item list into collapsible families. Families

@@ -21,6 +21,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { Review } from './scheduler';
 import type { PositionIndex, PositionEntry } from './position-index';
+import { t } from './i18n';
 
 // The mainline, the same children[0] chain every other reader walks.
 function mainlineNodes(tree: MoveNode): MoveNode[] {
@@ -126,7 +127,7 @@ export function judgeOtherLineMove(
   if (!matched) return null;
 
   if (!matched.inTraining) {
-    return { kind: 'parked', lineName: matched.lineName || 'Untitled line' };
+    return { kind: 'parked', lineName: matched.lineName || t('drill.untitledLine') };
   }
 
   // Every distinct in-training move here, `siblingAnswers`' own in-training-first
@@ -139,7 +140,7 @@ export function judgeOtherLineMove(
     const key = e.uci.slice(0, 4);
     if (seen.has(key)) continue;
     seen.add(key);
-    candidates.push({ lineId: e.lineId, lineName: e.lineName || 'Untitled line', uci: e.uci, ply: e.ply });
+    candidates.push({ lineId: e.lineId, lineName: e.lineName || t('drill.untitledLine'), uci: e.uci, ply: e.ply });
   }
   return { kind: 'in-training', candidates };
 }

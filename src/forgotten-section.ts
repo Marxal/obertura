@@ -37,6 +37,7 @@ import { openPositionPeek } from './position-peek';
 import { openLinePeek } from './line-peek';
 import { formatMove } from './notation';
 import { Icons } from './icons';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -81,12 +82,12 @@ export function renderForgottenLines(host: HTMLElement, lines: Line[], cb: Forgo
   const recall = lineRecall(lines, 50);
   if (recall.length === 0) return;
   host.appendChild(buildStripBlock(
-    'Relearn forgotten lines',
-    `${recall.length} to work on`,
+    t('open.relearnForgottenLines'),
+    t('open.toWorkOn', { length: recall.length }),
     buildStrip(
       recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),
       recall.length > PREVIEW
-        ? seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb))
+        ? seeAllRow(t('open.seeAll14', { length: recall.length }), () => openLinesSheet(recall, lines, cb))
         : null,
     ),
   ));
@@ -144,7 +145,7 @@ function moveRow(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): HTMLE
   if (m.hasNote) {
     const badge = document.createElement('span');
     badge.className = 'stats-note-badge';
-    badge.textContent = 'note';
+    badge.textContent = t('open.note');
     name.appendChild(badge);
   }
   text.appendChild(name);
@@ -191,7 +192,7 @@ function openMovePeek(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): 
 
   const foot = [
     m.openingName ?? m.lineName,
-    m.due ? describeDue(m.due) : 'not scheduled yet',
+    m.due ? describeDue(m.due) : t('home.forgotten.notScheduled'),
   ].join(' · ');
 
   openPositionPeek({
@@ -203,23 +204,23 @@ function openMovePeek(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): 
     stats: [
       {
         value: pct === null ? '—' : `${pct}%`,
-        label: 'recall',
+        label: t('stat.recall'),
         tone: pct === null ? undefined : pct < 50 ? 'low' : pct < 80 ? 'mid' : 'ok',
       },
-      { value: String(m.lapses), label: m.lapses === 1 ? 'miss' : 'misses', tone: 'low' },
-      { value: String(m.attempts), label: 'asked' },
+      { value: String(m.lapses), label: t('stat.miss', { n: m.lapses }), tone: 'low' },
+      { value: String(m.attempts), label: t('stat.asked') },
       {
         value: String(m.reps),
-        label: 'in a row',
+        label: t('stat.inARow'),
         tone: m.reps > 0 ? 'ok' : 'low',
       },
     ],
     footnote: foot,
     note: line ? noteForMove(line, m) : undefined,
     actions: [
-      { icon: Icons.target(18), label: 'Fix it', onClick: ({ close }) => { close(); cb.onFixMove(m, lines); } },
+      { icon: Icons.target(18), label: t('home.forgotten.fix'), onClick: ({ close }) => { close(); cb.onFixMove(m, lines); } },
       ...(line
-        ? [{ icon: Icons.zap(18), label: 'Drill line', onClick: ({ close }: { close: () => void }) => { close(); cb.onDrillLine(line); } }]
+        ? [{ icon: Icons.zap(18), label: t('home.forgotten.drill'), onClick: ({ close }: { close: () => void }) => { close(); cb.onDrillLine(line); } }]
         : []),
     ],
   });
@@ -265,8 +266,8 @@ function lineRow(r: LineRecall, lines: Line[], cb: ForgottenCallbacks): HTMLElem
   // the same percentage over twenty.
   const meta = document.createElement('span');
   meta.className = 'stats-sheet-meta';
-  meta.textContent = `${trainedLabel(r.timesTrained)} · ${r.memory.solid} solid · ${r.memory.shaky} slipping`
-    + (r.lapses > 0 ? ` · missed ${r.lapses}×` : '');
+  meta.textContent = t('open.solidSlipping', { site: trainedLabel(r.timesTrained), solid: r.memory.solid, shaky: r.memory.shaky })
+    + (r.lapses > 0 ? t('open.missed', { lapses: r.lapses }) : '');
   text.appendChild(meta);
   card.appendChild(text);
 
@@ -290,8 +291,8 @@ function lineRow(r: LineRecall, lines: Line[], cb: ForgottenCallbacks): HTMLElem
 }
 
 export function trainedLabel(times: number): string {
-  if (times <= 0) return 'not trained yet';
-  return times === 1 ? 'trained once' : `trained ${times}×`;
+  if (times <= 0) return t('stats.notTrainedYet');
+  return times === 1 ? t('open.trainedOnce') : t('open.trained', { times: times });
 }
 
 // A segmented memory meter: solid / slipping / not-yet-trained, in the same
@@ -382,13 +383,13 @@ export function openMovesSheet(
   moves: NeedsWorkMove[],
   lines: Line[],
   cb: ForgottenCallbacks,
-  title = 'Forgotten moves',
+  title = t('open.forgottenMoves'),
 ): void {
   openSheet(title, (body, close) => {
     if (moves.length === 0) {
       body.appendChild(buildEmptyState({
-        line: 'No missed moves yet — clean run.',
-        cta: { label: 'Start training', onClick: () => { close(); cb.onStartTraining(); } },
+        line: t('open.noMissedMovesYet'),
+        cta: { label: t('firstRun.startTraining'), onClick: () => { close(); cb.onStartTraining(); } },
       }));
       return;
     }
@@ -403,7 +404,7 @@ export function openMovesSheet(
 }
 
 function openLinesSheet(recall: LineRecall[], lines: Line[], cb: ForgottenCallbacks): void {
-  openSheet('Line recall', (body, close) => {
+  openSheet(t('open.lineRecall'), (body, close) => {
     for (const r of recall) {
       const card = lineRow(r, lines, cb);
       card.addEventListener('click', () => close(), { capture: true });

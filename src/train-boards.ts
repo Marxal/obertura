@@ -21,6 +21,7 @@ import { getPuzzleRating, difficultyForRating } from './puzzle-rating';
 import { hasPuzzles, toAngleKey } from './puzzles';
 import { buildPuzzleBlock } from './train-puzzle-card';
 import type { DomainId } from './train-doors';
+import { t } from './i18n';
 
 export async function buildTrainBoard(
   domain: DomainId, data: HomeData, deps: HomeDeps,
@@ -33,7 +34,7 @@ export async function buildTrainBoard(
       const angle = opening ? toAngleKey(opening) : null;
       if (!angle) return null;
       return buildPuzzleBlock({
-        title: 'A puzzle from your openings',
+        title: t('open.aPuzzleFromYour'),
         angle,
         difficulty: difficultyForRating(getPuzzleRating()),
       });
@@ -42,13 +43,13 @@ export async function buildTrainBoard(
       return buildGamesBlock(data, deps, 1);
     case 'tactics':
       return buildPuzzleBlock({
-        title: 'A puzzle at your level',
+        title: t('open.aPuzzleAtYour'),
         angle: null,
         difficulty: difficultyForRating(getPuzzleRating()),
       });
     case 'endgames':
       return buildPuzzleBlock({
-        title: 'An endgame at your level',
+        title: t('open.anEndgameAtYour'),
         angle: 'endgame',
         difficulty: difficultyForRating(getPuzzleRating('endgame')),
       });

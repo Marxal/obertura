@@ -35,6 +35,7 @@ import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import { openPositionPeek, type PeekAction, type PeekStat } from './position-peek';
 import { loadCoverage, cachedCoverage, liveReachNote, type CoverageLoad } from './coverage-data';
 import { MAX_GAPS, type Gap, type GapSource } from './coverage-gaps';
+import { t } from './i18n';
 
 /** How many family bars the block shows before it stops being a summary. */
 const FAMILY_ROWS = 4;
@@ -91,11 +92,11 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     }
 
     if (loading) {
-      host.appendChild(note('Working out your coverage…'));
+      host.appendChild(note(t('open.workingOutYourCoverage')));
       return;
     }
     if (!load) {
-      host.appendChild(note('Couldn’t read your lines just now.'));
+      host.appendChild(note(t('open.couldnTReadYour')));
       return;
     }
 
@@ -103,8 +104,8 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
 
     if (report.positions === 0) {
       host.appendChild(note(deps.colour === 'white'
-        ? 'Save a White line and this fills in with the replies it doesn’t answer yet.'
-        : 'Save a Black line and this fills in with the replies it doesn’t answer yet.'));
+        ? t('open.saveAWhiteLine')
+        : t('open.saveABlackLine')));
       return;
     }
 
@@ -121,8 +122,8 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
 
     if (!shown.length) {
       host.appendChild(note(load.complete
-        ? 'Nothing unanswered here — every reply worth preparing has an answer.'
-        : 'Nothing unanswered so far…'));
+        ? t('open.nothingUnansweredHereEvery')
+        : t('open.nothingUnansweredSoFar')));
     } else {
       const list = document.createElement('div');
       list.className = 'cvg-list lines-grid';
@@ -131,9 +132,9 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
 
       const hidden = report.totalGaps - shown.length;
       if (hidden > 0 && deps.onSeeAll) {
-        host.appendChild(moreLink(`${hidden} more to prepare`, deps.onSeeAll));
+        host.appendChild(moreLink(t('open.moreToPrepare', { hidden: hidden }), deps.onSeeAll));
       } else if (hidden > 0) {
-        host.appendChild(note(`${hidden} more below the top ${shown.length}.`));
+        host.appendChild(note(t('open.moreBelowTheTop', { hidden: hidden, length: shown.length })));
       }
     }
 
@@ -141,7 +142,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     if (reach) {
       const line = document.createElement('div');
       line.className = 'cvg-reach';
-      line.textContent = load.complete ? reach : 'Checking these against real games…';
+      line.textContent = load.complete ? reach : t('open.checkingTheseAgainstReal');
       host.appendChild(line);
     }
   }
@@ -153,7 +154,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     head.className = 'mylines-head';
     const title = document.createElement('span');
     title.className = 'mylines-head-title';
-    title.textContent = deps.title ?? 'Coverage gaps';
+    title.textContent = deps.title ?? t('open.coverageGaps');
     head.appendChild(title);
     if (deps.onSeeAll) {
       const link = document.createElement('button');
@@ -161,7 +162,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
       link.className = 'mylines-tree-link';
       link.appendChild(Icons.target(15));
       link.appendChild(document.createTextNode(
-        load && load.report.totalGaps > 0 ? `See all ${load.report.totalGaps}` : 'See all'));
+        load && load.report.totalGaps > 0 ? t('open.seeAll', { totalGaps: load.report.totalGaps }) : t('open.seeAll13')));
       link.addEventListener('click', deps.onSeeAll);
       head.appendChild(link);
     }
@@ -183,8 +184,8 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     const words = document.createElement('span');
     words.className = 'cvg-summary-text';
     words.textContent = notable === 0
-      ? 'nothing worth preparing has come up yet'
-      : `${answered} of ${notable} replies answered${gaps ? ` · ${gaps} to prepare` : ''}`;
+      ? t('open.nothingWorthPreparingHas')
+      : gaps ? t('open.answeredGaps', { answered, notable, gaps }) : t('open.answered', { answered, notable });
     top.appendChild(words);
     wrap.appendChild(top);
     wrap.appendChild(bar(pct));
@@ -238,7 +239,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
       orientation: gap.colour,
       className: `games-card cvg-card cvg-card--${gap.source}`,
       onMiniClick: () => openGapPeek(gap),
-      miniLabel: `Look at ${gap.san}`,
+      miniLabel: t('open.lookAt13', { san: gap.san }),
     });
     card.addEventListener('click', () => openGapPeek(gap));
 
@@ -250,7 +251,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
 
     const chip = document.createElement('span');
     chip.className = 'opening-chip cvg-chip';
-    chip.textContent = 'No answer';
+    chip.textContent = t('open.noAnswer');
     titleRow.appendChild(chip);
 
     // The sentence that ranked the row, with its source's icon. A ranking the
@@ -266,19 +267,19 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     chips.appendChild(chipEl(gap.family && gap.family !== 'Unrecognised opening'
       ? gap.family
       : `Move ${Math.floor(gap.ply / 2) + 1}`));
-    chips.appendChild(chipEl(gap.lineCount === 1 ? '1 line here' : `${gap.lineCount} lines here`));
+    chips.appendChild(chipEl(gap.lineCount === 1 ? t('open.1LineHere') : t('open.linesHere', { lineCount: gap.lineCount })));
     content.appendChild(chips);
 
     const where = document.createElement('div');
     where.className = 'review-moves stat-card-note';
-    where.textContent = `after ${gap.sans.length ? formatSans(gap.sans) : 'the first move'}`;
+    where.textContent = gap.sans.length ? t('open.afterMoves', { moves: formatSans(gap.sans) }) : t('open.afterFirst');
     content.appendChild(where);
 
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn-secondary stat-card-btn';
     btn.appendChild(Icons.plus(15));
-    btn.appendChild(document.createTextNode('Prepare an answer'));
+    btn.appendChild(document.createTextNode(t('open.prepareAnAnswer')));
     btn.addEventListener('click', e => {
       e.stopPropagation();
       deps.onPrepare([...gap.ucis, gap.uci], gap.colour, gap.opponentName);
@@ -286,8 +287,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     content.appendChild(btn);
 
     card.setAttribute('aria-label',
-      `${gap.san} after ${gap.sans.join(' ') || 'the first move'} — ${gap.reason}. `
-      + 'Look at the position.');
+      gap.sans.length ? t('open.gapLabel', { san: gap.san, moves: gap.sans.join(' '), reason: gap.reason }) : t('open.gapLabelFirst', { san: gap.san, reason: gap.reason }));
     return card;
   }
 
@@ -304,7 +304,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
   function openGapPeek(gap: Gap): void {
     const actions: PeekAction[] = [{
       icon: Icons.plus(16),
-      label: 'Prepare an answer',
+      label: t('open.prepareAnAnswer'),
       onClick: ({ close }) => {
         close();
         // The seed is the path PLUS the unanswered move, so the builder opens
@@ -316,7 +316,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
       const seeInTree = deps.onSeeInTree;
       actions.push({
         icon: Icons.merge(16),
-        label: 'See it in my tree',
+        label: t('open.seeItInMy'),
         onClick: ({ close }) => { close(); seeInTree(gap); },
       });
     }
@@ -338,24 +338,24 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
   function gapStats(gap: Gap): PeekStat[] {
     const out: PeekStat[] = [];
     if (gap.source === 'games') {
-      out.push({ value: String(gap.weight), label: 'times faced', tone: 'low' });
+      out.push({ value: String(gap.weight), label: t('open.timesFaced'), tone: 'low' });
     } else if (gap.source === 'library') {
-      out.push({ value: `${gap.weight}%`, label: 'play this', tone: 'mid' });
+      out.push({ value: `${gap.weight}%`, label: t('open.playThis'), tone: 'mid' });
     } else {
-      out.push({ value: String(gap.weight), label: 'their games', tone: 'low' });
+      out.push({ value: String(gap.weight), label: t('open.theirGames'), tone: 'low' });
     }
-    out.push({ value: String(gap.lineCount), label: gap.lineCount === 1 ? 'line here' : 'lines here' });
-    out.push({ value: String(Math.floor(gap.ply / 2) + 1), label: 'move' });
+    out.push({ value: String(gap.lineCount), label: gap.lineCount === 1 ? t('open.lineHere') : t('open.linesHere13') });
+    out.push({ value: String(Math.floor(gap.ply / 2) + 1), label: t('open.move') });
     return out;
   }
 
   // Where the gap sits, in the fewest words that still locate it: the line so
   // far, and the opening it belongs to when the book knows one.
   function context(gap: Gap): string {
-    const moves = gap.sans.length ? formatSans(gap.sans) : 'the starting position';
+    const moves = gap.sans.length ? formatSans(gap.sans) : t('open.theStartingPosition');
     return gap.family && gap.family !== 'Unrecognised opening'
-      ? `${gap.family} · after ${moves}`
-      : `after ${moves}`;
+      ? t('open.after', { family: gap.family, moves: moves })
+      : t('open.afterMoves', { moves: moves });
   }
 
   function moreLink(label: string, onClick: () => void): HTMLElement {

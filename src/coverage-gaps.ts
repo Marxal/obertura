@@ -32,6 +32,7 @@ import { positionKey } from './position-index';
 import { positionKeysAlong } from './fast-replay';
 import { openingFamily, UNKNOWN_FAMILY } from './analysis';
 import { nameForFen } from './openings';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -333,21 +334,21 @@ interface Reason {
 // popular.
 function reasonFor(c: Candidate): Reason | null {
   if (c.faced >= MIN_FACED_GAMES) {
-    return { source: 'games', reason: `faced ${c.faced} times`, weight: c.faced };
+    return { source: 'games', reason: t('open.facedTimes', { faced: c.faced }), weight: c.faced };
   }
   if (c.bandTotal >= MIN_BAND_GAMES && c.sharePct >= MIN_BAND_SHARE_PCT) {
     // `coverage` decides the wording, never the preference: numbers that fell
     // back to the bundled set are all-ratings and have to say so.
     const reason = c.coverage === 'band'
-      ? `played ${c.sharePct}% at your level`
-      : `played ${c.sharePct}% of the time here`;
+      ? t('open.playedAtYourLevel', { sharePct: c.sharePct })
+      : t('open.playedOfTheTime', { sharePct: c.sharePct });
     return { source: 'library', reason, weight: c.sharePct };
   }
   const scout = [...c.scouts].sort((a, b) => b.games - a.games || a.name.localeCompare(b.name))[0];
   if (scout && scout.games >= MIN_SCOUT_GAMES) {
     return {
       source: 'scout',
-      reason: `${scout.name} plays this`,
+      reason: t('reply.fact.scout', { name: scout.name }),
       weight: scout.games,
       opponentName: scout.name,
     };

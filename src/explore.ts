@@ -6,6 +6,7 @@ import { Icons } from './icons';
 import { cloudLine, type CloudLine } from './engine';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
+import { t } from './i18n';
 
 // ── Line explorer ────────────────────────────────────────────────────────────
 //
@@ -40,12 +41,12 @@ export function openExplorer(
   backBtn.type = 'button';
   backBtn.className = 'pt-back-btn';
   backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('Back to drill'));
+  backBtn.appendChild(document.createTextNode(t('open.backToDrill')));
   backBtn.addEventListener('click', () => { cleanup(); opts.onClose(); });
 
   const modeEl = document.createElement('div');
   modeEl.className = 'pt-mode-label';
-  modeEl.textContent = opts.label ?? 'Explore line';
+  modeEl.textContent = opts.label ?? t('open.exploreLine');
 
   header.appendChild(backBtn);
   header.appendChild(modeEl);
@@ -71,7 +72,7 @@ export function openExplorer(
   const undoBtn = document.createElement('button');
   undoBtn.type = 'button';
   undoBtn.className = 'btn-secondary explore-btn';
-  undoBtn.textContent = 'Undo';
+  undoBtn.textContent = t('common.undo');
   undoBtn.addEventListener('click', () => {
     if (chess.history().length > 0) { chess.undo(); refresh(); }
   });
@@ -79,7 +80,7 @@ export function openExplorer(
   const resetBtn = document.createElement('button');
   resetBtn.type = 'button';
   resetBtn.className = 'btn-secondary explore-btn';
-  resetBtn.textContent = 'Restart';
+  resetBtn.textContent = t('open.restart');
   resetBtn.addEventListener('click', () => { chess.load(startFen); refresh(); });
 
   controls.appendChild(undoBtn);
@@ -166,21 +167,21 @@ export function openExplorer(
     const sans = chess.history();
     histEl.textContent = sans.length > 0
       ? sans.join('  ')
-      : 'Play moves to see where this leads.';
+      : t('open.playMovesToSee');
   }
 
   function requestEval(): void {
     const reqId = ++evalReqId;
     const fen = chess.fen();
-    evalEl.textContent = 'Analyzing…';
+    evalEl.textContent = t('open.analyzing');
     lineEl.replaceChildren();
     void cloudLine(fen).then(line => {
       if (isCleaned || reqId !== evalReqId) return;
       if (!line) {
-        evalEl.textContent = 'No engine data for this position.';
+        evalEl.textContent = t('open.noEngineDataFor');
         return;
       }
-      evalEl.textContent = `Engine eval: ${fmtEval(line)}`;
+      evalEl.textContent = t('explore.engineEval', { value: fmtEval(line) });
       const orig = line.bestUci.slice(0, 2) as Key;
       const dest = line.bestUci.slice(2, 4) as Key;
       cg.setAutoShapes([{ orig, dest, brush: 'alt' }]);
@@ -192,7 +193,7 @@ export function openExplorer(
     lineEl.replaceChildren();
     const label = document.createElement('span');
     label.className = 'explore-line-label';
-    label.textContent = 'Engine line:';
+    label.textContent = t('open.engineLine');
     lineEl.appendChild(label);
 
     const max = Math.min(line.sanLine.length, 8);

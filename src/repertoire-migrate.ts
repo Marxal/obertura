@@ -18,6 +18,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { nameForPath } from './openings';
 import { betterReview } from './save-index';
+import { t } from './i18n';
 import {
   DEFAULT_REPERTOIRE_NAMES, emptyTree, makeIdFactory, mergePath, moveCount,
   type MergeStep, type Repertoire,
@@ -263,7 +264,7 @@ function pathOf(root: MoveNode, target: MoveNode): MoveNode[] {
  */
 export function migrationSummary(r: MigrationReport): string {
   const saved = r.movesBefore - r.movesStored;
-  const books = r.repertoires === 1 ? '1 repertoire' : `${r.repertoires} repertoires`;
-  if (saved <= 0) return `${r.linesOut} lines moved into ${books}.`;
-  return `${r.linesOut} lines moved into ${books} — ${saved} duplicated moves merged away.`;
+  const books = r.repertoires === 1 ? t('open.1Repertoire') : t('open.repertoires', { repertoires: r.repertoires });
+  if (saved <= 0) return t('open.linesMovedInto', { linesOut: r.linesOut, books: books });
+  return t('open.linesMovedIntoDuplicated', { linesOut: r.linesOut, books: books, saved: saved });
 }

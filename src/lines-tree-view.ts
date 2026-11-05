@@ -11,6 +11,7 @@
 import type { Line } from './types';
 import type { ColourFilter } from './filters';
 import { mainlineNodes } from './scheduler';
+import { t } from './i18n';
 import {
   mountRepertoireMap, openRepertoireMap, type MapHandle, type NodeActionContext,
   type RepertoireMapOptions,
@@ -73,7 +74,7 @@ export function renderLinesTree(
   if (counts[colour] === 0) {
     const empty = document.createElement('p');
     empty.className = 'lines-empty';
-    empty.textContent = 'No lines here yet.';
+    empty.textContent = t('open.noLinesHereYet');
     host.appendChild(empty);
     return;
   }
@@ -143,7 +144,7 @@ function buildLegend(): HTMLElement {
   const answers = document.createElement('span');
   answers.className = 'rmap-legend-item';
   answers.innerHTML = '<span class="rmap-legend-dot" aria-hidden="true">2</span>';
-  answers.appendChild(document.createTextNode('more than one answer saved here'));
+  answers.appendChild(document.createTextNode(t('open.moreThanOneAnswer')));
 
   el.appendChild(answers);
   return el;

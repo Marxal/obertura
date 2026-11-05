@@ -17,6 +17,7 @@
 import { Chess } from 'chess.js';
 import { nameForPath } from './openings';
 import data from './onboarding-lines.json';
+import { t } from './i18n';
 
 export type OnboardingStyle = 'solid' | 'sharp' | 'classical' | 'wild';
 export type OnboardingLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -37,18 +38,18 @@ const LINES = (data as { lines: OnboardingLine[] }).lines;
 export const STYLE_ORDER: OnboardingStyle[] = ['solid', 'sharp', 'classical', 'wild'];
 
 export const STYLE_LABELS: Record<OnboardingStyle, string> = {
-  solid: 'Solid',
-  sharp: 'Sharp',
-  classical: 'Classical',
-  wild: 'Wild',
+  solid: t('open.solid'),
+  sharp: t('open.sharp'),
+  classical: t('time.classical'),
+  wild: t('open.wild'),
 };
 
 // The level control's labels. The move count is a caption under each, and it's
 // the nominal count — a line that's shorter says so on its own card instead.
 export const LEVELS: { value: OnboardingLevel; label: string; moves: number }[] = [
   { value: 'beginner', label: 'Beginner', moves: 3 },
-  { value: 'intermediate', label: 'Club player', moves: 5 },
-  { value: 'advanced', label: 'Deep prep', moves: 7 },
+  { value: 'intermediate', label: t('open.clubPlayer'), moves: 5 },
+  { value: 'advanced', label: t('open.deepPrep'), moves: 7 },
 ];
 
 // One line, truncated to a level: everything the picker and the builder need.

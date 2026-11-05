@@ -8,6 +8,7 @@
 import type { ImportedGame } from './import-core';
 import { positionKeysAlong } from './fast-replay';
 import { GROW_MAX_PLIES } from './grow-line';
+import { t } from './i18n';
 
 /** Position key → the reply → the games where it was played. */
 export type FacedIndex = Map<string, Map<string, ImportedGame[]>>;
@@ -59,14 +60,14 @@ const DAY_MS = 86_400_000;
 export function agoText(endTimeSec: number, now: number = Date.now()): string {
   if (!endTimeSec) return '';
   const days = Math.floor((now - endTimeSec * 1000) / DAY_MS);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'yesterday';
-  if (days < 14) return `${days} days ago`;
-  if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
-  if (days < 730) return `${Math.floor(days / 30)} months ago`;
-  return `${Math.floor(days / 365)} years ago`;
+  if (days <= 0) return t('reply.ago.today');
+  if (days === 1) return t('settings.ago.yesterday');
+  if (days < 14) return t('settings.ago.days', { n: days });
+  if (days < 60) return t('reply.ago.weeks', { n: Math.floor(days / 7) });
+  if (days < 730) return t('reply.ago.months', { n: Math.floor(days / 30) });
+  return t('reply.ago.years', { n: Math.floor(days / 365) });
 }
 
 export function timesText(n: number): string {
-  return n === 1 ? 'Faced once' : n === 2 ? 'Faced twice' : `Faced ${n} times`;
+  return n === 1 ? t('open.facedOnce') : n === 2 ? t('open.facedTwice') : t('open.facedTimes13', { n: n });
 }

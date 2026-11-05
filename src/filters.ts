@@ -17,6 +17,7 @@
 // the caller — this is purely the UI layer.
 
 import { Icons } from './icons';
+import { t } from './i18n';
 
 export type ColourFilter = 'all' | 'white' | 'black';
 // 'all' means "no status selected"; any other key is one of the configured
@@ -54,6 +55,8 @@ export interface FilterConfig {
   defaultSort?: string;
   // Chip groups, drawn left-to-right. Empty/omitted groups simply don't appear.
   userTags?: string[];
+  /** What a tag's chip says, when the tag itself is a value stored in English. */
+  tagLabel?: (tag: string) => string;
   opponentTags?: string[];
   // Optional discrete counts shown inside each tab. When provided, the colour
   // segment and the tag chips each carry a small count badge.
@@ -95,16 +98,16 @@ export interface FilterBar {
 }
 
 const COLOURS: { key: ColourFilter; label: string; pip?: 'white' | 'black' }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'white', label: 'White', pip: 'white' },
-  { key: 'black', label: 'Black', pip: 'black' },
+  { key: 'all', label: t('import.all') },
+  { key: 'white', label: t('common.white'), pip: 'white' },
+  { key: 'black', label: t('common.black'), pip: 'black' },
 ];
 
 // Default status pills (line lists). Games override these via config.statusOptions.
 const STATUSES: { key: string; label: string }[] = [
-  { key: 'due', label: 'Due' },
-  { key: 'learning', label: 'Learning' },
-  { key: 'solid', label: 'Solid' },
+  { key: 'due', label: t('open.due') },
+  { key: 'learning', label: t('open.learning') },
+  { key: 'solid', label: t('open.solid') },
 ];
 
 // Read + sanitise the saved selection against the current config, so a stale tag
@@ -227,8 +230,8 @@ function buildSearchRow(
   const input = document.createElement('input');
   input.type = 'search';
   input.className = 'fbar-search-input';
-  input.placeholder = config.searchPlaceholder ?? 'Search lines';
-  input.setAttribute('aria-label', config.searchPlaceholder ?? 'Search lines');
+  input.placeholder = config.searchPlaceholder ?? t('open.searchLines');
+  input.setAttribute('aria-label', config.searchPlaceholder ?? t('open.searchLines'));
   input.addEventListener('input', () => {
     sel.query = input.value.trim().toLowerCase();
     commit();
@@ -241,7 +244,7 @@ function buildSearchRow(
   const clear = document.createElement('button');
   clear.type = 'button';
   clear.className = 'fbar-search-clear';
-  clear.setAttribute('aria-label', 'Clear search');
+  clear.setAttribute('aria-label', t('open.clearSearch'));
   clear.appendChild(Icons.close(15));
   clear.addEventListener('click', () => {
     if (input.value === '') { setOpen(false); return; }
@@ -256,8 +259,8 @@ function buildSearchRow(
   button.type = 'button';
   button.className = 'fbar-searchbtn';
   button.appendChild(Icons.search(18));
-  button.title = 'Search';
-  button.setAttribute('aria-label', 'Search');
+  button.title = t('open.search');
+  button.setAttribute('aria-label', t('open.search'));
   button.setAttribute('aria-expanded', 'false');
   button.addEventListener('click', () => setOpen(row.hidden));
 
@@ -333,7 +336,7 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
   // over it so a tap opens the platform sort menu (and it stays accessible).
   const wrap = document.createElement('div');
   wrap.className = 'dorder dorder--icon';
-  wrap.title = 'Sort';
+  wrap.title = t('open.sort');
 
   const icon = Icons.order(18);
   icon.classList.add('dorder-icon');
@@ -341,7 +344,7 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
 
   const select = document.createElement('select');
   select.className = 'dorder-select dorder-select--overlay';
-  select.setAttribute('aria-label', 'Sort lines');
+  select.setAttribute('aria-label', t('open.sortLines'));
   for (const o of config.sorts ?? []) {
     const opt = document.createElement('option');
     opt.value = o.key;
@@ -369,12 +372,12 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
 // nothing on screen to say it was there. It has its own button now (see
 // buildTreeToggle), so it is one tap from anywhere and visibly exists.
 const GROUP_TITLES: Record<'off' | 'family' | 'variation' | 'tree', string> = {
-  off: 'Group by opening',
-  family: 'Compact view (group by variation)',
-  variation: 'Flat list',
+  off: t('open.groupByOpening'),
+  family: t('open.compactViewGroupBy'),
+  variation: t('open.flatList'),
   // Only reachable from a restored selection made before the tree got its own
   // button; tapping the grouping control from there returns to a flat list.
-  tree: 'Flat list',
+  tree: t('open.flatList'),
 };
 
 function buildGroupToggle(
@@ -443,7 +446,7 @@ function buildTreeToggle(sel: FilterSelection, commit: () => void): HTMLElement 
   const paint = (): void => {
     const on = sel.group === 'tree';
     btn.classList.toggle('active', on);
-    const title = on ? 'Back to the list' : 'Tree view (merged by position)';
+    const title = on ? t('open.backToTheList') : t('open.treeViewMergedBy');
     btn.title = title;
     btn.setAttribute('aria-label', title);
     btn.setAttribute('aria-pressed', String(on));
@@ -550,7 +553,7 @@ function buildTagChip(tag: string, config: FilterConfig, sel: FilterSelection, c
   chip.type = 'button';
   const on = sel.tags.includes(tag);
   chip.className = `fchip${on ? ' active' : ''}`;
-  chip.appendChild(document.createTextNode(tag));
+  chip.appendChild(document.createTextNode(config.tagLabel?.(tag) ?? tag));
   if (config.tagCounts) chip.appendChild(countBadge(config.tagCounts.get(tag) ?? 0));
   chip.setAttribute('aria-pressed', String(on));
   chip.addEventListener('click', () => {

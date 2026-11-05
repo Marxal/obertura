@@ -5,6 +5,7 @@
 
 import { Icons } from './icons';
 import { formatMove } from './notation';
+import { t } from './i18n';
 
 export interface LineStrip {
   el: HTMLElement;
@@ -35,10 +36,10 @@ export function buildLineStrip(onShow: (at: number) => void): LineStrip {
   el.className = 'nr-line';
   const row = document.createElement('div');
   row.className = 'nr-moves';
-  const back = stepButton('Previous move', Icons.back(20), () => {
+  const back = stepButton(t('builder.previousMove'), Icons.back(20), () => {
     if (current > 0) onShow(current - 1);
   });
-  const forward = stepButton('Next move', Icons.chevronRight(20), () => {
+  const forward = stepButton(t('builder.nextMove'), Icons.chevronRight(20), () => {
     if (current < total) onShow(current + 1);
   });
   el.append(back, row, forward);

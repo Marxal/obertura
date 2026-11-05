@@ -16,6 +16,7 @@
 import { renderSettingsScreen } from './settings-screen';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
+import { t } from './i18n';
 
 let openOverlay: HTMLElement | null = null;
 let closeOpen: (() => void) | null = null;
@@ -39,7 +40,7 @@ export function openSettingsLightbox(): void {
   box.className = 'settings-lightbox';
   box.setAttribute('role', 'dialog');
   box.setAttribute('aria-modal', 'true');
-  box.setAttribute('aria-label', 'Settings');
+  box.setAttribute('aria-label', t('nav.settings'));
 
   // A fixed head (title + X) over a scrolling body, so the way out stays put
   // however far down the accordions you are.
@@ -48,13 +49,13 @@ export function openSettingsLightbox(): void {
 
   const title = document.createElement('h2');
   title.className = 'settings-lightbox-title';
-  title.textContent = 'Settings';
+  title.textContent = t('nav.settings');
   head.appendChild(title);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'settings-lightbox-close';
-  closeBtn.setAttribute('aria-label', 'Close settings');
+  closeBtn.setAttribute('aria-label', t('open.closeSettings'));
   closeBtn.appendChild(Icons.close(20));
   head.appendChild(closeBtn);
 

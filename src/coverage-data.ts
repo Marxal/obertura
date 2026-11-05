@@ -29,6 +29,7 @@ import { resolveExplorerStats } from './explorer-resolve';
 import { explorerFilter, bandRangeLabel, type ExplorerBand } from './explorer-bands';
 import { activeBand, cachedMyLevel, resolveMyLevel, type MyLevel } from './explorer-level';
 import { isConnected } from './lichess-auth';
+import { t } from './i18n';
 import {
   buildCoverageReport, opponentSpots, MAX_GAP_PLIES, MAX_GAPS,
   type CoverageReport, type ExplorerReplies, type GapEvidence,
@@ -130,7 +131,7 @@ function memoKey(colour: 'white' | 'black'): string {
 function emptyLoad(colour: 'white' | 'black'): CoverageLoad {
   return {
     report: buildCoverageReport([], colour),
-    live: { connected: false, asked: 0, positions: 0, failed: false, band: 'all', bandLabel: 'all ratings' },
+    live: { connected: false, asked: 0, positions: 0, failed: false, band: 'all', bandLabel: t('level.allRatings13') },
     complete: false,
   };
 }
@@ -230,13 +231,13 @@ async function compute(colour: 'white' | 'black', opts: LoadOptions): Promise<Co
  */
 export function liveReachNote(live: LiveReach): string | null {
   if (!live.connected) {
-    return 'Built-in opening data only — connect Lichess to check these against games at your level.';
+    return t('open.builtInOpeningData');
   }
   if (live.failed && live.asked > 0) {
-    return 'Couldn’t reach Lichess for some positions — those rows fall back to built-in, all-ratings data.';
+    return t('open.couldnTReachLichess');
   }
   if (live.positions > live.asked) {
-    return `Checked the ${live.asked} shallowest positions against ${live.bandLabel}; the deeper ${live.positions - live.asked} use built-in, all-ratings data.`;
+    return t('open.checkedShallow', { asked: live.asked, band: live.bandLabel, rest: live.positions - live.asked });
   }
-  return `Checked against Lichess games at ${live.bandLabel}.`;
+  return t('open.checkedAgainstLichessGames', { bandLabel: live.bandLabel });
 }

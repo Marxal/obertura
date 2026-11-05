@@ -22,6 +22,7 @@ import { wdlScoreRow } from './wdl-bar';
 import type { ImportedGame } from './import-core';
 import { getGamesSource } from './import-panel';
 import { formatMove } from './notation';
+import { t as tr } from './i18n';
 import {
   allNodes, buildMergedTree, movedBy, type MapNode, type MergeMode,
 } from './map-merge';
@@ -466,7 +467,7 @@ function drawFoldToggle(g: SVGGElement, n: MapNode, onToggle: (n: MapNode) => vo
   wrap.setAttribute('tabindex', '0');
   wrap.setAttribute('aria-label', folded
     ? `Unfold ${ends} line${ends === 1 ? '' : 's'} after ${n.san}`
-    : `Fold away everything after ${n.san}`);
+    : tr('open.foldAwayEverythingAfter', { san: n.san }));
   wrap.addEventListener('click', e => {
     // The node under it must not select as well — this is its own control.
     e.stopPropagation();
@@ -536,7 +537,7 @@ function statsBlock(n: MapNode, caption: string): HTMLElement {
   if (reply) {
     const r = document.createElement('div');
     r.className = 'rmap-pos-meta';
-    r.textContent = `Most common reply: ${formatMove(reply.san)} (${Math.round((reply.games / s.games) * 100)}%)`;
+    r.textContent = tr('map.commonReply', { move: formatMove(reply.san), pct: Math.round((reply.games / s.games) * 100) });
     wrap.appendChild(r);
   }
 
@@ -554,7 +555,7 @@ function rmapPlayerStrip(who: { name: string; avatarUrl?: string } | undefined |
   // "You" reads your connected identity (handle for either platform, picture for
   // Chess.com only) so the near strip matches the board browser.
   const me = isYou ? getGamesSource() : null;
-  const name = isYou ? (me?.username ? `@${me.username}` : 'You') : (who?.name ?? 'Opponent');
+  const name = isYou ? (me?.username ? `@${me.username}` : tr('builder.you')) : (who?.name ?? tr('story.opponent'));
   const url = isYou ? me?.avatarUrl : who?.avatarUrl;
 
   if (url) {
@@ -632,7 +633,7 @@ function makePreview(
   const collapseBtn = document.createElement('button');
   collapseBtn.type = 'button';
   collapseBtn.className = 'rmap-pos-collapse';
-  collapseBtn.setAttribute('aria-label', 'Hide position');
+  collapseBtn.setAttribute('aria-label', tr('open.hidePosition'));
   collapseBtn.textContent = '×';
   collapseBtn.addEventListener('click', () => { panel.hidden = true; });
   handle.appendChild(collapseBtn);
@@ -669,7 +670,7 @@ function makePreview(
     panel.classList.toggle('rmap-pos-panel--open', open);
     body.hidden = !open;
     grab.setAttribute('aria-expanded', String(open));
-    grab.setAttribute('aria-label', open ? 'Hide the board' : 'Show the board');
+    grab.setAttribute('aria-label', open ? tr('open.hideTheBoard') : tr('open.showTheBoard'));
     // A board is only worth mounting once it can be seen — and chessground
     // measures its container, so mounting one inside a hidden box lays it out at
     // zero and it never recovers.
@@ -739,7 +740,7 @@ function makePreview(
     if (n.children.length > 1) {
       const v = document.createElement('div');
       v.className = 'rmap-pos-meta';
-      v.textContent = `${n.children.length} variations`;
+      v.textContent = tr('open.variations', { length: n.children.length });
       infoCol.appendChild(v);
     }
 
@@ -752,13 +753,13 @@ function makePreview(
         el.textContent = text;
         infoCol.appendChild(el);
       };
-      if (n.answers > 1) meta(`You have ${n.answers} answers here`);
+      if (n.answers > 1) meta(tr('open.youHaveAnswersHere', { answers: n.answers }));
       if (n.altIn > 0) {
         meta(n.altIn === 1
-          ? 'Also reached by another move order'
-          : `Also reached by ${n.altIn} other move orders`);
+          ? tr('open.alsoReachedByAnother')
+          : tr('open.alsoReachedByOther', { altIn: n.altIn }));
       }
-      if (n.lineIds.length > 1) meta(`In ${n.lineIds.length} of your lines`);
+      if (n.lineIds.length > 1) meta(tr('open.inOfYourLines', { length: n.lineIds.length }));
     }
 
     if (opts.nodeAction) {
@@ -786,7 +787,7 @@ function makePreview(
       const openBtn = document.createElement('button');
       openBtn.type = 'button';
       openBtn.className = 'rmap-pos-open-btn';
-      openBtn.textContent = 'Open in builder';
+      openBtn.textContent = tr('reply.openBuilder');
       openBtn.addEventListener('click', () => open(assoc));
       infoCol.appendChild(openBtn);
     }
@@ -985,7 +986,7 @@ function makeControls(
   // for the caller to place; CSS positions the cluster.
   const zoom = document.createElement('div');
   zoom.className = 'rmap-controls-zoom';
-  for (const [t, a, h] of [['−', 'Zoom out', onZoomOut], ['+', 'Zoom in', onZoomIn]]) {
+  for (const [t, a, h] of [['−', tr('open.zoomOut'), onZoomOut], ['+', tr('open.zoomIn'), onZoomIn]]) {
     const b = document.createElement('button');
     b.type = 'button';
     // …and the ± pair goes the same way on a phone: pinch is the gesture
@@ -1002,7 +1003,7 @@ function makeControls(
   const centreBtn = document.createElement('button');
   centreBtn.type = 'button';
   centreBtn.className = 'rmap-zoom-btn';
-  centreBtn.setAttribute('aria-label', 'Centre map');
+  centreBtn.setAttribute('aria-label', tr('open.centreMap'));
   centreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
     aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`;
@@ -1012,10 +1013,10 @@ function makeControls(
   // Right group: the variation (jump) arrows, then the move arrows.
   const navGroup = document.createElement('div');
   navGroup.className = 'rmap-controls-nav';
-  const upBtn = svgBtn('Prev variation', DBL_CHEVRON.up, onUp);
-  const downBtn = svgBtn('Next variation', DBL_CHEVRON.down, onDown);
-  const leftBtn = svgBtn('Previous move', [CHEVRON.left], onLeft);
-  const rightBtn = svgBtn('Next move', [CHEVRON.right], onRight);
+  const upBtn = svgBtn(tr('open.prevVariation'), DBL_CHEVRON.up, onUp);
+  const downBtn = svgBtn(tr('open.nextVariation'), DBL_CHEVRON.down, onDown);
+  const leftBtn = svgBtn(tr('builder.previousMove'), [CHEVRON.left], onLeft);
+  const rightBtn = svgBtn(tr('builder.nextMove'), [CHEVRON.right], onRight);
   // The variation arrows step between siblings at a fork — which on a phone is
   // what tapping the sibling does, since they are stacked in plain sight a
   // thumb's width apart. Two of the seven controls crowding a 380px bar to
@@ -1046,7 +1047,7 @@ function makeControls(
     // Show a hint on the → button when there's a fork to navigate.
     if (n.children.length > 1) {
       const ci = forkChoice.get(n) ?? 0;
-      rightBtn.title = `Into variation ${ci + 1} of ${n.children.length}`;
+      rightBtn.title = tr('map.intoVariation', { at: ci + 1, total: n.children.length });
     } else {
       rightBtn.title = '';
     }
@@ -1067,14 +1068,14 @@ function buildTopToggles(opts: RepertoireMapOptions, close: () => void): HTMLEle
   if (opts.colourToggle) {
     const t = opts.colourToggle;
     bar.appendChild(buildSeg(
-      [{ id: 'white', label: '○ White' }, { id: 'black', label: '● Black' }],
+      [{ id: 'white', label: tr('builder.white') }, { id: 'black', label: tr('builder.black') }],
       t.current, t.enabled, close, t.onPick,
     ));
   }
   if (opts.sourceToggle) {
     const t = opts.sourceToggle;
     bar.appendChild(buildSeg(
-      [{ id: 'games', label: 'Games' }, { id: 'repertoire', label: 'Repertoire' }],
+      [{ id: 'games', label: tr('backup.games') }, { id: 'repertoire', label: tr('builder.repertoire') }],
       t.current, t.enabled, close, t.onPick, 'rmap-source-seg',
     ));
   }
@@ -1145,7 +1146,7 @@ export function openRepertoireMap(
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'rmap-back';
-  back.setAttribute('aria-label', 'Close map');
+  back.setAttribute('aria-label', tr('open.closeMap'));
   back.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M19 12H5M12 5l-7 7 7 7"/></svg>`;
@@ -1153,7 +1154,7 @@ export function openRepertoireMap(
 
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = opts.title ?? (colour === 'white' ? 'White repertoire' : 'Black repertoire');
+  titleEl.textContent = opts.title ?? (colour === 'white' ? tr('open.whiteRepertoire') : tr('open.blackRepertoire'));
 
   const count = document.createElement('span');
   count.className = 'rmap-title-count';
@@ -1288,7 +1289,7 @@ export function mountRepertoireMap(
   if (!root.children.length) {
     const empty = document.createElement('p');
     empty.className = 'rmap-empty';
-    empty.textContent = 'No lines saved yet.';
+    empty.textContent = tr('open.noLinesSavedYet');
     treeArea.appendChild(empty);
     host.appendChild(treeArea);
     return { dispose: () => { /* nothing was wired up */ } };
@@ -1491,8 +1492,8 @@ export function mountRepertoireMap(
     const seg = document.createElement('div');
     seg.className = 'rmap-view-seg';
     const modes: { id: 'all' | 'frequent'; label: string }[] = [
-      { id: 'all', label: 'All replies' },
-      { id: 'frequent', label: 'Frequent' },
+      { id: 'all', label: tr('open.allReplies') },
+      { id: 'frequent', label: tr('open.frequent') },
     ];
     const btns = modes.map(m => {
       const b = document.createElement('button');
@@ -1529,7 +1530,7 @@ export function mountRepertoireMap(
     full.className = 'rmap-full-btn';
     full.appendChild(Icons.expand(16));
     const label = document.createElement('span');
-    label.textContent = 'Full screen';
+    label.textContent = tr('open.fullScreen');
     full.appendChild(label);
     full.addEventListener('click', () => {
       opts.onFullScreen?.(selected ? nodePath(selected).ucis : []);
@@ -1548,7 +1549,7 @@ export function mountRepertoireMap(
         deeperBtn.hidden = false;
         deeperBtn.disabled = true;
         deeperBtn.classList.add('rmap-deeper-btn--hint');
-        deeperBtn.textContent = `Imported at ${Math.floor(depth.maxPlies / 2)} moves`;
+        deeperBtn.textContent = tr('map.importedAt', { n: Math.floor(depth.maxPlies / 2) });
       } else {
         deeperBtn.hidden = true;  // the full depth is already on screen
       }

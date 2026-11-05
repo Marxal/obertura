@@ -25,6 +25,7 @@
 import { formatSanLine, numberedMove } from './notation';
 import { moveCount, parentOf, pathToNode, type Repertoire } from './repertoire';
 import { endsUnder, projectLine } from './lines-view';
+import { t } from './i18n';
 
 /** How many line names a confirm spells out before it starts counting instead. */
 const NAMES_SHOWN = 3;
@@ -70,7 +71,7 @@ export function describeRemoval(rep: Repertoire, nodeId: string): RemovalImpact 
   const ends = endsUnder(node);
   const names = ends.slice(0, NAMES_SHOWN).map(end => {
     const endPath = pathToNode(rep.tree, end.id);
-    return endPath && endPath.length ? projectLine(rep, endPath).name : 'a line';
+    return endPath && endPath.length ? projectLine(rep, endPath).name : t('open.aLine');
   });
 
   const wholeOpening = parent.id === rep.tree.id;
@@ -93,7 +94,7 @@ export function describeRemoval(rep: Repertoire, nodeId: string): RemovalImpact 
 
 /** "Remove 2…c5?" — the confirm's title, which names the actual move every time. */
 export function removalTitle(impact: RemovalImpact): string {
-  return `Remove ${impact.move}?`;
+  return t('open.remove', { move: impact.move });
 }
 
 /**
@@ -103,18 +104,19 @@ export function removalTitle(impact: RemovalImpact): string {
  */
 export function removalBody(impact: RemovalImpact, bookName: string): string {
   const out = [
-    `This removes ${plural(impact.moves, 'move')} from “${bookName}”, along with their review history.`,
+    t('removal.body', { n: impact.moves, book: bookName }),
   ];
 
   if (impact.lines > 1) {
     const list = impact.names.map(n => `“${n}”`).join(', ');
-    out.push(`${plural(impact.lines, 'line')} end here${list ? `: ${list}` : ''}`
-      + `${impact.more > 0 ? ` and ${impact.more} more` : ''}.`);
+    out.push(impact.more > 0
+      ? t('removal.endMore', { lines: impact.lines, list, more: impact.more })
+      : list ? t('removal.endList', { lines: impact.lines, list }) : t('removal.end', { lines: impact.lines }));
   }
 
-  if (impact.endsAt) out.push(`Your line will end at ${impact.endsAt} instead.`);
-  else if (impact.wholeOpening) out.push('It starts at the first move, so the whole opening leaves this book.');
-  else out.push('The moves leading up to it stay — your other lines need them.');
+  if (impact.endsAt) out.push(t('open.yourLineWillEnd', { endsAt: impact.endsAt }));
+  else if (impact.wholeOpening) out.push(t('open.itStartsAtThe'));
+  else out.push(t('open.theMovesLeadingUp'));
 
   return out.join(' ');
 }

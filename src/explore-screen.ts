@@ -66,6 +66,7 @@ import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
 import { pushBack } from './back-nav';
 import { formatSanLine } from './notation';
+import { t, type MessageKey } from './i18n';
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
 // Most-played list cap before "Show all".
@@ -153,16 +154,15 @@ async function ensureRoomForOpponent(): Promise<'proceed' | 'blocked'> {
   if (entitled || existing.length > FREE_SCOUT_OPPONENTS) {
     return new Promise(resolve => {
       showDialog({
-        title: 'Opponent limit reached',
+        title: t('open.opponentLimitReached'),
         body: entitled
-          ? `You can scout up to ${MAX_OPPONENTS} opponents. Delete one to make room first.`
-          : `Free accounts scout ${FREE_SCOUT_OPPONENTS} opponent at a time. Delete one to make room first, `
-            + `or unlock full access to scout up to ${MAX_OPPONENTS}.`,
+          ? t('open.youCanScoutUp', { MAX_OPPONENTS: MAX_OPPONENTS })
+          : t('open.freeAccountsScoutOpponent', { FREE_SCOUT_OPPONENTS: FREE_SCOUT_OPPONENTS, MAX_OPPONENTS: MAX_OPPONENTS }),
         buttons: entitled
           ? [{ label: 'OK', variant: 'primary', onClick: () => resolve('blocked') }]
           : [
-            { label: 'Not now', variant: 'secondary', onClick: () => resolve('blocked') },
-            { label: 'Unlock Full Access', variant: 'pro', onClick: () => { showTrainingCapDialog(); resolve('blocked'); } },
+            { label: t('pro.notNow'), variant: 'secondary', onClick: () => resolve('blocked') },
+            { label: t('pro.unlock'), variant: 'pro', onClick: () => { showTrainingCapDialog(); resolve('blocked'); } },
           ],
         onDismiss: () => resolve('blocked'),
       });
@@ -173,13 +173,12 @@ async function ensureRoomForOpponent(): Promise<'proceed' | 'blocked'> {
   const current = existing[0];
   return new Promise(resolve => {
     showDialog({
-      title: `Replace ${current.name}?`,
-      body: `Free accounts scout ${FREE_SCOUT_OPPONENTS} opponent at a time. Scouting someone new replaces `
-        + `${current.name}.`,
+      title: t('open.replace', { name: current.name }),
+      body: t('open.freeAccountsScoutOpponentAt', { FREE_SCOUT_OPPONENTS: FREE_SCOUT_OPPONENTS, name: current.name }),
       buttons: [
-        { label: 'Cancel', variant: 'secondary', onClick: () => resolve('blocked') },
+        { label: t('common.cancel'), variant: 'secondary', onClick: () => resolve('blocked') },
         {
-          label: `Replace ${current.name}`,
+          label: t('open.replace13', { name: current.name }),
           variant: 'primary',
           onClick: () => { void deleteOpponent(current.id).then(() => resolve('proceed')); },
         },
@@ -195,7 +194,7 @@ export function importOpponentFlow(onDone: () => void): void {
   void (async () => {
     if ((await ensureRoomForOpponent()) === 'blocked') return;
     openImportPanel({
-      title: 'Scout an opponent',
+      title: t('open.scoutAnOpponent'),
       username: '',
       rememberUser: false,
       save: async (games, metaInfo) => {
@@ -262,7 +261,7 @@ let exploreTab: ExploreTab | null = null;
 
 // What the desktop page is called, since its sidebar stands in for the tab strip.
 const EXPLORE_TITLES: Record<ExploreTab, string> = {
-  mylines: 'My lines', coverage: 'Coverage', openings: 'Discover', packs: 'Packs',
+  mylines: t('tour.lines.title'), coverage: t('builder.coverage'), openings: t('builder.discover'), packs: t('builder.packs'),
 };
 
 // Repaints the tab set by openExploreTab, when the screen is up. False when it
@@ -372,12 +371,12 @@ function exploreTabsSection(
     return btn;
   };
 
-  tabs.appendChild(makeTab('mylines', 'My lines', Icons.pawn(16)));
-  tabs.appendChild(makeTab('coverage', 'Coverage', Icons.target(16)));
+  tabs.appendChild(makeTab('mylines', t('tour.lines.title'), Icons.pawn(16)));
+  tabs.appendChild(makeTab('coverage', t('builder.coverage'), Icons.target(16)));
   // NOT called "Openings": the tab strip already sits under a tab called
   // Openings, and a tab with its parent's name says nothing about itself.
-  tabs.appendChild(makeTab('openings', 'Discover', Icons.sparkles(16)));
-  tabs.appendChild(makeTab('packs', 'Packs', Icons.build(16)));
+  tabs.appendChild(makeTab('openings', t('builder.discover'), Icons.sparkles(16)));
+  tabs.appendChild(makeTab('packs', t('builder.packs'), Icons.build(16)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();
@@ -432,9 +431,8 @@ function buildCoverageTab(lines: Line[], games: ImportedGame[], container: HTMLE
   // sheet that then asks for a username spends a tap on nothing.
   if (games.length === 0) {
     wrap.appendChild(buildInlineImport({
-      title: 'Import your games',
-      body: 'Coverage checks your saved lines against the replies you actually meet, and '
-        + 'lists the ones you have no answer for — commonest first.',
+      title: t('firstRun.importTitle'),
+      body: t('open.coverageChecksYourSaved'),
       onImported: () => renderExploreScreen(container),
     }));
     // With no lines either there is nothing else to draw; with lines, the
@@ -443,10 +441,9 @@ function buildCoverageTab(lines: Line[], games: ImportedGame[], container: HTMLE
   } else if (counts.white + counts.black === 0) {
     wrap.appendChild(buildEmptyState({
       icon: Icons.target(44),
-      line: 'Coverage starts with your first line.',
-      body: 'Save a line and this fills in with the replies it doesn’t answer yet — '
-        + 'ranked by how often you actually face them.',
-      cta: { label: 'Build a line', onClick: () => exploreDeps?.onOpenInBuilder([], 'white') },
+      line: t('open.coverageStartsWithYour'),
+      body: t('open.saveALineAnd'),
+      cta: { label: t('open.buildALine'), onClick: () => exploreDeps?.onOpenInBuilder([], 'white') },
     }));
     return wrap;
   }
@@ -461,12 +458,12 @@ function buildCoverageTab(lines: Line[], games: ImportedGame[], container: HTMLE
   const seg = document.createElement('div');
   seg.className = 'lib-db-seg cvg-colour-seg';
   seg.setAttribute('role', 'group');
-  seg.setAttribute('aria-label', 'Which repertoire');
+  seg.setAttribute('aria-label', t('open.whichRepertoire'));
   for (const c of ['white', 'black'] as const) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'lib-db-opt' + (c === colour ? ' is-active' : '');
-    btn.textContent = c === 'white' ? 'White' : 'Black';
+    btn.textContent = c === 'white' ? t('common.white') : t('common.black');
     btn.disabled = counts[c] === 0;
     if (c !== colour && counts[c] > 0) {
       btn.addEventListener('click', () => {
@@ -497,7 +494,7 @@ function buildCoverageTab(lines: Line[], games: ImportedGame[], container: HTMLE
     onSeeInTree: (gap) => openRepertoireMap(lines, gap.colour, l => exploreDeps?.onOpenLine(l), {
       merge: 'position',
       initialPath: gap.ucis,
-      title: gap.colour === 'white' ? 'White repertoire' : 'Black repertoire',
+      title: gap.colour === 'white' ? t('open.whiteRepertoire') : t('open.blackRepertoire'),
     }),
   });
 
@@ -506,10 +503,7 @@ function buildCoverageTab(lines: Line[], games: ImportedGame[], container: HTMLE
   const foot = document.createElement('p');
   foot.className = 'cvg-foot';
   foot.textContent =
-    'A gap is a reply you have started answering somewhere and missed here. '
-    + 'Only replies you have faced twice, or that a real share of players at your '
-    + 'level play, or that a scouted opponent plays, are counted — and only in the '
-    + 'first six moves. Nothing here is saved; it is worked out fresh each time.';
+    t('open.aGapIsA');
   wrap.appendChild(foot);
 
   return wrap;
@@ -532,16 +526,16 @@ function buildCoverageTab(lines: Line[], games: ImportedGame[], container: HTMLE
 const MY_OPENINGS_FILTER_KEY = 'obertura.explore.myopenings.filter';
 
 const NEED_LABEL: Record<OpeningNeed, string> = {
-  none: 'No line yet',
-  weak: 'Line is losing',
-  ok: 'Prepared',
+  none: t('showcase.noLine'),
+  weak: t('open.lineIsLosing'),
+  ok: t('open.prepared'),
 };
 
 const OPENINGS_SORTS = [
-  { key: 'attention', label: 'Needs work' },
-  { key: 'played', label: 'Most played' },
-  { key: 'weakest', label: 'Worst score' },
-  { key: 'name', label: 'Name' },
+  { key: 'attention', label: t('stats.needsWork') },
+  { key: 'played', label: t('stats.mostPlayed') },
+  { key: 'weakest', label: t('open.worstScore') },
+  { key: 'name', label: t('repertoire.name') },
 ];
 
 function sortOpenings(rows: OpeningRow[], mode: string): OpeningRow[] {
@@ -590,9 +584,8 @@ function buildOpeningsRows(
     // than a button that goes and gets one. (This is the empty state the old
     // "From my games" tab carried; it had to survive the merge.)
     wrap.appendChild(buildInlineImport({
-      title: 'Import your games',
-      body: 'Then this lists the openings you actually play — which ones have no line yet, '
-        + 'and which ones you are losing with despite having prepared them.',
+      title: t('firstRun.importTitle'),
+      body: t('open.thenThisListsThe'),
       onImported: () => renderExploreScreen(container),
     }));
     return wrap;
@@ -602,9 +595,9 @@ function buildOpeningsRows(
   if (rows.length === 0) {
     wrap.appendChild(buildEmptyState({
       icon: Icons.sparkles(44),
-      line: 'Nothing to read from your games yet.',
-      body: 'An opening has to show up a couple of times before its score means anything.',
-      cta: { label: 'Import more games', onClick: () => openImportPanel({ onImported: () => renderExploreScreen(container) }) },
+      line: t('open.nothingToReadFrom'),
+      body: t('open.anOpeningHasTo'),
+      cta: { label: t('open.importMoreGames'), onClick: () => openImportPanel({ onImported: () => renderExploreScreen(container) }) },
     }));
     return wrap;
   }
@@ -659,7 +652,7 @@ function buildOpeningsRows(
     if (shown.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'lines-empty';
-      empty.textContent = 'Nothing here with those filters.';
+      empty.textContent = t('open.nothingHereWithThose');
       list.appendChild(empty);
       return;
     }
@@ -684,7 +677,7 @@ function buildShowAll(list: HTMLElement, total: number, host: HTMLElement): HTML
   btn.className = 'btn-secondary lines-showall';
   let open = false;
   const paint = () => {
-    btn.textContent = open ? 'Show fewer' : `Show all ${total}`;
+    btn.textContent = open ? t('open.showFewer') : t('open.showAll', { total: total });
   };
   paint();
   btn.addEventListener('click', () => {
@@ -709,7 +702,7 @@ function myOpeningCard(row: OpeningRow): HTMLElement {
     className: `games-card opening-card opening-card--${row.need}`,
     ...(row.repUcis.length > 0 && {
       onMiniClick: () => openOpeningPeek(row),
-      miniLabel: `Look at ${row.family}`,
+      miniLabel: t('open.lookAt', { family: row.family }),
     }),
   });
 
@@ -728,7 +721,7 @@ function myOpeningCard(row: OpeningRow): HTMLElement {
   meta.className = 'stat-card-chips';
   const gamesChip = document.createElement('span');
   gamesChip.className = 'review-stat-chip';
-  gamesChip.textContent = `Played ${row.games}×`;
+  gamesChip.textContent = t('open.played', { games: row.games });
   meta.appendChild(gamesChip);
   content.appendChild(meta);
 
@@ -752,7 +745,7 @@ function myOpeningCard(row: OpeningRow): HTMLElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn-secondary stat-card-btn';
-    btn.textContent = row.need === 'none' ? 'Build line' : 'Look at this position';
+    btn.textContent = row.need === 'none' ? t('stats.buildLine') : t('open.lookAtThisPosition');
     btn.addEventListener('click', e => {
       e.stopPropagation();
       openOpeningPeek(row);
@@ -773,12 +766,12 @@ function openOpeningPeek(row: OpeningRow): void {
     fen: fenFromUcis(row.repUcis),
     orientation: row.colour,
     title: row.family,
-    subtitle: `${NEED_LABEL[row.need]} · played ${row.games}× · ${row.scorePct}% score`,
+    subtitle: t('open.rowSubtitle', { need: NEED_LABEL[row.need], games: row.games, score: row.scorePct }),
     stats: [
-      { value: String(row.games), label: 'games' },
+      { value: String(row.games), label: t('recap.preview.games', { n: row.games }) },
       {
         value: `${row.scorePct}%`,
-        label: 'score',
+        label: t('stats.score'),
         tone: row.scorePct >= 55 ? 'ok' : row.scorePct >= 45 ? 'mid' : 'low',
       },
       { value: `${row.wins}-${row.draws}-${row.losses}`, label: 'W-D-L' },
@@ -787,7 +780,7 @@ function openOpeningPeek(row: OpeningRow): void {
     footnote: row.repSans.length ? formatSanLine(row.repSans) : undefined,
     actions: [{
       icon: Icons.build(16),
-      label: row.need === 'none' ? 'Build a line here' : 'Open in the builder',
+      label: row.need === 'none' ? t('open.buildALineHere') : t('open.openInTheBuilder'),
       onClick: ({ close }) => {
         close();
         exploreDeps?.onOpenInBuilder(row.repUcis, row.colour);
@@ -798,6 +791,11 @@ function openOpeningPeek(row: OpeningRow): void {
 
 // Pack.level isn't a clean skill-level tag for every pack (the onboarding data
 // has one "Easy to learn" outlier) — normalise it so the filter chips match.
+// Filter values are stored and matched in English; only the chips are translated.
+const PACK_TAG_LABELS: Record<string, MessageKey> = {
+  Beginner: 'open.tag.beginner', Intermediate: 'open.tag.intermediate', Advanced: 'open.tag.advanced', Traps: 'open.tag.traps',
+};
+
 function normalizePackLevel(level: string): string {
   return level === 'Easy to learn' ? 'Beginner' : level;
 }
@@ -821,7 +819,7 @@ function buildPacksTab(
   const wrap = document.createElement('div');
   const desc = document.createElement('p');
   desc.className = 'section-desc';
-  desc.textContent = 'Curated packs and traps — open one and build a line from it.';
+  desc.textContent = t('open.curatedPacksAndTraps');
   wrap.appendChild(desc);
 
   const buildTrap = (ucis: string[], colour: 'white' | 'black', description: string) =>
@@ -858,14 +856,14 @@ function buildPacksTab(
     if (matchingPacks.length === 0 && matchingTraps.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'section-desc';
-      empty.textContent = 'No packs match these filters.';
+      empty.textContent = t('open.noPacksMatchThese');
       list.appendChild(empty);
       return;
     }
     for (const pack of matchingPacks) {
       list.appendChild(packAccordion({
         title: pack.title,
-        meta: `${normalizePackLevel(pack.level)} · ${pack.style} · ${pack.lines.length} lines`,
+        meta: `${normalizePackLevel(pack.level)} · ${pack.style} · ${t('starter.lines', { n: pack.lines.length })}`,
         colour: pack.colour,
         buildBody: () => {
           const blurb = document.createElement('p');
@@ -880,8 +878,8 @@ function buildPacksTab(
     }
     if (matchingTraps.length > 0) {
       list.appendChild(packAccordion({
-        title: 'Traps',
-        meta: `${matchingTraps.length} sneaky wins — ones in your openings first`,
+        title: t('open.tag.traps'),
+        meta: t('open.sneakyWinsOnesIn', { length: matchingTraps.length }),
         buildBody: () => {
           const cards = document.createElement('div');
           cards.className = 'group packs-pack-lines';
@@ -894,7 +892,8 @@ function buildPacksTab(
 
   const filter = createFilterBar({
     persistKey: 'obertura.packs.filter',
-    userTags: ['Beginner', 'Intermediate', 'Advanced', 'Traps'],
+    userTags: Object.keys(PACK_TAG_LABELS),
+    tagLabel: (tag) => { const key = PACK_TAG_LABELS[tag]; return key ? t(key) : tag; },
     onChange: renderList,
   });
   wrap.appendChild(filter.element);
@@ -973,7 +972,7 @@ function packLineCard(pack: Pack, line: PackLine): HTMLElement {
     orientation: pack.colour,
     className: 'games-card',
     onMiniClick: build,
-    miniLabel: 'Build this line',
+    miniLabel: t('open.buildThisLine'),
   });
 
   titleRow.appendChild(colourPip(pack.colour));
@@ -997,7 +996,7 @@ function packLineCard(pack: Pack, line: PackLine): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-secondary stat-card-btn';
-  btn.textContent = 'Build line';
+  btn.textContent = t('stats.buildLine');
   btn.addEventListener('click', e => {
     e.stopPropagation();
     build();
@@ -1026,7 +1025,7 @@ function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLEl
   const title = document.createElement('div');
   title.className = 'section-title section-title--icon';
   title.appendChild(Icons.scout(16));
-  title.appendChild(document.createTextNode('Opponents'));
+  title.appendChild(document.createTextNode(t('open.opponents')));
   wrap.appendChild(title);
 
   // No opponents yet: the shared empty-state pattern carries the way in (its CTA
@@ -1035,8 +1034,8 @@ function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLEl
   if (opponents.length === 0) {
     wrap.appendChild(buildEmptyState({
       icon: Icons.target(28),
-      line: 'Scout your first opponent.',
-      cta: { label: 'Add opponent', onClick: () => addOpponent(container) },
+      line: t('open.scoutYourFirstOpponent'),
+      cta: { label: t('builder.addOpponent'), onClick: () => addOpponent(container) },
     }));
     return wrap;
   }
@@ -1046,7 +1045,7 @@ function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLEl
   const desc = document.createElement('p');
   desc.className = 'section-desc';
   desc.textContent =
-    'Import an opponent’s games to scout their openings and build a map of what they play.';
+    t('open.importAnOpponentS');
   head.appendChild(desc);
   const meta = document.createElement('span');
   meta.className = 'section-meta';
@@ -1061,7 +1060,7 @@ function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLEl
   wrap.appendChild(head);
 
   if (!entitled && opponents.length === FREE_SCOUT_OPPONENTS) {
-    wrap.appendChild(buildCapNotice(`Scouting ${FREE_SCOUT_OPPONENTS} opponent`));
+    wrap.appendChild(buildCapNotice(t('open.scoutingOpponent', { FREE_SCOUT_OPPONENTS: FREE_SCOUT_OPPONENTS })));
   }
 
   // Add-opponent button.
@@ -1069,7 +1068,7 @@ function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLEl
   addBtn.type = 'button';
   addBtn.className = 'games-refresh-btn scout-add-btn';
   addBtn.appendChild(Icons.plus(15));
-  addBtn.appendChild(document.createTextNode('Add opponent'));
+  addBtn.appendChild(document.createTextNode(t('builder.addOpponent')));
   addBtn.addEventListener('click', () => addOpponent(container));
   wrap.appendChild(addBtn);
 
@@ -1217,7 +1216,7 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
     losses: summary.losses,
     scorePct: summary.scorePct,
     games: summary.games,
-  }, `${opp.name}'s results`));
+  }, t('import.theirResults', { name: opp.name })));
 
   // Meta: games analysed + when last refreshed.
   const meta = document.createElement('div');
@@ -1236,7 +1235,7 @@ function addOpponent(container: HTMLElement): void {
     if ((await ensureRoomForOpponent()) === 'blocked') return;
     let addedId: string | null = null;
     openImportPanel({
-      title: 'Scout an opponent',
+      title: t('open.scoutAnOpponent'),
       username: '',
       rememberUser: false,
       save: async (games, metaInfo) => {
@@ -1259,7 +1258,7 @@ function addOpponent(container: HTMLElement): void {
 
 function refreshOpponent(opp: Opponent, container: HTMLElement, onDone: () => void): void {
   openImportPanel({
-    title: `Refresh ${opp.name}`,
+    title: t('open.refresh', { name: opp.name }),
     platform: opp.platform,
     username: opp.username,
     rememberUser: false,
@@ -1320,7 +1319,7 @@ function openDetail(id: string, container: HTMLElement): void {
     const back = document.createElement('button');
     back.type = 'button';
     back.className = 'rmap-back';
-    back.setAttribute('aria-label', 'Close opponent');
+    back.setAttribute('aria-label', t('open.closeOpponent'));
     back.appendChild(Icons.back(20));
     back.addEventListener('click', close);
     const titleEl = document.createElement('h2');
@@ -1351,7 +1350,7 @@ function openDetail(id: string, container: HTMLElement): void {
     refreshBtn.type = 'button';
     refreshBtn.className = 'btn-secondary';
     refreshBtn.appendChild(Icons.reset(15));
-    refreshBtn.appendChild(document.createTextNode('Refresh'));
+    refreshBtn.appendChild(document.createTextNode(t('settings.refresh')));
     refreshBtn.addEventListener('click', () => {
       refreshOpponent(opp, container, () => { close(); openDetail(id, container); });
     });
@@ -1359,7 +1358,7 @@ function openDetail(id: string, container: HTMLElement): void {
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn-danger';
     deleteBtn.appendChild(Icons.trash(15));
-    deleteBtn.appendChild(document.createTextNode('Delete'));
+    deleteBtn.appendChild(document.createTextNode(t('repertoire.delete13')));
     // Delete. The games and the scouting maps always go; the only choice is what
     // happens to the prepared lines tagged against this opponent. Refresh the
     // list FIRST and only then drop the detail overlay, so the back of the deck
@@ -1376,11 +1375,11 @@ function openDetail(id: string, container: HTMLElement): void {
       // No prep against them — a plain two-button confirm.
       if (myPrep.length === 0) {
         showDialog({
-          title: `Delete ${opp.name}?`,
-          body: `This removes ${opp.name}'s imported games and scouting maps from this device.`,
+          title: t('open.delete', { name: opp.name }),
+          body: t('open.thisRemovesSImported', { name: opp.name }),
           buttons: [
-            { label: 'Delete', variant: 'danger', onClick: () => removeOpponent(false) },
-            { label: 'Cancel', variant: 'secondary' },
+            { label: t('repertoire.delete13'), variant: 'danger', onClick: () => removeOpponent(false) },
+            { label: t('common.cancel'), variant: 'secondary' },
           ],
         });
         return;
@@ -1388,14 +1387,13 @@ function openDetail(id: string, container: HTMLElement): void {
       // They have prepared lines — offer to keep them (still useful, tagged) or
       // sweep them away too, with a live count.
       const n = myPrep.length;
-      const them = n === 1 ? 'it' : 'them';
       showDialog({
-        title: `Delete ${opp.name}?`,
-        body: `${opp.name}'s games and scouting maps will be removed. You have ${n} prepared line${n === 1 ? '' : 's'} tagged “vs ${opp.name}” — keep ${them} in My Lines, or delete ${them} too?`,
+        title: t('open.delete', { name: opp.name }),
+        body: t('open.deleteOppBody', { name: opp.name, n }),
         buttons: [
-          { label: `Keep my ${n} line${n === 1 ? '' : 's'}`, variant: 'primary', onClick: () => removeOpponent(false) },
-          { label: 'Delete the lines too', variant: 'danger', onClick: () => removeOpponent(true) },
-          { label: 'Cancel', variant: 'secondary' },
+          { label: t('open.keepLines', { n }), variant: 'primary', onClick: () => removeOpponent(false) },
+          { label: t('open.deleteTheLinesToo'), variant: 'danger', onClick: () => removeOpponent(true) },
+          { label: t('common.cancel'), variant: 'secondary' },
         ],
       });
     });
@@ -1462,7 +1460,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
   head.setAttribute('aria-expanded', 'false');
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = `Quick report of ${opp.name}`;
+  h.textContent = t('open.quickReportOf', { name: opp.name });
   head.appendChild(h);
   const chev = document.createElement('span');
   chev.className = 'section-toggle-chev';
@@ -1489,7 +1487,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
     losses: summary.losses,
     scorePct: summary.scorePct,
     games: summary.games,
-  }, `${opp.name}'s results`));
+  }, t('import.theirResults', { name: opp.name })));
 
   // Only recognised families with a real sample of their games count — fewer is
   // noise, not a tendency.
@@ -1497,7 +1495,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
   if (qualifying.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'section-desc scout-report-empty';
-    empty.textContent = 'Not enough games for a report yet — import more.';
+    empty.textContent = t('open.notEnoughGamesFor');
     body.appendChild(empty);
     return section;
   }
@@ -1529,7 +1527,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
     if (shown.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'section-desc';
-      empty.textContent = 'No openings on this side.';
+      empty.textContent = t('open.noOpeningsOnThis');
       list.appendChild(empty);
       return;
     }
@@ -1544,7 +1542,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
       const more = document.createElement('button');
       more.type = 'button';
       more.className = 'btn-secondary scout-show-all';
-      more.textContent = `Show all ${shown.length}`;
+      more.textContent = t('open.showAll13', { length: shown.length });
       more.addEventListener('click', () => {
         for (const c of Array.from(list.children) as HTMLElement[]) c.hidden = false;
         more.remove();
@@ -1562,8 +1560,8 @@ function buildRankSeg(current: ReportRank, onPick: (r: ReportRank) => void): HTM
   const seg = document.createElement('div');
   seg.className = 'dfilter-seg';
   const opts: { key: ReportRank; label: string }[] = [
-    { key: 'weakest', label: 'Weakest' },
-    { key: 'strongest', label: 'Strongest' },
+    { key: 'weakest', label: t('settings.weakest') },
+    { key: 'strongest', label: t('open.strongest') },
   ];
   for (const o of opts) {
     const btn = document.createElement('button');
@@ -1610,7 +1608,7 @@ function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLEleme
   head.className = 'section-head';
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = 'Your prep';
+  h.textContent = t('open.yourPrep');
   head.appendChild(h);
   const m = document.createElement('span');
   m.className = 'section-meta';
@@ -1642,7 +1640,7 @@ function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLEleme
     if (shown.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'section-desc';
-      empty.textContent = 'No prep matches these filters.';
+      empty.textContent = t('open.noPrepMatchesThese');
       list.appendChild(empty);
       return;
     }
@@ -1680,12 +1678,12 @@ function prepCard(line: Line, onOpen: (line: Line) => void): HTMLElement {
 
   const nameEl = document.createElement('div');
   nameEl.className = 'line-card-name';
-  nameEl.textContent = line.name || line.openingName || 'Untitled line';
+  nameEl.textContent = line.name || line.openingName || t('drill.untitledLine');
   body.appendChild(nameEl);
 
   const metaRow = document.createElement('div');
   metaRow.className = 'line-card-meta';
-  metaRow.appendChild(chip(line.colour === 'white' ? '○ White' : '● Black'));
+  metaRow.appendChild(chip(line.colour === 'white' ? t('builder.white') : t('builder.black')));
   if (line.openingName && line.openingName !== nameEl.textContent) {
     metaRow.appendChild(chip(line.openingName));
   }
@@ -1710,7 +1708,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
   head.className = 'section-head';
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = `Visualize ${opp.name}’s games`;
+  h.textContent = t('open.visualizeSGames', { name: opp.name });
   head.appendChild(h);
   section.appendChild(head);
 
@@ -1722,7 +1720,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
   if (!has('white') && !has('black')) {
     const empty = document.createElement('p');
     empty.className = 'section-desc';
-    empty.textContent = 'No games to visualize yet.';
+    empty.textContent = t('open.noGamesToVisualize');
     section.appendChild(empty);
     return section;
   }
@@ -1732,8 +1730,8 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
   // Board browser — opens the builder's My lines → My opponents on this opponent, where
   // you walk their games from the live position and play replies straight onto
   // the line you're building.
-  entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
-    `Walk ${opp.name}’s games in the builder`,
+  entries.appendChild(mapEntryBtn(Icons.compass(24), t('builder.boardBrowser'),
+    t('open.walkSGamesIn', { name: opp.name }),
     onBoardBrowser, 'primary'));
 
   // Their games tree — the auto-built opponent map, colour toggling inside.
@@ -1749,7 +1747,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
         title: `${opp.name} — ${colour === 'white' ? 'White' : 'Black'}`,
         subtitle: `${games} game${games === 1 ? '' : 's'}`,
         // Prepare a reply from any node: seed the builder with the path to it.
-        nodeAction: { label: 'Prepare a reply', onAct: ({ ucis }) => prepare(ucis, colour) },
+        nodeAction: { label: t('open.prepareAReply'), onAct: ({ ucis }) => prepare(ucis, colour) },
         depth: {
           startPlies: MAP_START_PLIES,
           stepPlies: MAP_STEP_PLIES,
@@ -1761,7 +1759,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
         },
         // Per-move W/D/L from THEIR perspective (the scouted user was "me" at
         // import), built to the deep limit so the deeper view has stats too.
-        stats: { tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES), caption: `${opp.name}'s results`, games: opp.games },
+        stats: { tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES), caption: t('import.theirResults', { name: opp.name }), games: opp.games },
         // Preview the position from MY answering side, with their avatar/name.
         perspective: {
           you: colour === 'white' ? 'black' : 'white',
@@ -1771,7 +1769,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
       },
     );
   };
-  entries.appendChild(mapEntryBtn(Icons.search(24), `${opp.name}'s games tree`,
+  entries.appendChild(mapEntryBtn(Icons.search(24), t('open.sGamesTree', { name: opp.name }),
     `${opp.gamesAnalysed} game${opp.gamesAnalysed === 1 ? '' : 's'}`, () => openTree(start), 'discrete'));
 
   return section;
@@ -1780,10 +1778,10 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
 // Sort order for an opening list. Mirrors saved lines' sort menu, but over the
 // stats we have here: most-played by default, then by their score, then name.
 const OPENING_ORDERS: { key: string; label: string }[] = [
-  { key: 'played', label: 'Most played' },
-  { key: 'weakest', label: 'Weakest' },
-  { key: 'strongest', label: 'Strongest' },
-  { key: 'name', label: 'Name' },
+  { key: 'played', label: t('stats.mostPlayed') },
+  { key: 'weakest', label: t('settings.weakest') },
+  { key: 'strongest', label: t('open.strongest') },
+  { key: 'name', label: t('repertoire.name') },
 ];
 
 function sortStats(stats: OpeningStat[], mode: string): OpeningStat[] {
@@ -1811,7 +1809,7 @@ function openingsSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn
   head.className = 'section-head';
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = `${opp.name}'s openings`;
+  h.textContent = t('open.sOpenings', { name: opp.name });
   head.appendChild(h);
   if (stats.length > 0) {
     const m = document.createElement('span');
@@ -1824,7 +1822,7 @@ function openingsSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn
   if (stats.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'section-desc';
-    empty.textContent = 'No openings yet.';
+    empty.textContent = t('open.noOpeningsYet');
     section.appendChild(empty);
     return section;
   }
@@ -1851,7 +1849,7 @@ function openingsSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn
     if (shown.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'section-desc';
-      empty.textContent = 'No openings on this side.';
+      empty.textContent = t('open.noOpeningsOnThis');
       list.appendChild(empty);
       return;
     }
@@ -1866,7 +1864,7 @@ function openingsSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn
       const more = document.createElement('button');
       more.type = 'button';
       more.className = 'btn-secondary scout-show-all';
-      more.textContent = `Show all ${shown.length}`;
+      more.textContent = t('open.showAll13', { length: shown.length });
       more.addEventListener('click', () => {
         for (const c of Array.from(list.children) as HTMLElement[]) c.hidden = false;
         more.remove();
@@ -1901,7 +1899,7 @@ function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
   metaRow.className = 'line-card-meta';
   const gamesChip = document.createElement('span');
   gamesChip.className = 'review-stat-chip';
-  gamesChip.textContent = `Played ${stat.games}×`;
+  gamesChip.textContent = t('open.played', { games: stat.games });
   metaRow.appendChild(gamesChip);
   content.appendChild(metaRow);
 
@@ -1927,10 +1925,10 @@ function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
   const prepareBtn = document.createElement('button');
   prepareBtn.type = 'button';
   prepareBtn.className = 'btn-secondary scout-prepare';
-  prepareBtn.textContent = 'Prepare a reply';
+  prepareBtn.textContent = t('open.prepareAReply');
   if (stat.repUcis.length === 0) {
     prepareBtn.disabled = true;
-    prepareBtn.title = 'No moves to seed from';
+    prepareBtn.title = t('open.noMovesToSeed');
   } else {
     prepareBtn.addEventListener('click', () => prepare(stat.repUcis, stat.colour));
   }
@@ -1974,7 +1972,7 @@ function recommendationCard(stat: OpeningStat): HTMLElement {
     orientation: stat.colour,
     className: 'games-card',
     onMiniClick: () => exploreDeps?.onOpenInBuilder(stat.repUcis, stat.colour),
-    miniLabel: 'Build this line',
+    miniLabel: t('open.buildThisLine'),
   });
 
   titleRow.appendChild(colourPip(stat.colour));
@@ -1987,7 +1985,7 @@ function recommendationCard(stat: OpeningStat): HTMLElement {
   meta.className = 'stat-card-chips';
   const gamesChip = document.createElement('span');
   gamesChip.className = 'review-stat-chip';
-  gamesChip.textContent = `Played ${stat.games}×`;
+  gamesChip.textContent = t('open.played', { games: stat.games });
   meta.appendChild(gamesChip);
   content.appendChild(meta);
 
@@ -2011,7 +2009,7 @@ function recommendationCard(stat: OpeningStat): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-secondary stat-card-btn';
-  btn.textContent = 'Build line';
+  btn.textContent = t('stats.buildLine');
   btn.addEventListener('click', e => {
     e.stopPropagation();
     exploreDeps?.onOpenInBuilder(stat.repUcis, stat.colour);
@@ -2048,11 +2046,11 @@ function timeAgo(iso: string): string {
   const then = new Date(iso).getTime();
   if (!Number.isFinite(then)) return '';
   const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (secs < 60) return 'just now';
+  if (secs < 60) return t('settings.ago.now');
   const mins = Math.round(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return t('open.mAgo', { mins: mins });
   const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t('open.hAgo', { hrs: hrs });
   const days = Math.round(hrs / 24);
-  return `${days}d ago`;
+  return t('open.dAgo', { days: days });
 }

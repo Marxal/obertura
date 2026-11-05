@@ -6,6 +6,7 @@
 import { COVERAGE_MOVES } from './reply-coverage';
 import { currentCoverage } from './next-reply-data';
 import type { StatsAt } from './rare-branch';
+import { t } from './i18n';
 
 export interface CoverageMeter {
   el: HTMLElement;
@@ -17,7 +18,7 @@ export interface CoverageMeter {
 export type CoverageFigures = Record<'white' | 'black', number | null>;
 
 const COLOURS = ['white', 'black'] as const;
-const NAMES = { white: 'White', black: 'Black' };
+const NAMES = { white: t('common.white'), black: t('common.black') };
 
 /** Starts from the figures it showed last time; `onChange` keeps them for next time. */
 export function buildCoverageMeter(
@@ -31,7 +32,7 @@ export function buildCoverageMeter(
 
   const title = document.createElement('p');
   title.className = 'nr-cov-title';
-  title.textContent = `Covered, first ${COVERAGE_MOVES} moves`;
+  title.textContent = t('open.coveredFirstMoves', { COVERAGE_MOVES: COVERAGE_MOVES });
   el.appendChild(title);
 
   const cells = document.createElement('div');

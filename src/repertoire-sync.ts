@@ -113,6 +113,7 @@ import { buildAccountStats } from './account-stats';
 import { showToast } from './toast';
 import { showSigningIn } from './signing-in';
 import { initScanSync, forgetScanSync } from './scan-sync';
+import { t } from './i18n';
 // The pure half lives next door so it can be self-tested under plain Node —
 // importing this module would drag the Supabase client, and `import.meta.env`
 // with it, into the test.
@@ -393,7 +394,7 @@ export function describeSyncError(err: unknown): string {
   const text = message.toLowerCase();
 
   if (/failed to fetch|networkerror|load failed|offline|network request failed/.test(text)) {
-    return 'Offline — your changes are safe here and go up when you’re back.';
+    return t('open.offlineYourChangesAre');
   }
   if (/does not exist/.test(text) && /relation|table/.test(text)) {
     return 'Your Supabase project has no “profiles” table yet — run the SQL in SUPABASE-SYNC.md.';
@@ -408,14 +409,14 @@ export function describeSyncError(err: unknown): string {
     return 'Supabase refused the write — re-run the grants at the end of the SQL in SUPABASE-SYNC.md.';
   }
   if (/jwt|token is expired|invalid claim/.test(text)) {
-    return 'Your session expired — sign out and back in.';
+    return t('open.yourSessionExpiredSign');
   }
   if (/duplicate key|conflict/.test(text)) {
-    return 'Two devices wrote at once — the next sync sorts it out.';
+    return t('open.twoDevicesWroteAt');
   }
   // Anything unmapped keeps its real words. Ugly beats mysterious: this is the
   // string that would otherwise cost a debugging session.
-  return message ? `Sync failed — ${trim(message)}` : 'Sync failed — will retry.';
+  return message ? t('open.syncFailed', { error: trim(message) }) : t('account.syncFailedWillRetry');
 }
 
 function trim(text: string): string {
@@ -503,7 +504,7 @@ class SyncConflictError extends Error {}
 // gives up for this round. Two phones writing within the same second, over and
 // over, is not a real pattern; the bound is so a bug can never spin.
 const MAX_CONFLICT_RETRIES = 3;
-const CONFLICT_MESSAGE = 'Another device was syncing at the same time — will retry.';
+const CONFLICT_MESSAGE = t('open.anotherDeviceWasSyncing');
 
 // Upload whichever parts are dirty, in ONE write — two columns of the same row,
 // so a burst that touched lines and games costs one request, not two. Throws on
@@ -1011,7 +1012,7 @@ async function connect(userId: string): Promise<void> {
   // reload the user sees one screen — see signing-in.ts for why the reload can't
   // simply be dropped, and why covering it is the honest fix rather than a
   // cosmetic one.
-  const done = showSigningIn('Signing you in…');
+  const done = showSigningIn(t('open.signingYouIn'));
 
   let remote: BackupFile | null = null;
   let stamps: { core: string | null; games: string | null } | null = null;
@@ -1032,7 +1033,7 @@ async function connect(userId: string): Promise<void> {
   }
 
   if (remote) {
-    showSigningIn('Restoring your account…');
+    showSigningIn(t('open.restoringYourAccount'));
     try {
       const incoming = repertoiresFrom(remote);
       if (incoming.length > 0) await mergeRepertoires(incoming);
@@ -1095,7 +1096,7 @@ export function reportRestoreOnBoot(): void {
   writeLocal(RESTORED_KEY, null);
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return;
-  showToast(`Restored ${n} line${n === 1 ? '' : 's'} from your account`, { variant: 'success' });
+  showToast(t('sync.restored', { n }), { variant: 'success' });
 }
 
 // ── The public verbs ──────────────────────────────────────────────────────────
