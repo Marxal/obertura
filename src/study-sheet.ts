@@ -9,6 +9,7 @@
 import { showToast } from './toast';
 import { shortStudyTag, type StudyChapter } from './study-import';
 import type { LineSeed } from './onboarding-starter';
+import { t } from './i18n';
 
 export interface ChapterListDeps {
   chapters: StudyChapter[];
@@ -38,7 +39,7 @@ export function renderChapterList(body: HTMLElement, deps: ChapterListDeps): voi
   colourRow.className = 'bimport-study-colour';
   const lbl = document.createElement('span');
   lbl.className = 'bimport-note';
-  lbl.textContent = 'Train these lines as:';
+  lbl.textContent = t('builder.trainTheseLinesAs');
   colourRow.appendChild(lbl);
   const seg = document.createElement('div');
   seg.className = 'seg-control';
@@ -54,15 +55,15 @@ export function renderChapterList(body: HTMLElement, deps: ChapterListDeps): voi
     });
     return b;
   };
-  seg.appendChild(mkSeg('white', '○ White'));
-  seg.appendChild(mkSeg('black', '● Black'));
+  seg.appendChild(mkSeg('white', t('builder.white')));
+  seg.appendChild(mkSeg('black', t('builder.black')));
   colourRow.appendChild(seg);
   body.appendChild(colourRow);
 
   if (tag) {
     const tagNote = document.createElement('p');
     tagNote.className = 'bimport-note bimport-tag-note';
-    tagNote.textContent = `Lines will be tagged “${tag}” so they stay grouped.`;
+    tagNote.textContent = t('builder.linesWillBeTagged', { tag: tag });
     body.appendChild(tagNote);
   }
 
@@ -109,20 +110,20 @@ export function renderChapterList(body: HTMLElement, deps: ChapterListDeps): voi
     const save = document.createElement('button');
     save.type = 'button';
     save.className = 'btn-secondary bimport-chapter-save';
-    save.textContent = 'Save as line';
+    save.textContent = t('builder.saveAsLine');
     save.addEventListener('click', () => {
       save.disabled = true;
       void deps.onSaveLines([seedOf(c)], colour).then(n => {
         if (n > 0) {
           saved.add(i);
-          save.textContent = '✓ Saved';
+          save.textContent = t('builder.saved13');
           // A one-chapter study has no "Save all" — this save IS the whole
           // import, so confirm and dismiss just like the multi-chapter path.
           if (singleChapter) {
-            showToast('Saved 1 line to My lines ✓', { variant: 'success' });
+            showToast(t('builder.saved1LineTo'), { variant: 'success' });
             deps.onAllSaved();
           }
-        } else { save.disabled = false; showToast('Couldn’t save that chapter.'); }
+        } else { save.disabled = false; showToast(t('builder.couldnTSaveThat')); }
       });
     });
     row.appendChild(save);
@@ -134,12 +135,12 @@ export function renderChapterList(body: HTMLElement, deps: ChapterListDeps): voi
     const all = document.createElement('button');
     all.type = 'button';
     all.className = 'btn-primary bimport-pgn-go';
-    all.textContent = `Save all ${chapters.length} as lines`;
+    all.textContent = t('builder.saveAllAsLines', { length: chapters.length });
     all.addEventListener('click', () => {
       all.disabled = true;
       const pending = chapters.filter((_, i) => !saved.has(i));
       void deps.onSaveLines(pending.map(seedOf), colour).then(n => {
-        showToast(`Saved ${n} line${n === 1 ? '' : 's'} to My lines ✓`, { variant: 'success' });
+        showToast(t('study.savedAll', { n }), { variant: 'success' });
         deps.onAllSaved();
       });
     });

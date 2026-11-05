@@ -25,6 +25,7 @@ import { pushBack } from './back-nav';
 import { formatMove } from './notation';
 import { peekActionBtn, buildStatRow, type PeekStat } from './position-peek';
 import { lineFigures, lineTraining, lineMastered } from './line-status';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -135,7 +136,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title peek-title';
-  h.textContent = line.name || line.openingName || 'Untitled line';
+  h.textContent = line.name || line.openingName || t('drill.untitledLine');
   sheet.appendChild(h);
 
   // ── The line's own numbers, as four plain figures ──────────────────────────
@@ -180,10 +181,10 @@ export function openLinePeek(opts: LinePeekOptions): void {
   const stepRow = document.createElement('div');
   stepRow.className = 'lpeek-step';
   // Icons.back is the plain left chevron — the mirror of chevronRight.
-  const prevBtn = stepBtn('Previous move', Icons.back(18), () => select(current - 1));
+  const prevBtn = stepBtn(t('builder.previousMove'), Icons.back(18), () => select(current - 1));
   const caption = document.createElement('div');
   caption.className = 'lpeek-caption';
-  const nextBtn = stepBtn('Next move', Icons.chevronRight(18), () => select(current + 1));
+  const nextBtn = stepBtn(t('builder.nextMove'), Icons.chevronRight(18), () => select(current + 1));
   stepRow.append(prevBtn, caption, nextBtn);
   sheet.appendChild(stepRow);
 
@@ -292,10 +293,10 @@ export function openLinePeek(opts: LinePeekOptions): void {
     // a move nobody has ever been asked is a claim, not a fact. Their replies
     // are still labelled, because that is a property of the line itself.
     if (p.isUser && !opts.stats) {
-      bits.push(p.lapses > 0 ? `missed ${p.lapses}×` : 'never missed');
-      if (p.node.review) bits.push(p.reps > 0 ? `${p.reps} clean in a row` : 'slipping');
+      bits.push(p.lapses > 0 ? t('builder.missed', { lapses: p.lapses }) : t('builder.neverMissed'));
+      if (p.node.review) bits.push(p.reps > 0 ? t('builder.cleanInARow', { reps: p.reps }) : 'slipping');
     } else if (!p.isUser) {
-      bits.push("their reply");
+      bits.push(t('builder.theirReply'));
     }
     caption.textContent = bits.join(' · ');
 
@@ -347,11 +348,11 @@ export function openLinePeek(opts: LinePeekOptions): void {
     sheet.appendChild(row);
   }
   if (opts.onDrill) {
-    btnRow.appendChild(peekActionBtn(Icons.zap(18), opts.drillLabel ?? 'Drill line',
+    btnRow.appendChild(peekActionBtn(Icons.zap(18), opts.drillLabel ?? t('home.forgotten.drill'),
       () => { close(); opts.onDrill!(line); }));
   }
   if (opts.onOpen) {
-    btnRow.appendChild(peekActionBtn(Icons.pencil(18), 'Open in builder',
+    btnRow.appendChild(peekActionBtn(Icons.pencil(18), t('reply.openBuilder'),
       () => { close(); opts.onOpen!(line); }));
   }
   if (btnRow.childElementCount > 0) sheet.appendChild(btnRow);
@@ -385,7 +386,7 @@ function buildMeta(line: Line): HTMLElement | null {
     grow.className = 'lpeek-grow';
     grow.appendChild(Icons.sprout(18));
     const growText = document.createElement('span');
-    growText.textContent = 'You know this one — keep growing it with the next moves.';
+    growText.textContent = t('builder.youKnowThisOne');
     grow.appendChild(growText);
     wrap.appendChild(grow);
   }

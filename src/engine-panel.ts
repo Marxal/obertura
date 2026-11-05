@@ -22,6 +22,7 @@
 import { Chess } from 'chess.js';
 import { cloudLooksOffline, type EvalResult, type MoveEval } from './engine';
 import { formatMove } from './notation';
+import { t } from './i18n';
 
 // How many plies of each principal variation the tab shows. The engine caps its
 // own PVs shorter than this; the limit is here so a long line can't make the row
@@ -83,17 +84,17 @@ export function createEnginePanel(deps: EnginePanelDeps): EnginePanel {
     root.classList.toggle('engine-tab--off', !deps.isOn());
 
     if (!deps.isOn()) {
-      linesEl.appendChild(note('Switch the engine on from the bar below to see the best lines from here.'));
+      linesEl.appendChild(note(t('builder.switchTheEngineOn')));
       return;
     }
     if (!last) {
-      linesEl.appendChild(note('Analysing…'));
+      linesEl.appendChild(note(t('builder.analysing')));
       return;
     }
     if (last.gameOver) {
       linesEl.appendChild(note(last.gameOver === 'checkmate'
-        ? 'Checkmate — nothing left to search.'
-        : 'Drawn — nothing left to search.'));
+        ? t('builder.checkmateNothingLeftTo')
+        : t('builder.drawnNothingLeftTo')));
       return;
     }
 
@@ -107,7 +108,7 @@ export function createEnginePanel(deps: EnginePanelDeps): EnginePanel {
       const retry = document.createElement('button');
       retry.type = 'button';
       retry.className = 'engine-tab-retry';
-      retry.textContent = 'Couldn’t reach Lichess — running locally. Retry';
+      retry.textContent = t('builder.couldnTReachLichessRunning');
       retry.addEventListener('click', () => deps.onRetryCloud());
       linesEl.appendChild(retry);
     }
@@ -146,7 +147,7 @@ export function createEnginePanel(deps: EnginePanelDeps): EnginePanel {
       chip.type = 'button';
       chip.className = 'engine-line-move';
       chip.textContent = `${prefix}${formatMove(sans[i])}`;
-      chip.title = `Play up to ${prefix}${sans[i]}`;
+      chip.title = t('eval.playUpTo', { move: `${prefix}${sans[i]}` });
       chip.addEventListener('click', () => deps.onPlayLine(upTo));
       moves.appendChild(chip);
 

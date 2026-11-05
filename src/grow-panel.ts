@@ -22,6 +22,7 @@ import type { GrowMove, GrowTarget } from './grow-line';
 import { lineTraining, lineTrainingText } from './line-status';
 import { formatMove } from './notation';
 import { Icons } from './icons';
+import { t as tr } from './i18n';
 
 export interface GrowPanelDeps {
   el: HTMLElement;
@@ -83,7 +84,7 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const el = deps.el;
     el.replaceChildren();
     if (!target) {
-      el.appendChild(note('Nothing to grow right now.'));
+      el.appendChild(note(tr('builder.nothingToGrowRight')));
       return;
     }
     const wrap = document.createElement('div');
@@ -119,7 +120,7 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     icon.classList.add('grow-head-icon');
     title.appendChild(icon);
     const label = document.createElement('span');
-    label.textContent = 'Grow this line';
+    label.textContent = tr('builder.growThisLine');
     title.appendChild(label);
     row.appendChild(title);
     // Skipping is a legitimate answer — a position you don't want to think
@@ -139,7 +140,7 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const chips = document.createElement('div');
     chips.className = 'grow-chips';
     if (stats) chips.appendChild(chip(stats));
-    chips.appendChild(chip(`confidence ${t.spot.line.confidence}`));
+    chips.appendChild(chip(tr('builder.confidence', { confidence: t.spot.line.confidence })));
     wrap.appendChild(chips);
     return wrap;
   }
@@ -160,25 +161,19 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const p = document.createElement('p');
     p.className = 'grow-say';
     if (at === 'astray') {
-      p.textContent = 'You’ve moved off this line. The moves to prepare for are '
-        + 'at the end of it.';
+      p.textContent = tr('builder.youVeMovedOff');
     } else if (at === 'pick') {
       p.textContent = t.moves.length === 1
-        ? 'Your line stops here — and this is what you’d meet next. Tap it to '
-          + 'put it on the board.'
-        : 'Your line stops here. These are the moves you’d meet next — tap one '
-          + 'to put it on the board.';
+        ? tr('builder.yourLineStopsHere')
+        : tr('builder.yourLineStopsHereThese');
     } else if (at === 'reply') {
       const their = playedAt(0);
-      p.textContent = (their ? `They’ve played ${formatMove(their)}. ` : '')
-        + 'Now play YOUR answer on the board — drag the piece you’d reply with. '
-        + 'One move is enough.';
+      p.textContent = their ? tr('grow.replyAfter', { move: formatMove(their) }) : tr('grow.reply');
     } else {
       const mine = playedAt(1);
       p.textContent = mine
-        ? `${formatMove(mine)} is your answer. Add it to your line and today’s `
-          + 'challenge moves on.'
-        : 'That’s your answer. Add it to your line and today’s challenge moves on.';
+        ? tr('grow.answer', { move: formatMove(mine) })
+        : tr('builder.thatSYourAnswer');
     }
     return p;
   }
@@ -220,7 +215,7 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     add.appendChild(Icons.plus(13));
     btn.appendChild(add);
 
-    btn.setAttribute('aria-label', `Play ${m.san} — ${m.reason}`);
+    btn.setAttribute('aria-label', tr('builder.play', { san: m.san, reason: m.reason }));
     btn.title = m.reason;
     return btn;
   }
@@ -252,16 +247,16 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
   }
 
   function sourceName(m: GrowMove): string {
-    if (m.source === 'games') return 'Your games';
-    if (m.source === 'scout') return m.opponentName ?? 'Opponent';
-    return 'Book';
+    if (m.source === 'games') return tr('recap.yourGames');
+    if (m.source === 'scout') return m.opponentName ?? tr('story.opponent');
+    return tr('builder.book');
   }
 
   function backButton(): HTMLElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn-secondary grow-back';
-    btn.textContent = 'Back to the end of the line';
+    btn.textContent = tr('builder.backToTheEnd');
     btn.addEventListener('click', deps.onBackToEnd);
     return btn;
   }
@@ -273,7 +268,7 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn-primary grow-commit';
-    btn.textContent = 'Add it to my line';
+    btn.textContent = tr('builder.addItToMy');
     btn.addEventListener('click', deps.onCommit);
     return btn;
   }
@@ -282,7 +277,7 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'grow-skip';
-    btn.textContent = 'Skip for today';
+    btn.textContent = tr('builder.skipForToday');
     btn.addEventListener('click', deps.onSkip);
     return btn;
   }

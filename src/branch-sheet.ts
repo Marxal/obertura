@@ -32,6 +32,7 @@ import { requestTrainingSlots } from './entitlement';
 import { pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { showToast } from './toast';
+import { t } from './i18n';
 
 export interface BranchSheetOptions {
   repertoireId: string;
@@ -55,16 +56,12 @@ export interface BranchSheetOptions {
 
 /** "After 1.e4 e6" — how the sheet refers to the branch it is acting on. */
 function branchLabel(sans: string[]): string {
-  if (sans.length === 0) return 'your whole repertoire';
+  if (sans.length === 0) return t('builder.yourWholeRepertoire');
   const parts: string[] = [];
   for (let i = 0; i < sans.length && i < 8; i++) {
     parts.push(i % 2 === 0 ? `${i / 2 + 1}.${sans[i]}` : sans[i]);
   }
   return parts.join(' ') + (sans.length > 8 ? '…' : '');
-}
-
-function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
 }
 
 /**
@@ -145,14 +142,14 @@ function build(
   // ── Header ────────────────────────────────────────────────────────────────
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = `After ${branchLabel(opts.sans)}`;
+  title.textContent = t('builder.after', { site: branchLabel(opts.sans) });
   sheet.appendChild(title);
 
   const sub = document.createElement('p');
   sub.className = 'branch-sub';
   sub.textContent = lineCount === 1
-    ? `1 line, ${plural(moves, 'move')} from here on.`
-    : `${plural(lineCount, 'line')} run through here, ${plural(moves, 'move')} in all.`;
+    ? t('branch.oneLine', { n: moves })
+    : t('branch.manyLines', { lines: lineCount, n: moves });
   sheet.appendChild(sub);
 
   // ── Training ──────────────────────────────────────────────────────────────
@@ -170,12 +167,10 @@ function build(
   trainRow.innerHTML =
     `<span class="branch-train-main">` +
       `<span class="dline-switch" aria-hidden="true"><span class="dline-switch-knob"></span></span>` +
-      `<span class="branch-row-label">${training ? 'In training' : 'Paused'}</span>` +
+      `<span class="branch-row-label">${t(training ? 'stats.inTraining' : 'status.paused')}</span>` +
     `</span>` +
     `<span class="branch-row-note">${
-      training
-        ? `Turning this off pauses ${lineCount === 1 ? 'this line' : `all ${lineCount} lines`}`
-        : `Turning this on trains ${lineCount === 1 ? 'this line' : `all ${lineCount} lines`}`
+      t(training ? 'branch.offPauses' : 'branch.onTrains', { n: lineCount })
     }</span>`;
   trainRow.addEventListener('click', () => {
     void (async () => {
@@ -194,8 +189,8 @@ function build(
       await save();
       showToast(
         next
-          ? `Training ${lineCount === 1 ? 'this line' : `${lineCount} lines`} ✓`
-          : `Paused ${lineCount === 1 ? 'this line' : `${lineCount} lines`}`,
+          ? t('branch.training', { n: lineCount })
+          : t('branch.paused', { n: lineCount }),
         { variant: next ? 'success' : undefined },
       );
       repaint();
@@ -209,15 +204,15 @@ function build(
   prioWrap.className = 'branch-field';
   const prioLabel = document.createElement('span');
   prioLabel.className = 'edit-label';
-  prioLabel.textContent = 'Training priority';
+  prioLabel.textContent = t('builder.trainingPriority');
   prioWrap.appendChild(prioLabel);
 
   const prioRow = document.createElement('div');
   prioRow.className = 'branch-seg';
   const PRIORITIES: { key: LinePriority; label: string }[] = [
-    { key: 'high', label: 'More often' },
-    { key: 'standard', label: 'Standard' },
-    { key: 'low', label: 'Less often' },
+    { key: 'high', label: t('builder.moreOften') },
+    { key: 'standard', label: t('builder.standard') },
+    { key: 'low', label: t('builder.lessOften') },
   ];
   for (const p of PRIORITIES) {
     const btn = document.createElement('button');
@@ -250,7 +245,7 @@ function build(
   const moreSummary = document.createElement('summary');
   moreSummary.className = 'branch-more-summary';
   const moreLabel = document.createElement('span');
-  moreLabel.textContent = 'Name & tags';
+  moreLabel.textContent = t('builder.nameTags');
   moreSummary.appendChild(moreLabel);
   const current = [resolveLabel(path), (node.tags ?? []).join(', ')].filter(Boolean).join(' · ');
   if (current) {
@@ -266,12 +261,12 @@ function build(
   nameWrap.className = 'branch-field';
   const nameLabel = document.createElement('label');
   nameLabel.className = 'edit-label';
-  nameLabel.textContent = lineCount === 1 ? 'Name this line' : 'Name this branch';
+  nameLabel.textContent = lineCount === 1 ? t('builder.nameThisLine') : t('builder.nameThisBranch');
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
   nameInput.className = 'edit-input';
   nameInput.value = node.label ?? '';
-  nameInput.placeholder = resolveLabel(above) ?? 'Named automatically';
+  nameInput.placeholder = resolveLabel(above) ?? t('builder.namedAutomatically');
   const commitName = (): void => {
     const value = nameInput.value.trim();
     if (value === (node.label ?? '')) return;
@@ -282,8 +277,8 @@ function build(
     setBranchValue(node, 'label', value || undefined, resolveLabel(above) ?? undefined);
     void save().then(() => {
       showToast(value
-        ? (lineCount === 1 ? 'Line renamed ✓' : `${lineCount} lines renamed ✓`)
-        : 'Back to the automatic name');
+        ? (lineCount === 1 ? t('builder.lineRenamed') : t('builder.linesRenamed', { lineCount: lineCount }))
+        : t('builder.backToTheAutomatic'));
     });
   };
   nameInput.addEventListener('blur', commitName);
@@ -293,7 +288,7 @@ function build(
   if (lineCount > 1) {
     const hint = document.createElement('p');
     hint.className = 'branch-hint';
-    hint.textContent = `Names all ${lineCount} lines below this move.`;
+    hint.textContent = t('builder.namesAllLinesBelow', { lineCount: lineCount });
     nameWrap.appendChild(hint);
   }
   more.appendChild(nameWrap);
@@ -303,15 +298,15 @@ function build(
   tagWrap.className = 'branch-field';
   const tagLabel = document.createElement('label');
   tagLabel.className = 'edit-label';
-  tagLabel.textContent = 'Tags for this branch';
+  tagLabel.textContent = t('builder.tagsForThisBranch');
   const tagInput = document.createElement('input');
   tagInput.type = 'text';
   tagInput.className = 'edit-input';
   tagInput.value = (node.tags ?? []).join(', ');
   const inheritedTags = resolveTags(above);
   tagInput.placeholder = inheritedTags.length
-    ? `Adds to: ${inheritedTags.join(', ')}`
-    : 'e.g. sharp, vs Anna';
+    ? t('branch.addsTo', { tags: inheritedTags.join(', ') })
+    : t('builder.eGSharpVs');
   const commitTags = (): void => {
     const tags = tagInput.value.split(',').map(t => t.trim()).filter(Boolean);
     if (tags.join('|') === (node.tags ?? []).join('|')) return;
@@ -340,26 +335,25 @@ function build(
       joinWrap.className = 'branch-field';
       const joinLabel = document.createElement('span');
       joinLabel.className = 'edit-label';
-      joinLabel.textContent = 'Where this line goes next';
+      joinLabel.textContent = t('builder.whereThisLineGoes');
       joinWrap.appendChild(joinLabel);
 
       if (joined.length > 0) {
         const note = document.createElement('p');
         note.className = 'branch-hint';
         note.textContent =
-          `Continues as another line from here — ${plural(joined.length, 'more move')}: `
-          + joined.map(m => m.san).join(' ');
+          t('branch.continuesAs', { n: joined.length, moves: joined.map(m => m.san).join(' ') });
         joinWrap.appendChild(note);
 
         const stop = document.createElement('button');
         stop.type = 'button';
         stop.className = 'btn-secondary';
-        stop.textContent = 'Stop continuing';
+        stop.textContent = t('builder.stopContinuing');
         stop.addEventListener('click', () => {
           void (async () => {
             delete node.joinTo;
             await save();
-            showToast('This line ends here again');
+            showToast(t('builder.thisLineEndsHere'));
             repaint();
           })();
         });
@@ -368,8 +362,8 @@ function build(
         const why = document.createElement('p');
         why.className = 'branch-hint';
         why.textContent = candidates.length === 1
-          ? 'Another line reaches this exact position by a different move order.'
-          : `${candidates.length} of your lines reach this exact position by a different move order.`;
+          ? t('builder.anotherLineReachesThis')
+          : t('builder.ofYourLinesReach', { length: candidates.length });
         joinWrap.appendChild(why);
 
         // Three at most: the offer is a shortcut, not a directory.
@@ -378,12 +372,12 @@ function build(
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'btn-secondary branch-join-btn';
-          btn.textContent = `Continue as “${name}” (+${plural(c.moves, 'move')})`;
+          btn.textContent = t('branch.continueAs', { name, n: c.moves });
           btn.addEventListener('click', () => {
             void (async () => {
               node.joinTo = c.endId;
               await save();
-              showToast(`This line now continues as “${name}” ✓`, { variant: 'success' });
+              showToast(t('builder.thisLineNowContinues', { name: name }), { variant: 'success' });
               repaint();
             })();
           });
@@ -414,14 +408,14 @@ function build(
   };
 
   if (opts.onSeeInLines) {
-    addLink('See in My lines', null, () => { close(); opts.onSeeInLines?.(); });
+    addLink(t('builder.seeInMyLines'), null, () => { close(); opts.onSeeInLines?.(); });
   }
 
   // "Show on the tree": the same map My Lines draws, opened already centred on
   // this position (`initialPath`). Seeing where a branch sits among its
   // neighbours is most of what makes a removal decidable — it is the difference
   // between "2 lines" as a number and 2 lines you can point at.
-  addLink('Show on the tree', Icons.tree(14), () => {
+  addLink(t('builder.showOnTheTree'), Icons.tree(14), () => {
     close();
     openRepertoireMap(projectRepertoire(book), book.colour, l => opts.onOpenLine?.(l), {
       title: book.name,
@@ -439,7 +433,7 @@ function build(
     const build = document.createElement('button');
     build.type = 'button';
     build.className = 'btn-primary';
-    build.textContent = 'Build from here';
+    build.textContent = t('builder.buildFromHere');
     build.addEventListener('click', () => {
       commitName(); commitTags();
       close();
@@ -451,7 +445,7 @@ function build(
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'btn-secondary';
-  done.textContent = 'Done';
+  done.textContent = t('common.done');
   done.addEventListener('click', () => { commitName(); commitTags(); close(); });
   actions.appendChild(done);
 
@@ -470,7 +464,7 @@ function build(
   remove.className = 'branch-remove';
   remove.appendChild(Icons.trash(13));
   remove.appendChild(document.createTextNode(
-    lineCount === 1 ? 'Remove this line' : `Remove all ${lineCount} lines`,
+    lineCount === 1 ? t('builder.removeThisLine') : t('builder.removeAllLines', { lineCount: lineCount }),
   ));
   remove.addEventListener('click', () => {
     if (!impact) return;
@@ -481,8 +475,8 @@ function build(
       title: removalTitle(impact),
       body: removalBody(impact, book.name),
       buttons: [
-        { label: 'Remove', variant: 'danger', onClick: () => { void doRemove(); } },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('builder.remove'), variant: 'danger', onClick: () => { void doRemove(); } },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
   });
@@ -497,16 +491,16 @@ function build(
     await save();
     close();
     showToast(removalDone(cut.moves), {
-      action: { label: 'Undo', onClick: () => void undoRemove(cut) },
+      action: { label: t('common.undo'), onClick: () => void undoRemove(cut) },
     });
   }
 
   async function undoRemove(cut: DetachedSubtree): Promise<void> {
     if (!reattachToBook(book, cut)) {
-      showToast('Those moves can’t be put back now');
+      showToast(t('builder.thoseMovesCanT'));
       return;
     }
     await save();
-    showToast('Moves put back ✓', { variant: 'success' });
+    showToast(t('builder.movesPutBack'), { variant: 'success' });
   }
 }

@@ -16,63 +16,40 @@
 // as the explanation.
 
 import { showDialog } from './dialog';
+import { t } from './i18n';
 
 export type BuilderInfoId = 'grow' | 'explore' | 'mylines' | 'line' | 'game' | 'engine';
 
 const COPY: Record<BuilderInfoId, { title: string; body: string }> = {
   grow: {
-    title: 'Grow line',
+    title: t('builder.growLine'),
     body:
-      'Today’s line to grow. You’ve been round this one enough times to know it, '
-      + 'so the useful next step is depth rather than another run — the board is '
-      + 'standing at the end of it, where your prep currently stops.\n\n'
-      + 'The moves listed are what your opponent could play from here, and why '
-      + 'each one is worth an answer. Tap one, play your reply, and add it. One '
-      + 'move is the whole job; every other tab is still here if you want to look '
-      + 'further before you decide.',
+      t('builder.todaySLineTo'),
   },
   explore: {
-    title: 'Explore',
+    title: t('tour.explore.title'),
     body:
-      'Three moves worth having here, picked from the games you’ve imported, the '
-      + 'opening library and the engine. Tap one to play it onto your line.\n\n'
-      + 'Under them, each move’s record: how you’ve scored with it against how the '
-      + 'database has. Turn on Auto-reply and the opponent’s answer is played for '
-      + 'you, so you only ever choose your own moves.',
+      t('builder.threeMovesWorthHaving'),
   },
   mylines: {
-    title: 'My lines',
+    title: t('tour.lines.title'),
     body:
-      'What happens from the position on the board, from three sources: your own '
-      + 'saved lines, your imported games, and any opponent you’ve scouted.\n\n'
-      + 'Tap a move to follow it. “Show tree” opens the whole thing as a map, and '
-      + 'the bin on one of your own moves takes that continuation out of your book.',
+      t('builder.whatHappensFromThe'),
   },
   line: {
-    title: 'Line info',
+    title: t('builder.lineInfo'),
     body:
-      'Everything about the line you’re standing in: whether it’s in training, its '
-      + 'tags, a note on the move on the board, and how often it should come round.\n\n'
-      + 'Below that, how the line has actually been going — how often it turns up in '
-      + 'your games, how much of it you remember, and which move keeps breaking.',
+      t('builder.everythingAboutTheLine'),
   },
   game: {
-    title: 'Game',
+    title: t('builder.game'),
     body:
-      'The game you’re looking at, move by move. “Analyse game” has the engine mark '
-      + 'every move, and the marks then show in the move list and on the board.\n\n'
-      + 'Playing a different move here keeps the game intact and adds your move as a '
-      + 'variation. “Save line” files the moves up to the board as a repertoire line; '
-      + '“Builder” takes them into the builder to carry on with.',
+      t('builder.theGameYouRe'),
   },
   engine: {
-    title: 'Engine',
+    title: t('story.engine'),
     body:
-      'Stockfish on the position on the board: the evaluation bar, and the strongest '
-      + 'continuations it can find. Opening this tab switches the engine on.\n\n'
-      + 'Tap one of its lines to play the move onto your own. An evaluation is an '
-      + 'opinion about the position, not about whether the move belongs in your '
-      + 'repertoire — that is what the other tabs are for.',
+      t('builder.stockfishOnThePosition'),
   },
 };
 
@@ -81,11 +58,11 @@ export function showBuilderInfo(id: BuilderInfoId): void {
   showDialog({
     title: copy.title,
     body: copy.body,
-    buttons: [{ label: 'Got it', variant: 'primary' }],
+    buttons: [{ label: t('tour.gotIt'), variant: 'primary' }],
   });
 }
 
 /** The button's accessible name for a tab, so it never just says "info". */
 export function builderInfoLabel(id: BuilderInfoId | 'library'): string {
-  return id === 'library' ? 'About the opening database' : `About ${COPY[id].title}`;
+  return id === 'library' ? t('builder.aboutTheOpeningDatabase') : t('builder.about', { title: COPY[id].title });
 }

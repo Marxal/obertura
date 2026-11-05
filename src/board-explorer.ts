@@ -23,6 +23,7 @@ import type { NodeActionContext } from './repertoire-map';
 import type { ImportedGame } from './import-core';
 import { formatMove } from './notation';
 import { getGamesSource } from './import-panel';
+import { t as tr } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -106,16 +107,16 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'rmap-back';
-  back.setAttribute('aria-label', 'Close board browser');
+  back.setAttribute('aria-label', tr('builder.closeBoardBrowser'));
   back.appendChild(Icons.back(20));
   back.addEventListener('click', close);
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = opts.title ?? 'Board browser';
+  titleEl.textContent = opts.title ?? tr('builder.boardBrowser');
   const badge = document.createElement('span');
   badge.className = 'rmap-title-count';
   // Set live by renderList() to the games reaching the current position.
-  badge.textContent = 'games 0';
+  badge.textContent = tr('builder.games0');
   header.append(back, titleEl, badge);
   overlay.appendChild(header);
 
@@ -202,7 +203,7 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
     primaryBtn.disabled = !!act.disabled;
   } else if (opts.onOpenInBuilder) {
     const seed = opts.onOpenInBuilder;
-    primaryBtn = navBtn(Icons.reply(20), 'Open in builder', 'Open in builder', () => {
+    primaryBtn = navBtn(Icons.reply(20), tr('reply.openBuilder'), tr('reply.openBuilder'), () => {
       seed([...ucis], opts.colour);
       close();
     });
@@ -211,9 +212,9 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   // browser for the builder.
   if (primaryBtn) primaryBtn.classList.add('bx-nav-btn--accent');
 
-  const resetBtn = navBtn(Icons.reset(20), 'Reset', 'Back to start', reset);
-  const backBtn = navBtn(Icons.back(20), 'Back', 'Step back', stepBack);
-  const fwdBtn = navBtn(Icons.chevronRight(20), 'Forward', 'Step forward', stepForward);
+  const resetBtn = navBtn(Icons.reset(20), tr('settings.reset'), tr('builder.backToStart'), reset);
+  const backBtn = navBtn(Icons.back(20), tr('common.back'), tr('html.stepBack'), stepBack);
+  const fwdBtn = navBtn(Icons.chevronRight(20), tr('builder.forward'), tr('html.stepForward'), stepForward);
   if (primaryBtn) controls.append(primaryBtn);
   controls.append(resetBtn, backBtn, fwdBtn);
   overlay.appendChild(controls);
@@ -325,7 +326,7 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
       return;
     }
     fullGame.href = game.url;
-    fullGame.textContent = `See full game on ${platformLabel(game.url)} ↗`;
+    fullGame.textContent = tr('builder.seeFullGameOn', { site: platformLabel(game.url) });
     fullGame.hidden = false;
   }
 
@@ -341,7 +342,7 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
     if (!replies.length) {
       const empty = document.createElement('div');
       empty.className = 'bx-empty';
-      empty.textContent = 'No games continue from here.';
+      empty.textContent = tr('builder.noGamesContinueFrom');
       list.appendChild(empty);
       return;
     }
@@ -383,14 +384,14 @@ function buildTopToggles(opts: BoardExplorerOptions, close: () => void): HTMLEle
   if (opts.colourToggle) {
     const t = opts.colourToggle;
     bar.appendChild(buildSeg(
-      [{ id: 'white', label: '○ White' }, { id: 'black', label: '● Black' }],
+      [{ id: 'white', label: tr('builder.white') }, { id: 'black', label: tr('builder.black') }],
       t.current, t.enabled, close, t.onPick,
     ));
   }
   if (opts.sourceToggle) {
     const t = opts.sourceToggle;
     bar.appendChild(buildSeg(
-      [{ id: 'games', label: 'Games' }, { id: 'repertoire', label: 'Repertoire' }],
+      [{ id: 'games', label: tr('backup.games') }, { id: 'repertoire', label: tr('builder.repertoire') }],
       t.current, t.enabled, close, t.onPick, 'rmap-source-seg',
     ));
   }
@@ -432,7 +433,7 @@ export function platformLabel(url: string): string {
   const u = url.toLowerCase();
   if (u.includes('lichess.org')) return 'Lichess';
   if (u.includes('chess.com')) return 'Chess.com';
-  return 'the original site';
+  return tr('builder.theOriginalSite');
 }
 
 // A compact player strip that brackets the board. Pass the opponent (avatar +
@@ -447,7 +448,7 @@ function playerStrip(who: { name: string; avatarUrl?: string } | undefined | 'yo
   // For "you", read your connected identity: the handle for either platform,
   // your picture for Chess.com (Lichess has none → generic icon).
   const me = isYou ? getGamesSource() : null;
-  const name = isYou ? (me?.username ? `@${me.username}` : 'You') : (who?.name ?? 'Opponent');
+  const name = isYou ? (me?.username ? `@${me.username}` : tr('builder.you')) : (who?.name ?? tr('story.opponent'));
   const avatarUrl = isYou ? me?.avatarUrl : who?.avatarUrl;
 
   strip.appendChild(playerAvatar(avatarUrl, 22));

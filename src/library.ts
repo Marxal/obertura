@@ -37,6 +37,7 @@ import { showDialog } from './dialog';
 import { pushBack } from './back-nav';
 import { createLibraryExplorer, type LibraryExplorer } from './library-explorer';
 import { formatMove, formatSanLine } from './notation';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Cap rendered rows so a broad/empty search can't spray thousands of nodes onto
@@ -77,7 +78,7 @@ function familyOf(name: string): string {
 }
 function variationOf(name: string): string {
   const i = name.indexOf(':');
-  return i === -1 ? 'Main line' : name.slice(i + 1).trim();
+  return i === -1 ? t('builder.mainLine') : name.slice(i + 1).trim();
 }
 
 // Which browse mode the library opens in — remembered device-local (tiny, like
@@ -142,12 +143,12 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'rmap-back';
-  back.setAttribute('aria-label', 'Close library');
+  back.setAttribute('aria-label', t('builder.closeLibrary'));
   back.appendChild(Icons.back(20));
   back.addEventListener('click', close);
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = 'Opening library';
+  titleEl.textContent = t('builder.openingLibrary');
   const countBadge = document.createElement('span');
   countBadge.className = 'rmap-title-count';
   countBadge.textContent = '…';
@@ -167,9 +168,9 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   const seg = document.createElement('div');
   seg.className = 'lib-mode-seg';
   const modeDefs: { id: LibMode; label: string }[] = [
-    { id: 'board', label: 'Board' },
-    { id: 'list', label: 'List' },
-    { id: 'moves', label: 'Moves' },
+    { id: 'board', label: t('builder.board') },
+    { id: 'list', label: t('builder.list') },
+    { id: 'moves', label: t('html.moves') },
   ];
   const modeBtns = modeDefs.map(m => {
     const b = document.createElement('button');
@@ -203,7 +204,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   const input = document.createElement('input');
   input.type = 'search';
   input.className = 'lib-search-input';
-  input.placeholder = 'Search name or ECO (e.g. Najdorf, C60)';
+  input.placeholder = t('builder.searchNameOrEco');
   input.autocapitalize = 'off';
   input.autocomplete = 'off';
   input.spellcheck = false;
@@ -216,7 +217,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   results.className = 'lib-results';
   const loading = document.createElement('p');
   loading.className = 'lib-status';
-  loading.textContent = 'Loading library…';
+  loading.textContent = t('builder.loadingLibrary');
   results.appendChild(loading);
   box.appendChild(results);
 
@@ -264,7 +265,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
     if (mode === 'list') input.focus();
   }).catch(() => {
     if (closed) return;
-    loading.textContent = 'Could not load the library. Check your connection and try again.';
+    loading.textContent = t('builder.couldNotLoadThe');
   });
 }
 
@@ -282,13 +283,13 @@ function renderResults(
   const count = document.createElement('p');
   count.className = 'lib-status';
   if (matches.length === 0) {
-    count.textContent = query ? `No openings match “${query}”.` : 'No openings.';
+    count.textContent = query ? t('builder.noOpeningsMatch', { query: query }) : t('builder.noOpenings');
     container.appendChild(count);
     return;
   }
   const shown = Math.min(matches.length, MAX_RENDERED);
   count.textContent = shown < matches.length
-    ? `Showing ${shown} of ${matches.length} openings — keep typing to narrow.`
+    ? t('builder.showingOfOpeningsKeep', { shown: shown, length: matches.length })
     : `${matches.length} opening${matches.length === 1 ? '' : 's'}`;
   container.appendChild(count);
 
@@ -377,7 +378,7 @@ function renderFamilyTree(
 
   const count = document.createElement('p');
   count.className = 'lib-status';
-  count.textContent = `${groups.size} families · ${entries.length} openings — tap a family to expand`;
+  count.textContent = t('builder.familiesOpeningsTapA', { size: groups.size, length: entries.length });
   container.appendChild(count);
 
   for (const [family, fents] of groups) {
@@ -471,7 +472,7 @@ function openDetail(
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'rmap-back';
-  back.setAttribute('aria-label', 'Back to library');
+  back.setAttribute('aria-label', t('builder.backToLibrary'));
   back.appendChild(Icons.back(20));
   back.addEventListener('click', close);
   const titleEl = document.createElement('h2');
@@ -514,10 +515,10 @@ function openDetail(
   // Step controls.
   const controls = document.createElement('div');
   controls.className = 'lib-controls';
-  const firstBtn = navBtn('⏮', 'Start', () => setCursor(0));
-  const prevBtn = navBtn('←', 'Previous move', () => setCursor(cursor - 1));
-  const nextBtn = navBtn('→', 'Next move', () => setCursor(cursor + 1));
-  const lastBtn = navBtn('⏭', 'End', () => setCursor(entry.moves.length));
+  const firstBtn = navBtn('⏮', t('train.door.start'), () => setCursor(0));
+  const prevBtn = navBtn('←', t('builder.previousMove'), () => setCursor(cursor - 1));
+  const nextBtn = navBtn('→', t('builder.nextMove'), () => setCursor(cursor + 1));
+  const lastBtn = navBtn('⏭', t('builder.end'), () => setCursor(entry.moves.length));
   controls.append(firstBtn, prevBtn, nextBtn, lastBtn);
   overlay.appendChild(controls);
 
@@ -525,15 +526,15 @@ function openDetail(
   const openBtn = document.createElement('button');
   openBtn.type = 'button';
   openBtn.className = 'rmap-pos-open-btn lib-open-btn';
-  openBtn.textContent = 'Open in builder';
+  openBtn.textContent = t('reply.openBuilder');
   openBtn.addEventListener('click', () => {
     showDialog({
-      title: 'Open in builder',
-      body: 'Which side do you play? The board flips to your colour.',
+      title: t('reply.openBuilder'),
+      body: t('builder.whichSideDoYou'),
       buttons: [
-        { label: '○ White', variant: 'primary', onClick: () => { close(); onOpenInBuilder(ucis, 'white'); } },
-        { label: '● Black', variant: 'primary', onClick: () => { close(); onOpenInBuilder(ucis, 'black'); } },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('builder.white'), variant: 'primary', onClick: () => { close(); onOpenInBuilder(ucis, 'white'); } },
+        { label: t('builder.black'), variant: 'primary', onClick: () => { close(); onOpenInBuilder(ucis, 'black'); } },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
   });
@@ -558,7 +559,7 @@ function openDetail(
     if (entry.moves.length === 0) {
       const note = document.createElement('span');
       note.className = 'lib-movelist-empty';
-      note.textContent = 'Starting position';
+      note.textContent = t('builder.startingPosition');
       moveList.appendChild(note);
       return;
     }

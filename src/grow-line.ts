@@ -42,6 +42,7 @@ import type { MoveNode } from './tree';
 import type { ImportedGame } from './import-core';
 import { positionKey } from './position-index';
 import { lineMastered } from './line-status';
+import { t } from './i18n';
 import {
   gameReplyIndex, scoutReplyIndex, sanAt,
   MIN_FACED_GAMES, MIN_SCOUT_GAMES,
@@ -243,7 +244,7 @@ export function growMoves(
     if (!san) continue;
     offer({
       uci, san, source: 'games', weight: games, rank: SOURCE_RANK.games,
-      reason: `you have faced this ${games} times`,
+      reason: t('builder.youHaveFacedThis', { games: games }),
     });
   }
 
@@ -257,7 +258,7 @@ export function growMoves(
     if (!uci) continue;
     offer({
       uci, san, source: 'library', weight: count, rank: SOURCE_RANK.library,
-      reason: count > 1 ? `${count} openings continue this way` : 'the opening book plays this',
+      reason: count > 1 ? t('builder.openingsContinueThisWay', { count: count }) : t('builder.theOpeningBookPlays'),
     });
   }
 
@@ -268,7 +269,7 @@ export function growMoves(
     if (!san) continue;
     offer({
       uci: scout.uci, san, source: 'scout', weight: scout.games, rank: SOURCE_RANK.scout,
-      reason: `${scout.name} plays this`,
+      reason: t('reply.fact.scout', { name: scout.name }),
       opponentName: scout.name,
     });
   }

@@ -32,6 +32,7 @@ import {
 } from './study-import';
 import { renderChapterList } from './study-sheet';
 import type { LineSeed } from './onboarding-starter';
+import { t } from './i18n';
 
 export interface BuilderImportDeps {
   // Seed the builder with a move list, oriented to `colour`, with an optional
@@ -75,7 +76,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Import a game';
+  title.textContent = t('games.importAGame');
   sheet.appendChild(title);
 
   // The body is swapped between the menu and the "browse" list in place, so the
@@ -89,7 +90,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     ucis: string[], colour: 'white' | 'black', description?: string,
     gameId?: string, endTime?: number, notes?: Record<number, string>,
   ): void => {
-    if (!ucis.length) { showToast('No moves found to load.'); return; }
+    if (!ucis.length) { showToast(t('builder.noMovesFoundTo')); return; }
     close();
     deps.onLoadGame(ucis, colour, description, gameId, endTime, notes);
   };
@@ -97,14 +98,14 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
   // ── a) Import my last game ──────────────────────────────────────────────────
   async function runLastGame(btn: HTMLButtonElement): Promise<void> {
     btn.disabled = true;
-    showToast('Fetching your last game…');
+    showToast(t('builder.fetchingYourLastGame'));
     try {
       const game = await importLastGame();
-      if (!game) { showToast('No recent game found to import.'); btn.disabled = false; return; }
+      if (!game) { showToast(t('builder.noRecentGameFound')); btn.disabled = false; return; }
       deps.onGamesChanged();
       load(game.ucis, game.colour, `vs ${game.opponent}`, game.id, game.endTime);
     } catch {
-      showToast('Couldn’t reach your account — check your connection.');
+      showToast(t('builder.couldnTReachYour'));
       btn.disabled = false;
     }
   }
@@ -117,7 +118,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     body.appendChild(back);
     const loading = document.createElement('p');
     loading.className = 'bimport-note';
-    loading.textContent = 'Loading your last games…';
+    loading.textContent = t('builder.loadingYourLastGames');
     body.appendChild(loading);
 
     let games: ImportedGame[] = [];
@@ -125,7 +126,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       const result = await importGames(account.platform, account.username, { months: 12, maxGames: 10 });
       games = result.games;
     } catch {
-      loading.textContent = 'Couldn’t reach your account — check your connection.';
+      loading.textContent = t('builder.couldnTReachYour');
       return;
     }
     if (closed) return;
@@ -133,7 +134,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     if (!games.length) {
       const none = document.createElement('p');
       none.className = 'bimport-note';
-      none.textContent = 'No recent games found.';
+      none.textContent = t('builder.noRecentGamesFound');
       body.appendChild(none);
       return;
     }
@@ -180,13 +181,13 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     const area = document.createElement('textarea');
     area.className = 'bimport-pgn';
     area.rows = 6;
-    area.placeholder = 'Paste PGN here…';
+    area.placeholder = t('builder.pastePgnHere');
     body.appendChild(area);
 
     const fileRow = document.createElement('label');
     fileRow.className = 'bimport-file';
     fileRow.appendChild(Icons.upload(16));
-    fileRow.appendChild(document.createTextNode('…or choose a .pgn file'));
+    fileRow.appendChild(document.createTextNode(t('builder.orChooseAPgn')));
     const file = document.createElement('input');
     file.type = 'file';
     file.accept = '.pgn,.txt,application/x-chess-pgn,text/plain';
@@ -194,7 +195,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       const f = file.files?.[0];
       if (!f) return;
       f.text().then(txt => { area.value = txt; loadFromPgn(area.value); }).catch(() => {
-        showToast('Couldn’t read that file.');
+        showToast(t('builder.couldnTReadThat'));
       });
     });
     fileRow.appendChild(file);
@@ -203,7 +204,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     const go = document.createElement('button');
     go.type = 'button';
     go.className = 'btn-primary bimport-pgn-go';
-    go.textContent = 'Open game';
+    go.textContent = t('builder.openGame');
     go.addEventListener('click', () => loadFromPgn(area.value));
     body.appendChild(go);
   }
@@ -218,7 +219,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       return;
     }
     const game = parseAnnotatedPgn(pgn);
-    if (!game) { showToast('Couldn’t read that PGN.'); return; }
+    if (!game) { showToast(t('builder.couldnTReadThatPgn')); return; }
     // A pasted game has no "me" — orient to White and let the user flip.
     load(game.ucis, 'white', undefined, undefined, undefined, game.notes);
   }
@@ -230,7 +231,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
 
     const hint = document.createElement('p');
     hint.className = 'bimport-note';
-    hint.textContent = 'Paste a public Lichess study link — each chapter becomes a line, with the author’s comments as move notes. (Side variations inside a chapter aren’t imported; deviations work best as separate chapters.)';
+    hint.textContent = t('builder.pasteAPublicLichess');
     body.appendChild(hint);
 
     const input = document.createElement('input');
@@ -243,26 +244,26 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     const go = document.createElement('button');
     go.type = 'button';
     go.className = 'btn-primary bimport-pgn-go';
-    go.textContent = 'Fetch study';
+    go.textContent = t('builder.fetchStudy');
     go.addEventListener('click', () => { void fetchAndList(); });
     body.appendChild(go);
 
     async function fetchAndList(): Promise<void> {
       const ref = parseStudyUrl(input.value);
-      if (!ref) { showToast('That doesn’t look like a Lichess study link.'); return; }
+      if (!ref) { showToast(t('builder.thatDoesnTLook')); return; }
       go.disabled = true;
-      go.textContent = 'Fetching…';
+      go.textContent = t('builder.fetching');
       try {
         const pgn = await fetchStudyPgn(ref);
         const chapters = parseStudyPgn(pgn);
         if (closed) return;
-        if (!chapters.length) { showToast('No readable chapters in that study.'); return; }
+        if (!chapters.length) { showToast(t('builder.noReadableChaptersIn')); return; }
         showChapters(chapters, studyNameFromPgn(pgn), () => showStudy(input.value));
       } catch (e) {
-        showToast(e instanceof Error ? e.message : 'Couldn’t fetch that study.');
+        showToast(e instanceof Error ? e.message : t('builder.couldnTFetchThat'));
       } finally {
         go.disabled = false;
-        go.textContent = 'Fetch study';
+        go.textContent = t('builder.fetchStudy');
       }
     }
 
@@ -290,39 +291,39 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
 
     if (account) {
       body.appendChild(menuOption(
-        Icons.download(20), 'Import my last game',
-        `The newest game on ${PLATFORM_LABEL[account.platform]}`,
+        Icons.download(20), t('builder.importMyLastGame'),
+        t('builder.theNewestGameOn', { site: PLATFORM_LABEL[account.platform] }),
         btn => { void runLastGame(btn); },
       ));
       body.appendChild(menuOption(
-        Icons.list(20), 'Browse my last games',
-        `Pick from your recent ${PLATFORM_LABEL[account.platform]} games`,
+        Icons.list(20), t('builder.browseMyLastGames'),
+        t('builder.pickFromYourRecent', { site: PLATFORM_LABEL[account.platform] }),
         () => { void showBrowse(); },
       ));
     } else {
       const note = document.createElement('p');
       note.className = 'bimport-note';
-      note.textContent = 'Connect an account in My games to import your own games.';
+      note.textContent = t('builder.connectAnAccountIn');
       body.appendChild(note);
     }
 
     body.appendChild(menuOption(
-      Icons.note(20), 'Paste PGN',
-      'Paste PGN text or choose a .pgn file',
+      Icons.note(20), t('builder.pastePgn'),
+      t('builder.pastePgnTextOr'),
       () => showPgn(),
     ));
 
     if (deps.onSaveLines) {
       body.appendChild(menuOption(
-        Icons.link(20), 'Import a Lichess study',
-        'Each chapter becomes a line, with its notes',
+        Icons.link(20), t('builder.importALichessStudy'),
+        t('builder.eachChapterBecomesA'),
         () => showStudy(),
       ));
     }
 
     body.appendChild(menuOption(
-      Icons.plus(20), 'Add a game manually',
-      'Log an OTB game, or one without a connected account',
+      Icons.plus(20), t('builder.addAGameManually'),
+      t('builder.logAnOtbGame'),
       () => {
         close();
         openAddGameForm({ onAdded: () => deps.onManualAdd?.() });
@@ -358,7 +359,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     back.type = 'button';
     back.className = 'bimport-back';
     back.appendChild(span('bimport-back-arrow', '‹'));
-    back.appendChild(document.createTextNode(' Import options'));
+    back.appendChild(document.createTextNode(t('builder.importOptions')));
     back.addEventListener('click', onClick);
     return back;
   }
@@ -369,7 +370,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
 }
 
 const RESULT_LABEL: Record<ImportedGame['result'], string> = {
-  win: 'Won', draw: 'Drew', loss: 'Lost',
+  win: t('showcase.won'), draw: t('showcase.drew'), loss: t('showcase.lost'),
 };
 
 function span(cls: string, text: string): HTMLSpanElement {

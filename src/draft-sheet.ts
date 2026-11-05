@@ -17,6 +17,7 @@
 
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { t } from './i18n';
 
 export interface DraftSheetLine {
   /** The node the line ends on — how the caller finds it again after the write. */
@@ -72,7 +73,7 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = opts.leaving ? 'Add these lines before you go?' : 'Lines you’re about to add';
+  h.textContent = opts.leaving ? t('builder.addTheseLinesBefore') : t('builder.linesYouReAbout');
   sheet.appendChild(h);
 
   const lede = document.createElement('p');
@@ -97,32 +98,32 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
     const moves = lines.reduce((n, l) => n + l.added, 0);
     const training = lines.filter(l => l.training).length;
     lede.textContent =
-      `${quantity(lines.length, 'line')}${moves > 0 ? `, ${quantity(moves, 'new move')}` : ''}. `
+      `${moves > 0 ? t('draft.linesMoves', { n: lines.length, moves: t('train.stat.newCount', { n: moves }) }) : t('draft.lines', { n: lines.length })} `
       + (training === 0
-        ? 'None of them will go into training.'
+        ? t('builder.noneOfThemWill')
         : training === lines.length
           ? (lines.length === 1
-            ? 'It goes into training, with one run to confirm it.'
-            : 'Each one goes into training, one run at a time.')
+            ? t('builder.itGoesIntoTraining')
+            : t('builder.eachOneGoesInto'))
           : training === 1
-            ? 'One of them goes into training, with one run to confirm it.'
-            : `${training} of them go into training, one run at a time.`);
+            ? t('builder.oneOfThemGoes')
+            : t('builder.ofThemGoInto', { training: training }));
 
     list.innerHTML = '';
     for (const line of lines) list.appendChild(buildRow(line));
 
     btnRow.innerHTML = '';
     btnRow.appendChild(button(
-      lines.length === 1 ? 'Add this line' : `Add all ${lines.length} lines`,
+      lines.length === 1 ? t('builder.addThisLine') : t('builder.addAllLines', { length: lines.length }),
       'primary',
       () => { close(); opts.onAddAll(); },
     ));
-    btnRow.appendChild(button('Keep editing', 'secondary', () => {
+    btnRow.appendChild(button(t('builder.keepEditing'), 'secondary', () => {
       close();
       opts.onKeepEditing?.();
     }));
     if (opts.leaving) {
-      btnRow.appendChild(button('Discard them all', 'quiet-danger', () => {
+      btnRow.appendChild(button(t('builder.discardThemAll'), 'quiet-danger', () => {
         close();
         opts.onDiscardAll?.();
       }));
@@ -138,7 +139,7 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
     const go = document.createElement('button');
     go.type = 'button';
     go.className = 'draft-row-text';
-    go.setAttribute('aria-label', `Go to ${line.name}`);
+    go.setAttribute('aria-label', t('builder.goTo', { name: line.name }));
     const name = document.createElement('div');
     name.className = 'draft-where';
     name.textContent = line.name;
@@ -165,11 +166,11 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
     train.appendChild(sw);
     const trainLabel = document.createElement('span');
     trainLabel.className = 'dline-toggle-label';
-    trainLabel.textContent = line.training ? 'Train' : 'Store';
+    trainLabel.textContent = line.training ? t('nav.train') : t('builder.store');
     train.appendChild(trainLabel);
     const label = line.training
-      ? 'Goes into training — tap to just store it'
-      : 'Stored without training — tap to train it';
+      ? t('builder.goesIntoTrainingTap')
+      : t('builder.storedWithoutTrainingTap');
     train.setAttribute('aria-label', label);
     train.title = label;
     train.addEventListener('click', () => {
@@ -181,8 +182,8 @@ export function openDraftSheet(opts: DraftSheetOptions): void {
     const drop = document.createElement('button');
     drop.type = 'button';
     drop.className = 'draft-row-btn draft-row-btn--danger';
-    drop.setAttribute('aria-label', `Don’t add ${line.name}`);
-    drop.title = 'Don’t add this line';
+    drop.setAttribute('aria-label', t('builder.donTAdd', { name: line.name }));
+    drop.title = t('builder.donTAddThis');
     drop.appendChild(Icons.trash(16));
     drop.addEventListener('click', () => {
       opts.onRemove(line.cutId);
@@ -224,6 +225,3 @@ function button(
   return btn;
 }
 
-function quantity(n: number, noun: string): string {
-  return `${n} ${n === 1 ? noun : noun + 's'}`;
-}

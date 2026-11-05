@@ -42,6 +42,7 @@ import { getExplorerDb, setExplorerDb, setExplorerBand } from './prefs';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
 import type { ImportedGame } from './import-core';
+import { t } from './i18n';
 
 // Which slide is showing. The builder addresses its panels by name (main.ts owns
 // the per-mode ordering), so nothing here depends on a slide's index.
@@ -184,7 +185,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // limit, a deep position) the slide showed nothing, so you had to connect
     // AND disconnect to coax the moves back. Always rendering the book first
     // means moves are there immediately; the live data only ever enriches them.
-    if (!book) { el.appendChild(topBar()); el.appendChild(emptyNote('Loading openings…')); return; }
+    if (!book) { el.appendChild(topBar()); el.appendChild(emptyNote(t('builder.loadingOpenings'))); return; }
 
     const node = bookNodeAt(book, deps.getSans());
     const kids = node ? [...node.children.entries()] : [];
@@ -195,7 +196,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // database (or live Lichess) plays from here, instead of dead-ending. The
     // "games from here" note rides discreetly on the top bar — no extra row.
     if (!kids.length) {
-      el.appendChild(topBar(node ? 'End of book · games from here' : 'Off book · games from here'));
+      el.appendChild(topBar(node ? t('builder.endOfBookGames') : t('builder.offBookGamesFrom')));
       renderStatMoves(el, fen);
       return;
     }
@@ -292,8 +293,8 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         // discovery rather than a dead end. Connected, that's genuinely new
         // territory; disconnected, it may just be past the bundled set.
         const note = emptyNote(isConnected()
-          ? '🧭 New territory — no recorded games reach this position.'
-          : '🧭 New territory — connect Lichess to see games this deep.');
+          ? t('builder.newTerritoryNoRecorded')
+          : t('builder.newTerritoryConnectLichess'));
         note.classList.add('bx-frontier');
         el.appendChild(note);
         return;
@@ -334,10 +335,10 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       !hasNumbers
         // Nothing to fall back ON: the bundled set doesn't reach this position
         // either. Don't claim to be showing built-in data when there is none.
-        ? 'Couldn’t reach Lichess — no win rates for this position.'
+        ? t('builder.couldnTReachLichess')
         : coverage !== 'band' && bandNarrowed()
-          ? 'Showing built-in data for ALL ratings — couldn’t reach Lichess.'
-          : 'Showing built-in data — couldn’t reach Lichess.',
+          ? t('builder.showingBuiltInData')
+          : t('builder.showingBuiltInDataCouldn'),
     );
     note.classList.add('bx-frontier');
     return note;
@@ -348,11 +349,11 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function bandEmptyNote(): HTMLElement {
     const wrap = document.createElement('div');
     const note = emptyNote(
-      `No games at this level here — nobody rated ${bandRangeLabel(band, level?.rating ?? null)} has reached this position.`,
+      t('builder.noGamesAtThis', { site: bandRangeLabel(band, level?.rating ?? null) }),
     );
     note.classList.add('bx-frontier');
     wrap.appendChild(note);
-    wrap.appendChild(actionButton('Show all ratings', () => chooseBand('all')));
+    wrap.appendChild(actionButton(t('builder.showAllRatings'), () => chooseBand('all')));
     return wrap;
   }
 
@@ -423,7 +424,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       cta.className = 'lib-connect-cta lib-connect-cta--inline';
       // Shorter than it used to be: it now shares the row with the toggle
       // rather than standing in for it.
-      cta.textContent = 'Connect for every position →';
+      cta.textContent = t('builder.connectForEveryPosition');
       cta.addEventListener('click', doConnect);
       bar.appendChild(cta);
     }
@@ -468,7 +469,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     label.className = 'lib-band-pick-label';
     // Masters shows "All" because that is what its numbers actually are — the
     // stored band is remembered and comes back the moment Lichess is picked.
-    label.textContent = off ? 'All' : bandShort(band);
+    label.textContent = off ? t('import.all') : bandShort(band);
     wrap.appendChild(label);
 
     const chev = Icons.chevronDown(14);
@@ -477,7 +478,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
     const select = document.createElement('select');
     select.className = 'lib-band-select';
-    select.setAttribute('aria-label', 'Rating level');
+    select.setAttribute('aria-label', t('builder.ratingLevel'));
     for (const b of BANDS) {
       // "Around my level" needs a level. Without one it would silently mean
       // "all ratings", so it isn't offered.
@@ -490,7 +491,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     }
     if (off) {
       select.disabled = true;
-      wrap.title = 'Masters games aren’t rating-filtered.';
+      wrap.title = t('builder.mastersGamesArenT');
     } else {
       select.addEventListener('change', () => chooseBand(select.value as ExplorerBand));
     }
@@ -506,13 +507,13 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function bandNote(): HTMLElement | null {
     if (!isConnected()) return null;
     if (explorerDb === 'masters') {
-      return span('lib-band-note', 'Masters games aren’t rating-filtered.');
+      return span('lib-band-note', t('builder.mastersGamesArenT'));
     }
     // A fixed band's own button already says its range ("<1400", "2200+"), so
     // repeating it here would be noise. Only "My level" needs explaining — it's
     // the one whose numbers the user can't read off the control.
     if (band !== 'mine') return null;
-    const parts = [`Around my level · ${bandRangeLabel(band, level?.rating ?? null)}`];
+    const parts = [t('builder.aroundMyLevel', { site: bandRangeLabel(band, level?.rating ?? null) })];
     if (level) parts.push(levelSourceLabel(level));
     const note = span('lib-band-note', parts.join(' · '));
     if (bandInferred) note.classList.add('lib-band-note--inferred');
@@ -529,27 +530,21 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function showDbInfo(): void {
     const connected = isConnected();
     showDialog({
-      title: 'Library',
+      title: t('builder.library'),
       body:
-        'Every move played from the position on the board, most popular first, with a bar '
-        + 'saying how each has actually scored. Tap one to play it onto your line.\n\n'
-        + 'Masters is over-the-board games between titled players — established theory. '
-        + 'Lichess is rated online games, filtered to a rating band, so the numbers describe '
-        + 'the opponents you actually get.\n\n'
-        + 'A built-in set of common positions works offline with no login. Connecting Lichess '
-        + 'extends it to every position, live — no personal data is read.',
+        t('builder.everyMovePlayedFrom'),
       links: [
-        { label: 'Live opening explorer', href: 'https://lichess.org/analysis' },
-        { label: 'About the game data', href: 'https://database.lichess.org' },
+        { label: t('builder.liveOpeningExplorer'), href: 'https://lichess.org/analysis' },
+        { label: t('builder.aboutTheGameData'), href: 'https://database.lichess.org' },
       ],
       buttons: connected
         ? [
-            { label: 'Disconnect Lichess', variant: 'secondary', onClick: () => { disconnect(); renderLibrary(); } },
-            { label: 'Done', variant: 'primary' },
+            { label: t('builder.disconnectLichess'), variant: 'secondary', onClick: () => { disconnect(); renderLibrary(); } },
+            { label: t('common.done'), variant: 'primary' },
           ]
         : [
-            { label: 'Connect to Lichess', variant: 'primary', onClick: doConnect },
-            { label: 'Not now', variant: 'secondary' },
+            { label: t('settings.connectToLichess'), variant: 'primary', onClick: doConnect },
+            { label: t('pro.notNow'), variant: 'secondary' },
           ],
     });
   }
@@ -600,7 +595,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       link.type = 'button';
       link.className = 'mylines-tree-link';
       link.appendChild(Icons.tree(15));
-      link.appendChild(document.createTextNode('Show tree'));
+      link.appendChild(document.createTextNode(t('builder.showTree')));
       link.addEventListener('click', onTree);
       head.appendChild(link);
     }
@@ -615,15 +610,15 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const hasTree = mine.length > 0;
 
     if (!lines) {
-      wrap.appendChild(sectionHead('My saved lines', undefined, 'loading…'));
+      wrap.appendChild(sectionHead(t('builder.mySavedLines'), undefined, 'loading…'));
       return wrap;
     }
 
     const replies = savedLineReplies(mine, deps.getUcis());
     wrap.appendChild(sectionHead(
-      'My saved lines',
+      t('builder.mySavedLines'),
       hasTree ? () => openSavedTree(mine) : undefined,
-      replies.length ? undefined : 'nothing from here',
+      replies.length ? undefined : t('builder.nothingFromHere'),
     ));
     if (replies.length) {
       const prefix = movePrefix(deps.getUcis().length);
@@ -663,7 +658,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     row.appendChild(tap);
 
     if (deps.canRemoveLines()) {
-      const label = `Remove ${prefix} ${r.san}`;
+      const label = t('builder.remove13', { prefix: prefix, san: r.san });
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'mylines-saved-remove';
@@ -708,7 +703,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         wrap.appendChild(row);
       }
       const rest = matches.length - shown.length;
-      if (rest > 0) wrap.appendChild(span('mylines-xpos-more', `and ${rest} more`));
+      if (rest > 0) wrap.appendChild(span('mylines-xpos-more', t('builder.andMore', { rest: rest })));
     }).catch(() => { /* a quiet feature stays quiet on failure too */ });
   }
 
@@ -720,7 +715,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const hasGames = !!stats && stats.games > 0;
 
     if (!games) {
-      wrap.appendChild(sectionHead('My games', undefined, 'loading…'));
+      wrap.appendChild(sectionHead(t('nav.games'), undefined, 'loading…'));
       return wrap;
     }
 
@@ -728,8 +723,8 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // "My games" is actionable rather than just empty. The reason folds onto
     // the title row; the button is the only thing that earns a row of its own.
     if (!hasGames) {
-      wrap.appendChild(sectionHead('My games', undefined, 'none imported yet'));
-      wrap.appendChild(actionButton('Import my games', () => deps.onImportGames()));
+      wrap.appendChild(sectionHead(t('nav.games'), undefined, t('builder.noneImportedYet')));
+      wrap.appendChild(actionButton(t('tour.lines.import'), () => deps.onImportGames()));
       return wrap;
     }
 
@@ -737,7 +732,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const replies = node ? [...node.children.values()] : [];
     replies.sort((a, b) => b.games - a.games || a.san.localeCompare(b.san));
     wrap.appendChild(sectionHead(
-      'My games', () => openGamesTree(), replies.length ? undefined : 'nothing from here',
+      t('nav.games'), () => openGamesTree(), replies.length ? undefined : t('builder.nothingFromHere'),
     ));
 
     // When the line narrows to exactly one of your games, link straight to it —
@@ -749,7 +744,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
       a.href = single.url;
-      a.textContent = `See full game on ${platformLabel(single.url)} ↗`;
+      a.textContent = t('builder.seeFullGameOn', { site: platformLabel(single.url) });
       wrap.appendChild(a);
     }
 
@@ -775,7 +770,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function openSavedTree(mine: Line[]): void {
     const colour = deps.getColour();
     openRepertoireMap(mine, colour, line => deps.onOpenLine(line), {
-      title: 'My saved lines',
+      title: t('builder.mySavedLines'),
       subtitle: `${mine.length} line${mine.length === 1 ? '' : 's'}`,
       initialPath: deps.getUcis(),
     });
@@ -788,10 +783,10 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     if (!games) return;
     const colour = deps.getColour();
     const buildLines = (plies: number) =>
-      [opponentLine(buildOpponentTree(games!, colour, plies, false), colour, 'Your games')];
+      [opponentLine(buildOpponentTree(games!, colour, plies, false), colour, t('recap.yourGames'))];
     const count = games.filter(g => g.colour === colour).length;
     openRepertoireMap(buildLines(MAP_START_PLIES), colour, () => { /* no open-in-builder; we're already here */ }, {
-      title: 'Your games',
+      title: t('recap.yourGames'),
       subtitle: `${count} game${count !== 1 ? 's' : ''}`,
       // Land on the board's current position rather than the first move.
       initialPath: deps.getUcis(),
@@ -801,7 +796,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         maxPlies: Math.max(0, ...games.filter(g => g.colour === colour).map(g => g.sans.length)),
         atDepth: buildLines,
       },
-      stats: { tree: buildMoveStats(games, colour, MAP_MAX_PLIES), caption: 'your results', games },
+      stats: { tree: buildMoveStats(games, colour, MAP_MAX_PLIES), caption: t('import.yourResults'), games },
     });
   }
 
@@ -819,7 +814,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function renderOpponents(el: HTMLElement): void {
     el.innerHTML = '';
     if (!opponents) {
-      el.appendChild(sectionHead('My opponents', undefined, 'loading…'));
+      el.appendChild(sectionHead(t('builder.myOpponents'), undefined, 'loading…'));
       return;
     }
 
@@ -837,7 +832,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     back.type = 'button';
     back.className = 'scout-back-btn';
     back.appendChild(span('scout-back-arrow', '‹'));
-    back.appendChild(document.createTextNode(' Opponents'));
+    back.appendChild(document.createTextNode(t('builder.opponents')));
     back.addEventListener('click', () => { selectedOppId = null; renderOpponents(el); });
     header.appendChild(back);
     // Avatar + name + side kept together as one centered cluster.
@@ -853,7 +848,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const report = document.createElement('button');
     report.type = 'button';
     report.className = 'scout-report-btn';
-    report.textContent = 'Full report ↗';
+    report.textContent = t('builder.fullReport');
     report.addEventListener('click', () => deps.onOpenOpponentReport(selected.id));
     header.appendChild(report);
     el.appendChild(header);
@@ -863,7 +858,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     let stats = oppStats.get(statsKey);
     if (!stats) { stats = buildMoveStats(selected.games, oppColour, MAP_MAX_PLIES); oppStats.set(statsKey, stats); }
     if (stats.games === 0) {
-      el.appendChild(emptyNote(`No games for ${selected.name} as ${oppColour}.`));
+      el.appendChild(emptyNote(t('builder.noGamesForAs', { name: selected.name, oppColour: oppColour })));
       return;
     }
 
@@ -871,7 +866,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const replies = node ? [...node.children.values()] : [];
     replies.sort((a, b) => b.games - a.games || a.san.localeCompare(b.san));
     if (!replies.length) {
-      el.appendChild(emptyNote(`${selected.name} has no games from here.`));
+      el.appendChild(emptyNote(t('builder.hasNoGamesFrom', { name: selected.name })));
       return;
     }
 
@@ -896,14 +891,14 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // Nothing scouted yet: the reason rides on the title row and the "+ Add
     // opponent" pill is the whole section, rather than a title, a sentence and
     // a button stacked three deep on a panel that has two other sections below.
-    el.appendChild(sectionHead('My opponents', undefined, none ? 'none scouted yet' : undefined));
+    el.appendChild(sectionHead(t('builder.myOpponents'), undefined, none ? t('builder.noneScoutedYet') : undefined));
     // "+ Add opponent" — the same pill the Explore scouting section uses, so the
     // two entry points read identically.
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'games-refresh-btn scout-add-btn';
     add.appendChild(Icons.plus(15));
-    add.appendChild(document.createTextNode('Add opponent'));
+    add.appendChild(document.createTextNode(t('builder.addOpponent')));
     add.addEventListener('click', () => deps.onImportOpponent());
     el.appendChild(add);
     if (none) return;
@@ -926,7 +921,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       text.className = 'scout-opp-text';
       text.appendChild(span('scout-opp-name', opp.name));
       text.appendChild(span('scout-opp-sub',
-        `${posGames} from this position · ${opp.gamesAnalysed} game${opp.gamesAnalysed !== 1 ? 's' : ''}`));
+        t('builder.scoutSub', { posGames, n: opp.gamesAnalysed })));
       card.appendChild(text);
 
       const chev = Icons.chevronRight(18);
@@ -945,7 +940,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     pip.className = `colour-pip colour-pip--${colour}`;
     pip.setAttribute('aria-hidden', 'true');
     tag.appendChild(pip);
-    tag.appendChild(document.createTextNode(colour === 'white' ? 'White' : 'Black'));
+    tag.appendChild(document.createTextNode(colour === 'white' ? t('common.white') : t('common.black')));
     return tag;
   }
 
@@ -1030,9 +1025,9 @@ function transpositionMatches(
     if (ply < other.ucis.length) {
       const entry = (index.byPosition.get(key) ?? []).find(e => e.lineId === other.id);
       if (!entry) continue;
-      out.push({ line: full, atFen, text: `you play ${formatMove(entry.san)} here in “${other.name}”` });
+      out.push({ line: full, atFen, text: t('builder.youPlayHere', { move: formatMove(entry.san), name: other.name }) });
     } else {
-      out.push({ line: full, atFen, text: `also reached by “${other.name}”` });
+      out.push({ line: full, atFen, text: t('builder.alsoReachedBy', { name: other.name }) });
     }
   }
   out.sort((a, b) => a.line.name.localeCompare(b.line.name));

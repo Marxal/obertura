@@ -11,6 +11,7 @@ import type { MoveClass } from './winprob';
 import { classIcon, CLASS_LABEL, CLASS_COLOR } from './icons';
 import { gameAccuracy } from './accuracy';
 import type { ReviewSummary } from './review';
+import { t } from './i18n';
 
 export interface LineAnalysisOpts {
   whiteName: string;
@@ -29,11 +30,11 @@ const ORDER: MoveClass[] = [
 const KEY_MOMENTS = new Set<MoveClass>(['blunder', 'great', 'brilliant']);
 
 const ENGINE_LABEL: Record<ReviewSummary['engine'], string> = {
-  lichess: 'Lichess cloud (Stockfish)',
-  remote: 'chess-api.com (Stockfish, depth 18)',
-  local: 'Stockfish (on device)',
-  mixed: 'a mix of engines (all Stockfish)',
-  none: 'the engine',
+  lichess: t('builder.lichessCloudStockfish'),
+  remote: t('builder.chessApiComStockfish'),
+  local: t('builder.stockfishOnDevice'),
+  mixed: t('builder.aMixOfEngines'),
+  none: t('builder.theEngine'),
 };
 
 // True when there's anything worth drawing — at least one graded move.
@@ -79,7 +80,7 @@ export function renderLineAnalysis(host: HTMLElement, nodes: MoveNode[], opts: L
   if (opts.engine !== 'none') {
     const tag = document.createElement('div');
     tag.className = 'la-engine-tag';
-    tag.textContent = `Analysed with ${ENGINE_LABEL[opts.engine]}`;
+    tag.textContent = t('analysis.with', { engine: ENGINE_LABEL[opts.engine] });
     host.appendChild(tag);
   }
 
@@ -193,7 +194,7 @@ function buildSummary(nodes: MoveNode[], opts: LineAnalysisOpts): HTMLElement {
   // the headline number sits right under each player's name.
   const acc = gameAccuracy(nodes.map(n => n.evalCp));
   if (acc.white !== null || acc.black !== null) {
-    table.appendChild(cell('la-cell la-grade la-accuracy-label', 'Accuracy'));
+    table.appendChild(cell('la-cell la-grade la-accuracy-label', t('stats.accuracy')));
     const accCell = (v: number | null): HTMLElement =>
       cell('la-cell la-count la-accuracy', v === null ? '—' : v.toFixed(1));
     table.appendChild(accCell(acc.white));

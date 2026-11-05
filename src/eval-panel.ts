@@ -1,5 +1,6 @@
 import { cloudLooksOffline, type EvalResult, type MoveEval } from './engine';
 import { formatMove, formatPvLine } from './notation';
+import { t } from './i18n';
 
 export interface EvalPanelOpts {
   // Show just the 3 best moves in one fixed-height row (no principal variation)
@@ -90,7 +91,7 @@ export class EvalPanel {
 
     // Bottom: candidate moves on the left, source badge (+ optional toggle) right.
     const toggle = this.showToggle
-      ? `<label class="engine-toggle" title="Engine analysis">
+      ? `<label class="engine-toggle" title="${t('eval.toggle')}">
             <input type="checkbox" id="engine-cb" ${this._enabled ? 'checked' : ''}>
             <span class="engine-toggle-track"></span>
           </label>
@@ -125,7 +126,7 @@ export class EvalPanel {
         if (this.retrying || !this.onRetryCloud) return;
         this.retrying = true;
         const text = this.controlsEl.querySelector<HTMLElement>('#eval-cloud-warn-text');
-        if (text) text.textContent = 'retrying…';
+        if (text) text.textContent = t('eval.retrying');
         this.onRetryCloud();
       });
 
@@ -160,12 +161,12 @@ export class EvalPanel {
     const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
     const labelEl = this.controlsEl.querySelector<HTMLElement>('#engine-label');
     barWrap.hidden = !this._enabled;
-    if (labelEl) labelEl.textContent = this._enabled ? 'Engine on' : 'Turn on engine';
+    if (labelEl) labelEl.textContent = this._enabled ? t('builder.engineOn') : t('builder.turnOnEngine');
     if (!this._enabled) {
       movesEl.innerHTML = '';
       sourceEl.textContent = '';
     } else if (!movesEl.children.length) {
-      movesEl.innerHTML = '<span class="eval-waiting">Analyzing…</span>';
+      movesEl.innerHTML = `<span class="eval-waiting">${t('builder.analysing')}</span>`;
     }
   }
 
@@ -182,7 +183,7 @@ export class EvalPanel {
         mate ? (whiteWins ? '100%' : '0%') : '50%';
       this.barEl.querySelector<HTMLElement>('#eval-score')!.textContent = mate ? '#' : '½';
       this.controlsEl.querySelector<HTMLElement>('#eval-moves')!.innerHTML =
-        `<span class="eval-waiting">${mate ? 'Checkmate' : 'Draw'}</span>`;
+        `<span class="eval-waiting">${t(mate ? 'reply.pause.mate' : 'eval.draw')}</span>`;
       const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
       sourceEl.textContent = '';
       // Settle any cloud-warning state too — this result ends the evaluation,
@@ -259,7 +260,7 @@ export class EvalPanel {
     sourceEl.hidden = offline;
     if (offline) {
       const text = this.controlsEl.querySelector<HTMLElement>('#eval-cloud-warn-text');
-      if (text) text.textContent = 'Lichess off';
+      if (text) text.textContent = t('builder.lichessOff');
     }
   }
 
@@ -269,7 +270,7 @@ export class EvalPanel {
     const score = this.barEl.querySelector<HTMLElement>('#eval-score');
     if (score) score.textContent = '0.0';
     const moves = this.controlsEl.querySelector<HTMLElement>('#eval-moves');
-    if (moves) moves.innerHTML = this._enabled ? '<span class="eval-waiting">Analyzing…</span>' : '';
+    if (moves) moves.innerHTML = this._enabled ? `<span class="eval-waiting">${t('builder.analysing')}</span>` : '';
     const source = this.controlsEl.querySelector<HTMLElement>('#eval-source');
     if (source) { source.textContent = ''; source.hidden = false; }
     const warn = this.controlsEl.querySelector<HTMLButtonElement>('#eval-cloud-warn');
@@ -286,10 +287,10 @@ export class EvalPanel {
   }
 
   private badgeText(result: EvalResult): string {
-    if (result.source === 'lichess') return `cloud · d${result.depth}`;
+    if (result.source === 'lichess') return t('builder.cloudD', { depth: result.depth });
     const target = result.targetDepth;
-    if (target && result.depth < target) return `local · d${result.depth}…d${target}`;
-    return `local · d${result.depth}`;
+    if (target && result.depth < target) return t('builder.localDD', { depth: result.depth, target: target });
+    return t('builder.localD', { depth: result.depth });
   }
 
   private escape(s: string): string {

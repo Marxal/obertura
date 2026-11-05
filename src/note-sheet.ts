@@ -11,6 +11,7 @@
 import type { MoveNode } from './tree';
 import { pushBack } from './back-nav';
 import { showToast } from './toast';
+import { t } from './i18n';
 
 export interface MoveNoteSheetOptions {
   // The node written to directly. `note` is set to the trimmed text, or cleared
@@ -61,7 +62,7 @@ export function openMoveNoteSheet(opts: MoveNoteSheetOptions): Promise<void> {
     textarea.className = 'prompt-sheet-textarea';
     textarea.rows = 3;
     textarea.value = opts.node.note ?? '';
-    textarea.placeholder = opts.placeholder ?? 'Reminder or plan for this move…';
+    textarea.placeholder = opts.placeholder ?? t('home.note.placeholder');
     sheet.appendChild(textarea);
 
     const btnRow = document.createElement('div');
@@ -82,19 +83,19 @@ export function openMoveNoteSheet(opts: MoveNoteSheetOptions): Promise<void> {
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.className = 'dialog-btn btn-secondary';
-    cancelBtn.textContent = opts.skipLabel ?? 'Cancel';
+    cancelBtn.textContent = opts.skipLabel ?? t('common.cancel');
     cancelBtn.addEventListener('click', () => close(false));
 
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
     saveBtn.className = 'dialog-btn btn-primary';
-    saveBtn.textContent = opts.saveLabel ?? 'Save';
+    saveBtn.textContent = opts.saveLabel ?? t('repertoire.save');
     saveBtn.addEventListener('click', () => {
       const value = textarea.value.trim();
       opts.node.note = value ? value : undefined;
       close(true);
       opts.onSave();
-      showToast(value ? 'Note saved ✓' : 'Note cleared');
+      showToast(value ? t('builder.noteSaved') : t('builder.noteCleared'));
     });
 
     btnRow.appendChild(cancelBtn);

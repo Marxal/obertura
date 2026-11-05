@@ -23,6 +23,7 @@ import { nameForFen, nameForPath } from './openings';
 import type { LibraryEntry } from './library';
 import { buildBook, bookNodeAt, type BookNode } from './book-tree';
 import { formatMove } from './notation';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -86,13 +87,13 @@ export function createLibraryExplorer(
   // Step controls: flip / reset / back / forward.
   const controls = document.createElement('div');
   controls.className = 'bx-controls';
-  const flipBtn = navBtn(Icons.flip(20), 'Flip', 'Flip board', () => {
+  const flipBtn = navBtn(Icons.flip(20), t('builder.flip'), t('html.flip'), () => {
     orientation = orientation === 'white' ? 'black' : 'white';
     cg.toggleOrientation();
   });
-  const resetBtn = navBtn(Icons.reset(20), 'Reset', 'Back to start', reset);
-  const backBtn = navBtn(Icons.back(20), 'Back', 'Step back', stepBack);
-  const fwdBtn = navBtn(Icons.chevronRight(20), 'Forward', 'Step forward', stepForward);
+  const resetBtn = navBtn(Icons.reset(20), t('settings.reset'), t('builder.backToStart'), reset);
+  const backBtn = navBtn(Icons.back(20), t('common.back'), t('html.stepBack'), stepBack);
+  const fwdBtn = navBtn(Icons.chevronRight(20), t('builder.forward'), t('html.stepForward'), stepForward);
   controls.append(flipBtn, resetBtn, backBtn, fwdBtn);
   root.appendChild(controls);
 
@@ -100,16 +101,16 @@ export function createLibraryExplorer(
   const actBtn = document.createElement('button');
   actBtn.type = 'button';
   actBtn.className = 'rmap-pos-open-btn bx-action';
-  actBtn.textContent = 'Open in builder';
+  actBtn.textContent = t('reply.openBuilder');
   actBtn.addEventListener('click', () => {
     if (!ucis.length) return;
     showDialog({
-      title: 'Open in builder',
-      body: 'Which side do you play? The board flips to your colour.',
+      title: t('reply.openBuilder'),
+      body: t('builder.whichSideDoYou'),
       buttons: [
-        { label: '○ White', variant: 'primary', onClick: () => onOpenInBuilder([...ucis], 'white') },
-        { label: '● Black', variant: 'primary', onClick: () => onOpenInBuilder([...ucis], 'black') },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('builder.white'), variant: 'primary', onClick: () => onOpenInBuilder([...ucis], 'white') },
+        { label: t('builder.black'), variant: 'primary', onClick: () => onOpenInBuilder([...ucis], 'black') },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
   });
@@ -196,7 +197,7 @@ export function createLibraryExplorer(
       lastMove: lastMoves[lastMoves.length - 1],
     });
 
-    openingEl.textContent = nameForPath(fens) ?? 'Starting position';
+    openingEl.textContent = nameForPath(fens) ?? t('builder.startingPosition');
 
     resetBtn.disabled = backBtn.disabled = ucis.length === 0;
     fwdBtn.disabled = forward.length === 0;
@@ -218,8 +219,8 @@ export function createLibraryExplorer(
       const empty = document.createElement('div');
       empty.className = 'bx-empty';
       empty.textContent = node
-        ? 'End of the book line — this is a named opening.'
-        : 'Off the book from here.';
+        ? t('builder.endOfTheBook')
+        : t('builder.offTheBookFrom');
       list.appendChild(empty);
       return;
     }

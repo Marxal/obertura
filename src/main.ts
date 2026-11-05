@@ -290,13 +290,13 @@ function renderTitle(): void {
   // tree is never empty there (it holds every line you own), and the panel would
   // otherwise describe whichever of them happens to be first.
   if (isEmpty() || (inBook() && getCurrentNode().id === 'root')) {
-    el.textContent = 'Play the first move';
+    el.textContent = t('builder.playTheFirstMove');
     el.classList.add('opening-name--empty');
     if (currentView === 'builder') updateHeaderTitle();
     return;
   }
   const title = currentTitle();
-  el.textContent = title || 'Unnamed line';
+  el.textContent = title || t('builder.unnamedLine');
   el.classList.toggle('opening-name--empty', !title);
   // The builder's header mirrors the line name, so keep it live as the opening
   // is detected / renamed while building.
@@ -377,7 +377,7 @@ function renderBuilderDesc(): void {
     a.href = builderGameUrl;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    a.textContent = `View on ${platformLabel(builderGameUrl)} ↗`;
+    a.textContent = t('builder.viewOn', { site: platformLabel(builderGameUrl) });
     el.appendChild(a);
   }
   el.hidden = !meta && !builderGameUrl;
@@ -402,7 +402,7 @@ function openEditSheet(): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Tags';
+  title.textContent = t('builder.tags');
   sheet.appendChild(title);
 
   // The existing-tags row, once loaded — Done reads its toggled chips too.
@@ -410,7 +410,7 @@ function openEditSheet(): void {
 
   const tagsLabel = document.createElement('label');
   tagsLabel.className = 'edit-label';
-  tagsLabel.textContent = 'Tags';
+  tagsLabel.textContent = t('builder.tags');
   sheet.appendChild(tagsLabel);
 
   const chipRow = document.createElement('div');
@@ -457,7 +457,7 @@ function openEditSheet(): void {
     own.sort((a, b) => a.localeCompare(b));
     const ownLabel = document.createElement('div');
     ownLabel.className = 'edit-chips-label';
-    ownLabel.textContent = 'Your tags';
+    ownLabel.textContent = t('builder.yourTags');
     ownRow.appendChild(ownLabel);
     for (const t of own) {
       const chip = document.createElement('button');
@@ -475,7 +475,7 @@ function openEditSheet(): void {
   const freeInput = document.createElement('input');
   freeInput.type = 'text';
   freeInput.className = 'edit-input';
-  freeInput.placeholder = 'or type a new tag (comma separated)';
+  freeInput.placeholder = t('builder.orTypeANew');
   sheet.appendChild(freeInput);
 
   const btnRow = document.createElement('div');
@@ -483,7 +483,7 @@ function openEditSheet(): void {
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'btn-primary edit-save-btn';
-  saveBtn.textContent = 'Done';
+  saveBtn.textContent = t('common.done');
   saveBtn.addEventListener('click', () => {
     const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
       c => (c as HTMLElement).textContent!.trim()
@@ -501,7 +501,7 @@ function openEditSheet(): void {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('common.cancel');
   cancelBtn.addEventListener('click', close);
   btnRow.appendChild(saveBtn);
   btnRow.appendChild(cancelBtn);
@@ -701,7 +701,7 @@ async function duplicateFor(line: Line, verdict: DuplicateVerdict): Promise<Save
   return {
     kind: tags.length > 0 ? 'add-tag' : 'open',
     lineId: stored.id,
-    lineName: stored.name || 'your saved line',
+    lineName: stored.name || t('builder.yourSavedLine'),
     tags,
   };
 }
@@ -737,20 +737,20 @@ function applySaveButtonLabel(): void {
   // It is the answer to "have I done this one?" without leaving the builder.
   const covered = inBook() && pending === 0 ? coveredLabel() : null;
   label.textContent =
-    builderMode === 'analyser' ? 'Save game'
+    builderMode === 'analyser' ? t('builder.saveGame')
     // An empty book, at the start, with nothing played: there is no count to
     // give and no coverage to report, so the button says what to do instead of
     // offering "Add 0 moves".
-    : inBook() && pending === 0 && !covered ? 'Play your first move'
+    : inBook() && pending === 0 && !covered ? t('tour.first.title')
     // The guided first line: this button and the walkthrough's own bubble are
     // the same offer, so they say the same word. "Add 6 moves" is the honest
     // label for adding to a book you already have; on somebody's first minute,
     // beside a bubble that says "save it now", it reads as a different action.
-    : inBook() && guidedActive ? 'Save line'
+    : inBook() && guidedActive ? t('common.saveLine')
     : inBook() ? (covered ?? draftLabel(pending))
-    : dup?.kind === 'open' ? 'Already saved — open it'
-    : dup?.kind === 'add-tag' ? `Add tag to “${shortLineName(dup.lineName)}”`
-    : loadedLineId ? 'Save changes' : 'Save line';
+    : dup?.kind === 'open' ? t('builder.alreadySavedOpenIt')
+    : dup?.kind === 'add-tag' ? t('builder.addTagTo', { name: shortLineName(dup.lineName) })
+    : loadedLineId ? t('builder.saveChanges') : t('common.saveLine');
 
   btn?.classList.toggle('header-save--alt', !!dup);
   btn?.classList.toggle('header-save--covered', !!covered);
@@ -784,8 +784,8 @@ function setSaveChevron(btn: HTMLElement, show: boolean): void {
  */
 function draftLabel(pending: number): string {
   const own = pendingOwnCount();
-  if (own === 0) return pending === 1 ? 'Add 1 reply' : `Add ${pending} replies`;
-  return own === 1 ? 'Add 1 move' : `Add ${own} moves`;
+  if (own === 0) return pending === 1 ? t('builder.add1Reply') : t('builder.addReplies', { pending: pending });
+  return own === 1 ? t('builder.add1Move') : t('builder.addMoves', { own: own });
 }
 
 // What the header says when there is nothing to add: how much of the book runs
@@ -799,9 +799,9 @@ function draftLabel(pending: number): string {
 function coveredLabel(): string | null {
   const at = cursorCoverage();
   if (!at || at.lines === 0) return null;
-  if (at.atStart) return at.lines === 1 ? '1 line saved' : `${at.lines} lines saved`;
-  if (at.atLineEnd && at.lines === 1) return 'Line saved';
-  return at.lines === 1 ? '1 line from here' : `${at.lines} lines from here`;
+  if (at.atStart) return at.lines === 1 ? t('builder.1LineSaved') : t('builder.linesSaved', { lines: at.lines });
+  if (at.atLineEnd && at.lines === 1) return t('reply.saved');
+  return at.lines === 1 ? t('builder.1LineFromHere') : t('builder.linesFromHere', { lines: at.lines });
 }
 
 // The disk icon is wrong on a button that no longer saves. Swap the glyph rather
@@ -847,7 +847,7 @@ function handleDuplicateSaveTap(): boolean {
 
     if (dup.kind === 'open') {
       onOpenLine(stored);
-      showToast('You already have this line');
+      showToast(t('builder.youAlreadyHaveThis'));
       return;
     }
 
@@ -860,7 +860,7 @@ function handleDuplicateSaveTap(): boolean {
     showToast(
       dup.tags.length === 1
         ? `Added “${dup.tags[0]}” to “${stored.name}” ✓`
-        : `Added ${dup.tags.length} tags to “${stored.name}” ✓`,
+        : t('builder.addedTagsTo', { length: dup.tags.length, name: stored.name }),
       { variant: 'success' },
     );
   })();
@@ -1001,7 +1001,7 @@ function refreshReviewButtonState(): void {
   btn.classList.toggle('is-analysing', running);
   btn.classList.toggle('is-analysed', !running && analysed);
   const lbl = btn.querySelector('.analyse-game-label');
-  if (lbl) lbl.textContent = running ? 'Analysing…' : analysed ? 'Game analysed' : 'Analyse game';
+  if (lbl) lbl.textContent = running ? t('builder.analysing') : analysed ? t('builder.gameAnalysed') : t('builder.analyseGame');
 }
 
 // ── Move navigation (plain step arrows, not engine arrows) ──────────────────
@@ -1214,7 +1214,7 @@ function mountSessionReturnChip(): void {
   chip.type = 'button';
   chip.className = 'session-return-chip';
   chip.appendChild(Icons.back(14));
-  chip.appendChild(document.createTextNode('Back to train'));
+  chip.appendChild(document.createTextNode(t('builder.backToTrain')));
   // Landing on Train is what resumes the session (see showView).
   chip.addEventListener('click', () => showView('home'));
   const save = document.getElementById('header-save');
@@ -1319,7 +1319,7 @@ async function analyseGame(): Promise<void> {
     reviewAbort.abort();
     reviewAbort = null;
     refreshReviewButtonState();
-    showToast('Analysis paused.');
+    showToast(t('builder.analysisPaused'));
     return;
   }
   await runReviewPass();
@@ -1341,7 +1341,7 @@ async function runReviewPass(): Promise<void> {
   const total = nodes.length;
   const bar = reviewBar();
   bar.start();
-  showToast('Analysing game…');
+  showToast(t('builder.analysingGame'));
 
   try {
     const summary = await reviewLine(nodes, {
@@ -1357,14 +1357,14 @@ async function runReviewPass(): Promise<void> {
     });
     builderEngine = mergeReviewEngine(builderEngine, summary.engine);
     if (!ctrl.signal.aborted) {
-      showToast('Analysis complete.');
+      showToast(t('builder.analysisComplete'));
       // A finished review stores itself on the game record, so reopening the
       // game restores the grades without a re-run. Save game stays the way to
       // save YOUR variations, notes and tags.
       void autoStoreAnalysis();
     }
   } catch {
-    if (!ctrl.signal.aborted) showToast('Couldn’t finish analysing.');
+    if (!ctrl.signal.aborted) showToast(t('builder.couldnTFinishAnalysing'));
   } finally {
     if (reviewAbort === ctrl) reviewAbort = null;
     bar.done();
@@ -1437,8 +1437,8 @@ function refreshLineAnalysis(): void {
     host.innerHTML = '';
     return;
   }
-  const opponent = builderDesc.slice(3).trim() || 'Opponent';
-  const me = connectedAccount()?.username ?? 'You';
+  const opponent = builderDesc.slice(3).trim() || t('story.opponent');
+  const me = connectedAccount()?.username ?? t('builder.you');
   const whiteName = saveColour === 'white' ? me : opponent;
   const blackName = saveColour === 'white' ? opponent : me;
   host.hidden = false;
@@ -1595,12 +1595,12 @@ function syncBuilderInfoLabel(): void {
 // The analyser's first tab names the game it's showing, not a repertoire line.
 function slideTabLabel(id: SlideId): string {
   switch (id) {
-    case 'grow': return 'Grow line';
-    case 'explore': return 'Explore';
-    case 'library': return 'Library';
-    case 'mylines': return 'My lines';
-    case 'line': return builderMode === 'analyser' ? 'Game' : 'Line info';
-    case 'engine': return 'Engine';
+    case 'grow': return t('builder.growLine');
+    case 'explore': return t('tour.explore.title');
+    case 'library': return t('builder.library');
+    case 'mylines': return t('tour.lines.title');
+    case 'line': return builderMode === 'analyser' ? t('builder.game') : t('builder.lineInfo');
+    case 'engine': return t('story.engine');
   }
 }
 
@@ -2066,12 +2066,12 @@ function setupBuilderCarousel(): void {
 // blunders). Shown as small chips in the move list and picked from a chip row
 // inside the note sheet — tapping the active chip clears the mark.
 const ANNOTATIONS: ReadonlyArray<{ symbol: Annotation; cls: string; label: string }> = [
-  { symbol: '!!', cls: 'brilliant', label: 'Brilliant move (!!)' },
-  { symbol: '!', cls: 'good', label: 'Good move (!)' },
-  { symbol: '!?', cls: 'interesting', label: 'Interesting move (!?)' },
-  { symbol: '?!', cls: 'dubious', label: 'Dubious move (?!)' },
-  { symbol: '?', cls: 'mistake', label: 'Mistake (?)' },
-  { symbol: '??', cls: 'blunder', label: 'Blunder (??)' },
+  { symbol: '!!', cls: 'brilliant', label: t('builder.brilliantMove') },
+  { symbol: '!', cls: 'good', label: t('builder.goodMove') },
+  { symbol: '!?', cls: 'interesting', label: t('builder.interestingMove') },
+  { symbol: '?!', cls: 'dubious', label: t('builder.dubiousMove') },
+  { symbol: '?', cls: 'mistake', label: t('builder.mistake') },
+  { symbol: '??', cls: 'blunder', label: t('builder.blunder') },
 ];
 
 function annClass(symbol: Annotation): string {
@@ -2116,12 +2116,12 @@ function renderNoteBlock(): void {
     display.textContent = note;
     display.hidden = false;
     block.hidden = false;
-    label.textContent = 'Edit note';
+    label.textContent = t('home.note.edit');
   } else {
     display.textContent = '';
     display.hidden = true;
     block.hidden = true;
-    label.textContent = 'Add note';
+    label.textContent = t('common.addNote');
   }
 }
 
@@ -2140,7 +2140,7 @@ function openNoteSheet(): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = `Note for ${formatMove(node.san)}`;
+  h.textContent = t('home.note.for', { move: formatMove(node.san) });
   sheet.appendChild(h);
 
   // Annotation marks: one row of chips, the active mark highlighted. Tapping the
@@ -2148,7 +2148,7 @@ function openNoteSheet(): void {
   const marks = document.createElement('div');
   marks.className = 'note-sheet-marks';
   marks.setAttribute('role', 'group');
-  marks.setAttribute('aria-label', 'Annotation mark');
+  marks.setAttribute('aria-label', t('builder.annotationMark'));
   const chips: HTMLButtonElement[] = [];
   const paintMarks = () => {
     for (const chip of chips) {
@@ -2179,7 +2179,7 @@ function openNoteSheet(): void {
   textarea.className = 'prompt-sheet-textarea';
   textarea.rows = 3;
   textarea.value = node.note ?? '';
-  textarea.placeholder = 'Reminder or plan for this move…';
+  textarea.placeholder = t('home.note.placeholder');
   sheet.appendChild(textarea);
 
   const btnRow = document.createElement('div');
@@ -2196,13 +2196,13 @@ function openNoteSheet(): void {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'dialog-btn btn-secondary';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('common.cancel');
   cancelBtn.addEventListener('click', () => close());
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'dialog-btn btn-primary';
-  saveBtn.textContent = 'Save';
+  saveBtn.textContent = t('repertoire.save');
   saveBtn.addEventListener('click', () => {
     const value = textarea.value;
     close();
@@ -2243,9 +2243,9 @@ async function saveNote(value: string, annotation: Annotation | undefined): Prom
     await saveLine(line);
     currentTrainingLine = line;
     savedSnapshot = builderSnapshot();
-    showToast(trimmed ? 'Note saved ✓' : 'Saved ✓');
+    showToast(trimmed ? t('builder.noteSaved') : t('builder.saved'));
   } else if (trimmed) {
-    showToast('Note added — Save the line to keep it');
+    showToast(t('builder.noteAddedSaveThe'));
   }
 }
 
@@ -2510,14 +2510,14 @@ async function commitBook(intents?: Map<string, boolean>): Promise<void> {
   // commitPending only clears the draft on success — if it's still sitting
   // there, this was the storage cap turning the commit away (it has already
   // shown its own dialog), not a genuinely empty draft.
-  if (moves === 0) { if (!hasPending()) showToast('Nothing new to add'); return; }
+  if (moves === 0) { if (!hasPending()) showToast(t('builder.nothingNewToAdd')); return; }
   repaintAfterBookWrite();
   // An add is only as cheap as it is reversible, and this one is exactly
   // reversible: the roots name the branches just written, and nothing else can
   // have grown under them in the seconds the toast is up.
-  showToast(moves === 1 ? 'Added 1 move ✓' : `Added ${moves} moves ✓`, {
+  showToast(moves === 1 ? t('builder.added1Move') : t('builder.addedMoves', { moves: moves }), {
     variant: 'success',
-    action: { label: 'Undo', onClick: () => void undoBookCommit(roots, moves) },
+    action: { label: t('common.undo'), onClick: () => void undoBookCommit(roots, moves) },
   });
 
   // A grow session ends the moment moves land — the whole ask was "add one".
@@ -2605,7 +2605,7 @@ function runConfirmRuns(lines: Line[]): void {
         // out. The back gesture still works either way.
         hideExit: true,
         ...(lines.length > 1
-          ? { completeMessage: `Line ${i} of ${lines.length} confirmed — added to training` }
+          ? { completeMessage: t('builder.lineOfConfirmedAdded', { i: i, length: lines.length }) }
           : {}),
       },
     );
@@ -2619,8 +2619,8 @@ async function undoBookCommit(roots: string[], moves: number): Promise<void> {
   repaintAfterBookWrite();
   handleMoveClick(getCurrentNode().id);
   showToast(removed > 0
-    ? (moves === 1 ? 'Move taken back' : `${moves} moves taken back`)
-    : 'Nothing to take back');
+    ? (moves === 1 ? t('builder.moveTakenBack') : t('builder.movesTakenBack', { moves: moves }))
+    : t('builder.nothingToTakeBack'));
 }
 
 /** Everything that has to catch up after the book on disk changed. */
@@ -2647,7 +2647,7 @@ function removeContinuationFromHere(uci: string): void {
   const book = activeBook();
   if (!book) return;
   const node = nodeAtPath(book.tree, [...currentPathUcis(), uci]);
-  if (!node) { showToast('That move isn’t in this book'); return; }
+  if (!node) { showToast(t('builder.thatMoveIsnT')); return; }
   askThenRemove(node.id);
 }
 
@@ -2667,14 +2667,14 @@ function askThenRemove(nodeId: string): void {
   const book = activeBook();
   if (!book) return;
   const impact = describeRemoval(book, nodeId);
-  if (!impact) { showToast('Nothing to remove here'); return; }
+  if (!impact) { showToast(t('builder.nothingToRemoveHere')); return; }
   if (impact.small) { void applyRemoval(nodeId); return; }
   showDialog({
     title: removalTitle(impact),
     body: removalBody(impact, book.name),
     buttons: [
-      { label: 'Remove', variant: 'danger', onClick: () => { void applyRemoval(nodeId); } },
-      { label: 'Cancel', variant: 'secondary' },
+      { label: t('builder.remove'), variant: 'danger', onClick: () => { void applyRemoval(nodeId); } },
+      { label: t('common.cancel'), variant: 'secondary' },
     ],
   });
 }
@@ -2687,9 +2687,9 @@ async function applyRemoval(nodeId: string): Promise<void> {
   // back out to the parent, and this re-syncs the board and strip to wherever
   // it landed.
   handleMoveClick(getCurrentNode().id);
-  if (!cut) { showToast('Nothing to remove here'); return; }
+  if (!cut) { showToast(t('builder.nothingToRemoveHere')); return; }
   showToast(removalDone(cut.moves), {
-    action: { label: 'Undo', onClick: () => void undoRemoval(cut) },
+    action: { label: t('common.undo'), onClick: () => void undoRemoval(cut) },
   });
 }
 
@@ -2702,8 +2702,8 @@ async function undoRemoval(cut: DetachedSubtree): Promise<void> {
   const ok = await restoreAndStore(cut);
   repaintAfterBookWrite();
   handleMoveClick(getCurrentNode().id);
-  if (ok) showToast('Moves put back ✓', { variant: 'success' });
-  else showToast('Those moves can’t be put back now');
+  if (ok) showToast(t('builder.movesPutBack'), { variant: 'success' });
+  else showToast(t('builder.thoseMovesCanT'));
 }
 
 // ── The header button inside a book ──────────────────────────────────────────
@@ -2726,7 +2726,7 @@ async function undoRemoval(cut: DetachedSubtree): Promise<void> {
 function handleBookHeaderTap(): void {
   if (hasPending()) { addFromHeader(); return; }
   const at = cursorCoverage();
-  if (!at || at.lines === 0) { showToast('Play a move to start a line'); return; }
+  if (!at || at.lines === 0) { showToast(t('builder.playAMoveTo')); return; }
   if (at.atStart) { showMyLines(); return; }
   openBranchSheetHere();
 }
@@ -3041,7 +3041,7 @@ function updateSaveButtonLabel(): void {
   if (deleteBtn) {
     const canDelete = analyser ? !!analyserGameId : !!loadedLineId;
     deleteBtn.hidden = !canDelete;
-    const label = analyser ? 'Delete game' : 'Delete line';
+    const label = analyser ? t('builder.deleteGame') : t('builder.deleteLine');
     deleteBtn.setAttribute('aria-label', label);
     deleteBtn.title = label;
   }
@@ -3139,12 +3139,12 @@ function applyLineTrainingToggleState(): void {
   const saved = !!loadedLineId;
   lbl.textContent = saved
     ? `Training ${loadedLineInTraining ? 'ON' : 'OFF'}`
-    : (loadedLineInTraining ? 'Train it' : 'Just save');
+    : (loadedLineInTraining ? t('builder.trainIt') : t('builder.justSave'));
   const full = saved
-    ? (loadedLineInTraining ? 'In training — tap to pause it' : 'Paused — tap to put it back in training')
+    ? (loadedLineInTraining ? t('builder.inTrainingTapTo') : t('builder.pausedTapToPut'))
     : (loadedLineInTraining
-      ? 'This line goes into training when you add it — tap to just save it'
-      : 'This line is saved without going into training — tap to train it');
+      ? t('builder.thisLineGoesInto')
+      : t('builder.thisLineIsSaved'));
   btn.setAttribute('aria-label', full);
   btn.title = full;
 }
@@ -3180,18 +3180,18 @@ function deleteCurrentLineOrGame(): void {
   if (builderMode === 'analyser' && analyserGameId) {
     const id = analyserGameId;
     showDialog({
-      title: 'Delete this game?',
-      body: 'This game and its saved analysis will be permanently removed from My games. This can’t be undone.',
+      title: t('games.deleteThisGame'),
+      body: t('builder.thisGameAndIts'),
       buttons: [
-        { label: 'Delete', variant: 'danger', onClick: () => {
+        { label: t('repertoire.delete13'), variant: 'danger', onClick: () => {
           void deleteGame(id).then(() => {
             stopPlayback();
             savedSnapshot = builderSnapshot();
-            showToast('Game deleted');
+            showToast(t('games.gameDeleted'));
             showView('games');
           });
         } },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
     return;
@@ -3199,40 +3199,40 @@ function deleteCurrentLineOrGame(): void {
   if (inBook() && loadedLineId) {
     const plan = planLineRemoval();
     if (!plan) return;
-    const label = currentTitle() || 'this line';
+    const label = currentTitle() || t('builder.thisLine');
     // The honest number: only the moves that belong to THIS line go. The ones it
     // shares with its neighbours stay, which is the thing the old flat model
     // could not promise.
-    const moves = plan.moves === 1 ? '1 move' : `${plan.moves} moves`;
+    const moves = plan.moves === 1 ? t('builder.1Move') : t('builder.moves', { moves: plan.moves });
     showDialog({
-      title: 'Delete this line?',
-      body: `This removes ${moves} from “${label}”, along with their review history. Moves it shares with your other lines stay. This can’t be undone.`,
+      title: t('builder.deleteThisLine'),
+      body: t('builder.thisRemovesFromAlong', { moves: moves, label: label }),
       buttons: [
         // Through the shared path, so deleting a line from here is undoable
         // too — it takes the same moves, and losing their review history to a
         // mis-tap is the same loss wherever the tap happened.
-        { label: 'Delete', variant: 'danger', onClick: () => { void applyRemoval(plan.from.id); } },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('repertoire.delete13'), variant: 'danger', onClick: () => { void applyRemoval(plan.from.id); } },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
     return;
   }
   if (builderMode === 'builder' && loadedLineId) {
     const id = loadedLineId;
-    const label = currentTitle() || 'this line';
+    const label = currentTitle() || t('builder.thisLine');
     showDialog({
-      title: 'Delete this line?',
-      body: `“${label}” and all of its training data — confidence, review history and schedule — will be permanently deleted. This can’t be undone.`,
+      title: t('builder.deleteThisLine'),
+      body: t('builder.andAllOfIts', { label: label }),
       buttons: [
-        { label: 'Delete', variant: 'danger', onClick: () => {
+        { label: t('repertoire.delete13'), variant: 'danger', onClick: () => {
           void deleteLine(id).then(() => {
             stopPlayback();
             savedSnapshot = builderSnapshot();
-            showToast('Line deleted');
+            showToast(t('builder.lineDeleted'));
             showMyLines();
           });
         } },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
   }
@@ -4126,7 +4126,7 @@ function openSeedInBuilder(seed: LineSeed, colour: 'white' | 'black'): void {
   startGuidedLine({
     ucis: seed.ucis,
     colour,
-    name: seed.name ?? 'New line',
+    name: seed.name ?? t('builder.newLine'),
     // The moves the USER has to remember: their own half of the line.
     ownMoves: colour === 'white'
       ? Math.ceil(seed.ucis.length / 2)
@@ -4143,7 +4143,7 @@ function withPlanNote(seed: LineSeed): Record<number, string> | undefined {
   const last = seed.ucis.length - 1;
   const notes = { ...(seed.notes ?? {}) };
   const existing = notes[last];
-  notes[last] = existing ? `${existing}\n\nPlan: ${seed.plan}` : `Plan: ${seed.plan}`;
+  notes[last] = existing ? t('builder.plan', { existing: existing, plan: seed.plan }) : t('builder.plan13', { plan: seed.plan });
   return notes;
 }
 
@@ -4293,13 +4293,13 @@ async function buildFabActions(): Promise<FabItem[]> {
   items.push({
     icon: Icons.pawn(18),
     iconFrame: 'white',
-    label: 'New line white',
+    label: t('builder.newLineWhite'),
     onClick: () => startNewLine('white'),
   });
   items.push({
     icon: Icons.pawn(18),
     iconFrame: 'black',
-    label: 'New line black',
+    label: t('builder.newLineBlack'),
     onClick: () => startNewLine('black'),
   });
 
@@ -4307,8 +4307,8 @@ async function buildFabActions(): Promise<FabItem[]> {
   if (connected) {
     items.push({
       icon: Icons.download(20),
-      label: 'Import last game',
-      sublabel: 'Open the last game you played',
+      label: t('builder.importLastGame'),
+      sublabel: t('builder.openTheLastGame'),
       onClick: () => { void runImportLastGame(); },
     });
   }
@@ -4323,7 +4323,7 @@ async function buildFabActions(): Promise<FabItem[]> {
 // purpose, dismissed means the prompt is spent and can't be offered again.
 function installApp(): void {
   void promptInstallApp().then((outcome) => {
-    if (outcome === 'accepted') showToast('Installed ✓', { variant: 'success' });
+    if (outcome === 'accepted') showToast(t('builder.installed'), { variant: 'success' });
     showView('train');
   });
 }
@@ -4333,13 +4333,13 @@ function installApp(): void {
 // into Game Review — the same auto-analysing entry point a My Games import uses
 // — rather than the plain empty-board builder.
 async function runImportLastGame(): Promise<void> {
-  showToast('Fetching your last game…');
+  showToast(t('builder.fetchingYourLastGame'));
   try {
     const game = await importLastGame();
-    if (!game) { showToast('No recent game found to import.'); return; }
+    if (!game) { showToast(t('builder.noRecentGameFound')); return; }
     openImportedGame(game.ucis, game.colour, `vs ${game.opponent}`, game.id, game.endTime);
   } catch {
-    showToast('Couldn’t reach your account — check your connection.');
+    showToast(t('builder.couldnTReachYour'));
   }
 }
 
@@ -4406,11 +4406,11 @@ function lineFromUcis(seed: LineSeed | string[], colour: 'white' | 'black'): Lin
   if (root.children.length === 0) return null;
   // The middlegame plan rides on the final move's note — the note card and the
   // line's note sheet already surface it right where the line runs out.
-  if (plan) cursor.note = cursor.note ? `${cursor.note}\n\nPlan: ${plan}` : `Plan: ${plan}`;
+  if (plan) cursor.note = cursor.note ? t('builder.plan14', { note: cursor.note, plan: plan }) : t('builder.plan13', { plan: plan });
   const opening = nameForPath(fens);
   return {
     id: crypto.randomUUID(),
-    name: name ?? opening ?? 'Untitled line',
+    name: name ?? opening ?? t('drill.untitledLine'),
     tags: tags ?? [],
     colour,
     openingName: opening ?? null,
@@ -4534,8 +4534,8 @@ function updateHeaderTitle(): void {
       // Opened from a training session: no opponent name — the top bar stays
       // clean, with just the "Back to train" button on the right.
       ? (suspendedSession ? ''
-        : builderMode === 'analyser' ? (builderDesc || 'Unknown')
-        : (currentTitle() || 'New line'))
+        : builderMode === 'analyser' ? (builderDesc || t('builder.unknown'))
+        : (currentTitle() || t('builder.newLine')))
     : currentView === 'settings' ? t('nav.settings')
     : 'bito chess';
   el.classList.toggle('header-title--screen', !onTab);
@@ -4686,7 +4686,7 @@ function renderTrainRoom(host: HTMLElement): void {
   const sw = document.createElement('div');
   sw.className = 'train-switch';
   sw.setAttribute('role', 'tablist');
-  sw.setAttribute('aria-label', 'Training areas');
+  sw.setAttribute('aria-label', t('builder.trainingAreas'));
   const tabs = new Map<DomainId, HTMLButtonElement>();
   const track = document.createElement('div');
   track.className = 'train-track';
@@ -4853,7 +4853,7 @@ function renderTrainRoom(host: HTMLElement): void {
       setTrainOrder(ids);
       markTrainOrderHintSeen();
       lift(false);
-      if (ids[0] !== before) showToast(`Train now opens on ${TRAIN_TABS[ids[0]].label}`);
+      if (ids[0] !== before) showToast(t('builder.trainNowOpensOn', { label: TRAIN_TABS[ids[0]].label }));
     }
     press = null;
   };
@@ -4883,7 +4883,7 @@ function renderTrainRoom(host: HTMLElement): void {
       // has really been shown, so a suppressed tip waits for the next visit.
       if (room.isConnected && !document.querySelector('.pt-overlay')) {
         markTrainOrderHintSeen();
-        showToast('Tip: long-press a tab to reorder them');
+        showToast(t('builder.tipLongPressA'));
       }
     }, 1200);
   }
@@ -5063,7 +5063,7 @@ function renderHome(host: HTMLElement): void {
       const pretend = { ...getDaily(), [current]: true };
       if (!nextDailyTask(pretend, active)) return undefined;
       return {
-        label: 'Next challenge →',
+        label: t('builder.nextChallenge'),
         run: () => {
           const next = nextDailyTask(getDaily(), active);
           // Through liveDaily, not `launchers`: this button can be tapped after
@@ -5089,12 +5089,12 @@ function renderHome(host: HTMLElement): void {
         // when the whole sitting finishes, then refresh the card behind the
         // overlay. No tab to switch to any more — every domain is on screen.
         startLineSession(dailyLines, trainHost(), finish(markLinesDone), nextFor('lines'),
-          'Daily challenge');
+          t('daily.title'));
       },
       positions: () => {
         // Same domain, but a stream of single due positions rather than whole lines.
         startPositionsSession(allLines, trainHost(), config.tasks.positions.count,
-          finish(markPositionsDone), nextFor('positions'), 'Daily challenge');
+          finish(markPositionsDone), nextFor('positions'), t('daily.title'));
       },
       puzzles: () => {
         void startDailyPuzzles(config.tasks.puzzles.count,
@@ -5119,7 +5119,7 @@ function renderHome(host: HTMLElement): void {
           // The header names the EXERCISE; "Daily challenge" is the framing
           // above it (run-header.ts), so a chained run always says what it
           // just handed you.
-          contextLabel: 'Daily challenge',
+          contextLabel: t('daily.title'),
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => repaintMistakes?.(),
           onOpenGame: openGameFromSession,
@@ -5133,7 +5133,7 @@ function renderHome(host: HTMLElement): void {
         const dueAt = combinedDueAt(detectiveLog.dueMap());
         startDetectiveSession({
           refs: pickDetective(detectiveRefs, config.tasks.detective.count, dueAt),
-          contextLabel: 'Daily challenge',
+          contextLabel: t('daily.title'),
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => repaintMistakes?.(),
           onOpenGame: openGameFromSession,
@@ -5146,7 +5146,7 @@ function renderHome(host: HTMLElement): void {
         const dueAt = combinedDueAt(whichMoveLog.dueMap());
         startWhichMoveSession({
           refs: pickWhichMove(pairRefs, config.tasks.whichMove.count, dueAt),
-          contextLabel: 'Daily challenge',
+          contextLabel: t('daily.title'),
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => repaintMistakes?.(),
           onOpenGame: openGameFromSession,
@@ -5162,7 +5162,7 @@ function renderHome(host: HTMLElement): void {
           startTimePressureSession({
             refs: dealRound(pool, undefined, { recent: recentRoundIds() }),
             minutes: config.tasks.timePressure.count,
-            contextLabel: 'Daily challenge',
+            contextLabel: t('daily.title'),
             // "Ran out" is not a wrong answer and not a right one, so it counts
             // as neither here: the day's tally is about what you saw.
             onComplete: (s) => done({ right: s.found, wrong: s.missed }),
@@ -5237,7 +5237,7 @@ function homeBoardDeps(back: ViewName): HomeDeps {
       modeLabel: mode?.label,
       modeIcon: mode?.icon,
       modeAccent: mode?.accent,
-      contextLabel: 'From your games',
+      contextLabel: t('analysis.contextLabel'),
       onExit: () => showView(back),
       onOpenGame: openGameFromSession,
     }),
@@ -5647,7 +5647,7 @@ function skipGrowLine(): void {
   if (!target) return;
   restGrowLine(target.spot.line.id, GROW_SKIP_DAYS);
   endGrowSession();
-  showToast('Skipped — a different line tomorrow');
+  showToast(t('builder.skippedADifferentLine'));
   showView(growReturnView);
 }
 
@@ -5809,9 +5809,9 @@ function applyNavSettingsTier(): void {
   // The button's own accessible name carries the state, so a screen reader gets
   // what the ring is showing rather than an unlabelled decoration.
   btn.setAttribute('aria-label',
-    tier === 'guest' ? 'Settings — guest'
-    : tier === 'pro' ? 'Settings — full access'
-    : 'Settings — signed in');
+    tier === 'guest' ? t('builder.settingsGuest')
+    : tier === 'pro' ? t('builder.settingsFullAccess')
+    : t('builder.settingsSignedIn'));
 }
 
 // The standing invitation beside the user icon. The dot above says WHAT you
@@ -5901,7 +5901,7 @@ function buildSideGroups(): SideGroups {
   return createSideGroups([
     {
       view: 'train',
-      label: 'Train',
+      label: t('nav.train'),
       subs: getTrainOrder().map((id) => ({ id, label: TRAIN_TABS[id].label, icon: TRAIN_TABS[id].icon })),
       onPick: (id) => guardBuilderLeave(() => {
         trainTab = id as DomainId;
@@ -5910,12 +5910,12 @@ function buildSideGroups(): SideGroups {
     },
     {
       view: 'explore',
-      label: 'Openings',
+      label: t('nav.openings'),
       subs: [
-        { id: 'mylines', label: 'My lines', icon: () => Icons.pawn(16) },
-        { id: 'coverage', label: 'Coverage', icon: () => Icons.target(16) },
-        { id: 'openings', label: 'Discover', icon: () => Icons.sparkles(16) },
-        { id: 'packs', label: 'Packs', icon: () => Icons.build(16) },
+        { id: 'mylines', label: t('tour.lines.title'), icon: () => Icons.pawn(16) },
+        { id: 'coverage', label: t('builder.coverage'), icon: () => Icons.target(16) },
+        { id: 'openings', label: t('builder.discover'), icon: () => Icons.sparkles(16) },
+        { id: 'packs', label: t('builder.packs'), icon: () => Icons.build(16) },
       ],
       onPick: (id) => guardBuilderLeave(() => {
         openExploreTab(id as ExploreTab);
@@ -5924,7 +5924,7 @@ function buildSideGroups(): SideGroups {
     },
     {
       view: 'progress',
-      label: 'Statistics',
+      label: t('nav.statistics'),
       subs: [],
       onPick: (id) => guardBuilderLeave(() => {
         setStatsTab(id as StatsTab, currentView === 'progress' ? document.getElementById('view-progress') : null);
@@ -5955,7 +5955,7 @@ function buildSideCreate(): HTMLElement {
 
   const title = document.createElement('div');
   title.className = 'side-create-title';
-  title.textContent = 'Create a new line';
+  title.textContent = t('builder.createANewLine');
   section.appendChild(title);
 
   const list = document.createElement('div');
@@ -6245,20 +6245,20 @@ function showSaveGuard(proceed: () => void): void {
       return;
     }
     showDialog({
-      title: 'Add these moves?',
+      title: t('builder.addTheseMoves'),
       body: n === 1
-        ? 'You’ve played one move that isn’t in your repertoire yet.'
-        : `You’ve played ${n} moves that aren’t in your repertoire yet.`,
+        ? t('builder.youVePlayedOne')
+        : t('builder.youVePlayedMoves', { n: n }),
       buttons: [
         {
-          label: n === 1 ? 'Add it' : 'Add them',
+          label: n === 1 ? t('builder.addIt') : t('builder.addThem'),
           variant: 'primary',
           onClick: () => { void commitPending().then(() => { if (!hasPending()) proceed(); }); },
         },
-        { label: 'Keep editing', variant: 'secondary' },
+        { label: t('builder.keepEditing'), variant: 'secondary' },
         // Last and quiet: a filled red button right under the primary invited the
         // one mis-tap that loses the work (UX-AUDIT 8.8).
-        { label: 'Discard', variant: 'quiet-danger', onClick: () => { discardPending(); proceed(); } },
+        { label: t('builder.discard'), variant: 'quiet-danger', onClick: () => { discardPending(); proceed(); } },
       ],
     });
     return;
@@ -6267,21 +6267,21 @@ function showSaveGuard(proceed: () => void): void {
   // the analysis back onto the game; a hand-built line saves to My Lines.
   const isGame = analyserGameId !== null;
   showDialog({
-    title: isGame ? 'Save your analysis?' : 'Save this line?',
+    title: isGame ? t('builder.saveYourAnalysis') : t('builder.saveThisLine'),
     body: isGame
-      ? 'You have unsaved changes to this game.'
-      : 'You have unsaved moves in this line.',
+      ? t('builder.youHaveUnsavedChanges')
+      : t('builder.youHaveUnsavedMoves'),
     buttons: [
       {
-        label: 'Save',
+        label: t('repertoire.save'),
         variant: 'primary',
         onClick: () => {
           const done = isGame ? saveGame() : persistCurrentLine();
           void Promise.resolve(done).then(() => proceed());
         },
       },
-      { label: 'Keep editing', variant: 'secondary' },
-      { label: 'Discard', variant: 'quiet-danger', onClick: proceed },
+      { label: t('builder.keepEditing'), variant: 'secondary' },
+      { label: t('builder.discard'), variant: 'quiet-danger', onClick: proceed },
     ],
     // Backdrop tap / back gesture = keep editing (stay put).
   });
@@ -6296,7 +6296,7 @@ function showSaveGuard(proceed: () => void): void {
 // header Save and the quiet note-save, so they can never drift apart.
 function buildCurrentLine(): Line {
   const opening = detectedNameForLine();
-  const name = currentTitle() || opening || 'Untitled line';
+  const name = currentTitle() || opening || t('drill.untitledLine');
   const isNew = !loadedLineId;
   return {
     id: loadedLineId ?? crypto.randomUUID(),
@@ -6335,7 +6335,7 @@ async function persistCurrentLine(): Promise<
   { line: Line; isNew: boolean; index: SaveIndexOutcome } | null
 > {
   if (isEmpty()) {
-    showToast('Play a move first');
+    showToast(t('builder.playAMoveFirst'));
     return null;
   }
   const isNew = !loadedLineId;
@@ -6403,26 +6403,26 @@ async function saveGame(): Promise<void> {
       await saveGames([game]);
       savedSnapshot = builderSnapshot();
       refreshSaveButtonState();
-      showToast('Game saved ✓');
+      showToast(t('builder.gameSaved'));
       return;
     }
   }
   const r = await persistCurrentLine();
-  if (r) showToast('Game saved ✓');
+  if (r) showToast(t('builder.gameSaved'));
 }
 
 // Game analyser: "Save line" extracts the CURRENT path (root → the move on the
 // board) as a fresh repertoire line in My Lines, leaving the game untouched.
 async function saveLineFromCurrentPath(): Promise<void> {
   const ucis = pathTo(getCurrentNode().id).map(n => n.uci);
-  if (!ucis.length) { showToast('Step to a move first'); return; }
+  if (!ucis.length) { showToast(t('builder.stepToAMove')); return; }
   const path = ucis.join(',');
 
   // Tapping Save line again at the exact same, unchanged position would create
   // a genuine duplicate (lineFromUcis always mints a fresh id) — skip it rather
   // than silently doubling the line.
   if (path === lastSavedLinePath) {
-    showToast('Already saved ✓');
+    showToast(t('builder.alreadySaved'));
     return;
   }
 
@@ -6437,7 +6437,7 @@ async function saveLineFromCurrentPath(): Promise<void> {
     }
     try {
       const line = lineFromUcis(ucis, saveColour);
-      if (!line) { showToast('Couldn’t build a line here'); return; }
+      if (!line) { showToast(t('builder.couldnTBuildA')); return; }
       if (!(await requestLineSaveRoom())) return;
       await saveLine(line);
       lastSavedLinePath = path;
@@ -6445,7 +6445,7 @@ async function saveLineFromCurrentPath(): Promise<void> {
       // Surface the new line on My Lines (highlighted) so the save is unmistakable,
       // then bounce back to the game so more lines can be extracted from it.
       focusSavedLine(line.id);
-      showToast('Saved to My lines ✓', { variant: 'success' });
+      showToast(t('builder.savedToMyLines'), { variant: 'success' });
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -6456,11 +6456,11 @@ async function saveLineFromCurrentPath(): Promise<void> {
   // rather than saving 40-move "lines".
   if (ucis.length > LONG_LINE_PLIES) {
     showDialog({
-      title: 'Save the whole game as a line?',
-      body: `You're at move ${Math.ceil(ucis.length / 2)} — that's most of the game. Lines work best as short openings: step back to the move you want the line to end on, then Save line.`,
+      title: t('builder.saveTheWholeGame'),
+      body: t('builder.wholeGame', { move: Math.ceil(ucis.length / 2) }),
       buttons: [
-        { label: 'Step back first', variant: 'primary' },
-        { label: 'Save it anyway', variant: 'secondary', onClick: () => { void doSave(); } },
+        { label: t('builder.stepBackFirst'), variant: 'primary' },
+        { label: t('builder.saveItAnyway'), variant: 'secondary', onClick: () => { void doSave(); } },
       ],
     });
     return;
@@ -6476,9 +6476,9 @@ async function saveLineFromCurrentPath(): Promise<void> {
  */
 function openCurrentPathInBuilder(): void {
   const ucis = pathTo(getCurrentNode().id).map(n => n.uci);
-  if (!ucis.length) { showToast('Step to a move first'); return; }
+  if (!ucis.length) { showToast(t('builder.stepToAMove')); return; }
   buildFromUcis(ucis, saveColour);
-  showToast('Carry on from here');
+  showToast(t('builder.carryOnFromHere'));
 }
 
 // Surface a saved line on My Lines, highlighted so it's easy to find.
@@ -6515,14 +6515,14 @@ async function saveCurrentLine(): Promise<void> {
   // in place, or keep the original and branch this off as a new line. A fresh
   // line — or an unchanged one — skips straight to the save.
   if (loadedLineId && isBuilderDirty()) {
-    const label = currentTitle() || detectedNameForLine() || 'this line';
+    const label = currentTitle() || detectedNameForLine() || t('builder.thisLine');
     showDialog({
-      title: 'Save your changes',
-      body: `You’ve changed “${label}”. Update this line, or keep the original and save this as a new line?`,
+      title: t('builder.saveYourChanges'),
+      body: t('builder.youVeChangedUpdate', { label: label }),
       buttons: [
-        { label: 'Update this line', variant: 'primary', onClick: () => { void continueSave(); } },
-        { label: 'Save as new line', variant: 'secondary', onClick: () => { detachAsNewLine(); void continueSave(); } },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('builder.updateThisLine'), variant: 'primary', onClick: () => { void continueSave(); } },
+        { label: t('builder.saveAsNewLine'), variant: 'secondary', onClick: () => { detachAsNewLine(); void continueSave(); } },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
     return;
@@ -6541,16 +6541,16 @@ async function continueSave(): Promise<void> {
   // to keep only up to the move on the board (e.g. after importing a full game).
   if (getCurrentNode().children.length > 0) {
     showDialog({
-      title: 'Save up to here?',
-      body: 'You’re viewing a move partway through the line. Save only up to the move on the board, or the whole line?',
+      title: t('builder.saveUpToHere'),
+      body: t('builder.youReViewingA'),
       buttons: [
-        { label: 'Save up to this move', variant: 'primary', onClick: () => {
+        { label: t('builder.saveUpToThis'), variant: 'primary', onClick: () => {
           truncateAfterCurrent();
           handleMoveClick(getCurrentNode().id); // re-sync board + move list to the trimmed line
           afterPartialSave();
         } },
-        { label: 'Save the whole line', variant: 'secondary', onClick: afterPartialSave },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('builder.saveTheWholeLine'), variant: 'secondary', onClick: afterPartialSave },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
     return;
@@ -6574,12 +6574,12 @@ function afterPartialSave(): void {
   }
   if (!isEmpty() && lineEndsOnOpponentMove()) {
     showDialog({
-      title: 'End on your move?',
-      body: 'This line ends on your opponent’s move. Lines usually finish on YOUR move, so the last thing you drill is a move you make.',
+      title: t('builder.endOnYourMove'),
+      body: t('builder.thisLineEndsOn'),
       buttons: [
-        { label: 'Trim last move', variant: 'primary', onClick: () => { trimLastMove(); afterEndNudge(); } },
-        { label: 'Keep as is', variant: 'secondary', onClick: afterEndNudge },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('builder.trimLastMove'), variant: 'primary', onClick: () => { trimLastMove(); afterEndNudge(); } },
+        { label: t('builder.keepAsIs'), variant: 'secondary', onClick: afterEndNudge },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
     return;
@@ -6592,11 +6592,11 @@ function afterEndNudge(): void {
   if (mainline().length > LONG_LINE_PLIES) {
     const moves = Math.ceil(mainline().length / 2);
     showDialog({
-      title: 'That’s a very long line',
-      body: `This line is ${moves} moves long. Long lines are harder to drill — save it anyway, or go back to edit?`,
+      title: t('builder.thatSAVery'),
+      body: t('builder.thisLineIsMoves', { moves: moves }),
       buttons: [
-        { label: 'Save anyway', variant: 'primary', onClick: () => { void finishSave(); } },
-        { label: 'Go back to edit', variant: 'secondary' },
+        { label: t('builder.saveAnyway'), variant: 'primary', onClick: () => { void finishSave(); } },
+        { label: t('builder.goBackToEdit'), variant: 'secondary' },
       ],
     });
     return;
@@ -6634,7 +6634,7 @@ async function finishSave(): Promise<void> {
   // (TRANSPOSITIONS.md §7) — silent at zero, because "0 of these 10 moves you
   // already know" is noise.
   const note = inheritanceNote(index.inherit);
-  const saved = isNew ? 'Line saved ✓' : 'Changes saved ✓';
+  const saved = isNew ? t('builder.lineSaved') : t('builder.changesSaved');
   showToast(note ? `${saved} — ${note}` : saved, { variant: 'success' });
 
   // …then, queued behind it, the overlap notice (§6). Both are toasts on
@@ -6680,23 +6680,23 @@ function showExtensionNotice(line: Line, overlap: DuplicateVerdict | null): void
 
   if (overlap.relation === 'extension-longer') {
     const shorterId = overlap.otherLineId;
-    const shorter = overlap.otherLineName || 'an older line';
-    showToast(`This continues “${shortLineName(shorter)}”, which you already have.`, {
+    const shorter = overlap.otherLineName || t('builder.anOlderLine');
+    showToast(t('builder.continues', { name: shortLineName(shorter) }), {
       action: {
-        label: 'Remove it',
+        label: t('builder.removeIt'),
         onClick: () => showDialog({
-          title: 'Remove the shorter line?',
-          body: `“${shorter}” is the first ${overlap.sharedPlies} half-moves of the line you just saved, so everything in it is now covered by “${line.name}”. Removing it also removes its training history.`,
+          title: t('builder.removeTheShorterLine'),
+          body: t('builder.isTheFirstHalf', { shorter: shorter, sharedPlies: overlap.sharedPlies, name: line.name }),
           buttons: [
             {
-              label: 'Remove it', variant: 'danger', onClick: () => {
+              label: t('builder.removeIt'), variant: 'danger', onClick: () => {
                 void deleteLine(shorterId).then(() => {
                   builderPanels?.reloadLines();
-                  showToast(`Removed “${shorter}” ✓`, { variant: 'success' });
+                  showToast(t('builder.removed', { shorter: shorter }), { variant: 'success' });
                 });
               },
             },
-            { label: 'Keep both', variant: 'secondary' },
+            { label: t('builder.keepBoth'), variant: 'secondary' },
           ],
         }),
       },
@@ -6706,10 +6706,10 @@ function showExtensionNotice(line: Line, overlap: DuplicateVerdict | null): void
 
   if (overlap.relation === 'extension-shorter') {
     const longerId = overlap.otherLineId;
-    const longer = overlap.otherLineName || 'a longer line';
-    showToast(`“${shortLineName(longer)}” already contains this line.`, {
+    const longer = overlap.otherLineName || t('builder.aLongerLine');
+    showToast(t('builder.contained', { name: shortLineName(longer) }), {
       action: {
-        label: 'Open it',
+        label: t('builder.openIt'),
         onClick: () => {
           void getLine(longerId).then(l => { if (l) onOpenLine(l); });
         },
@@ -6783,7 +6783,7 @@ function finishGuidedSave(line: Line): void {
       // Once the line has played itself through, the first move is asked for by
       // name and shown with an arrow — the one place in the app where we give
       // the answer away, because there is nothing to remember yet.
-      firstMoveHint: 'Play the first move of the line',
+      firstMoveHint: t('builder.playTheFirstMoveOf'),
     },
   ));
 }
@@ -6795,13 +6795,13 @@ function showFirstLineDone(lineCount: number): void {
   showView('home');
   const left = TRAINING_UNLOCK_LINES - lineCount;
   showFirstLineSuccess({
-    title: 'Your first line is set!',
+    title: t('signup.firstLine'),
     lead: left > 0
-      ? `Add ${left} more line${left === 1 ? '' : 's'} to start training.`
-      : 'It joins your training from today.',
+      ? t('steps.note.more', { n: left })
+      : t('builder.itJoinsYourTraining'),
     primary: left > 0
-      ? { label: 'Add more lines', onClick: () => showView('home') }
-      : { label: 'Start training', onClick: startFirstTraining },
+      ? { label: t('firstRun.addMoreLines'), onClick: () => showView('home') }
+      : { label: t('firstRun.startTraining'), onClick: startFirstTraining },
   });
 }
 
@@ -6810,10 +6810,10 @@ function showFirstLineDone(lineCount: number): void {
 // tomorrow" — Train won't have a session for them tomorrow either way.
 function trainingUnlockedMessage(lineCount: number): string {
   const left = TRAINING_UNLOCK_LINES - lineCount;
-  if (left <= 0) return 'It’s in training. It’ll come back tomorrow, before you forget it.';
+  if (left <= 0) return t('builder.itSInTraining');
   return left === 1
-    ? 'Learned. One more line and your daily training opens up.'
-    : `Learned. ${left} more lines and your daily training opens up.`;
+    ? t('builder.learnedOneMoreLine')
+    : t('builder.learnedMoreLinesAnd', { left: left });
 }
 
 function setupSaveButton() {
@@ -6917,7 +6917,7 @@ async function flipBuilderColour(): Promise<void> {
   // stop (or start) matching one already saved.
   refreshSaveButtonState();
   refreshBoardShapes();
-  showToast(`This line will now save as ${next === 'white' ? 'White' : 'Black'}`);
+  showToast(t(next === 'white' ? 'builder.savesWhite' : 'builder.savesBlack'));
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -6995,7 +6995,7 @@ void lichessTryCallback().then((justConnected) => {
   // one-shot and expires after ten minutes, so an abandoned connect from
   // yesterday still can't resurrect anything).
   tourReturn = takeTourResume();
-  if (justConnected) showToast('Connected to Lichess');
+  if (justConnected) showToast(t('builder.connectedToLichess'));
   if (justConnected || tourReturn) lichessReturn = lichessTakeReturn();
   if (lichessReturn || tourReturn) maybeRestoreLichessReturn();
   else if (justConnected) builderPanels?.render();
@@ -7206,7 +7206,7 @@ requestAnimationFrame(() => {
   const syncArrowsBtn = (): void => {
     arrowsToggleBtn.classList.toggle('is-on', showEngineArrows);
     arrowsToggleBtn.setAttribute('aria-pressed', String(showEngineArrows));
-    const label = showEngineArrows ? 'Hide engine arrows' : 'Show engine arrows';
+    const label = showEngineArrows ? t('builder.hideEngineArrows') : t('builder.showEngineArrows');
     arrowsToggleBtn.setAttribute('aria-label', label);
     arrowsToggleBtn.title = label;
   };
@@ -7394,7 +7394,7 @@ requestAnimationFrame(() => {
   const refreshGamesThenScan = (): void => {
     void maybeAutoRefreshGames().then((newCount) => {
       if (newCount <= 0) return;
-      showToast(`Games refreshed · ${newCount} new`);
+      showToast(t('builder.gamesRefreshedNew', { newCount: newCount }));
       repaintInBackground();
     }).finally(() => {
       // …and then read whatever games are now on the device for mistakes, quietly

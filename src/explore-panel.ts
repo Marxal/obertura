@@ -79,6 +79,7 @@ import { cloudTopLines, analysePosition, type MoveEval } from './engine';
 import { wdlScoreRow, type WdlCounts } from './wdl-bar';
 import { compactCount } from './builder-panels';
 import type { ImportedGame } from './import-core';
+import { t } from './i18n';
 
 // How many suggestions the slide ever shows. Three is the point of the slide.
 const SUGGESTIONS = 3;
@@ -246,7 +247,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
 
     el.appendChild(buildAutoRow());
 
-    el.appendChild(span('explore-rows-head', 'Why these moves'));
+    el.appendChild(span('explore-rows-head', t('builder.whyTheseMoves')));
 
     const rows = document.createElement('div');
     rows.className = 'explore-rows';
@@ -288,13 +289,13 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       ? `${movePrefix(sans.length - 1)} ${formatMove(sans[sans.length - 1])}`
       : null;
     const mine = myTurn();
-    const them = deps.getColour() === 'white' ? 'Black' : 'White';
+    const them = deps.getColour() === 'white' ? t('common.black') : t('common.white');
 
     const title = document.createElement('div');
     title.className = 'explore-head-title';
     title.textContent = mine
-      ? (last ? `Possible answers for ${last}` : 'Possible first moves')
-      : (last ? `Prepare for the reply to ${last}` : `Prepare for ${them}’s first move`);
+      ? (last ? t('builder.possibleAnswersFor', { last: last }) : t('builder.possibleFirstMoves'))
+      : (last ? t('builder.prepareForTheReply', { last: last }) : t('builder.prepareForSFirst', { them: them }));
     wrap.appendChild(title);
     return wrap;
   }
@@ -331,8 +332,8 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     knob.className = 'dline-switch-knob';
     sw.appendChild(knob);
     toggle.appendChild(sw);
-    toggle.appendChild(span('dline-toggle-label', 'Auto-reply'));
-    toggle.title = 'Play the opponent’s answer for me after each of my moves';
+    toggle.appendChild(span('dline-toggle-label', t('reply.autoReply')));
+    toggle.title = t('builder.playTheOpponentS');
     toggle.addEventListener('click', () => {
       autoReply = !autoReply;
       persistAutoReply(autoReply);
@@ -346,8 +347,8 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
 
     row.appendChild(sourcePick());
     block.appendChild(span('explore-auto-note', autoReply
-      ? `Their answer is played for you, ${SOURCE_NOTE[autoSource]}.`
-      : 'Play the opponent’s answer for me, so I only choose my own moves.'));
+      ? t('explore.autoNote', { source: SOURCE_NOTE[autoSource] })
+      : t('builder.playTheOpponentSAnswer')));
 
     // Only ever offered when there is a reply on the board to swap: auto-reply
     // is on, and the last move played was theirs.
@@ -358,8 +359,8 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       const ico = Icons.reset(15);
       ico.classList.add('explore-auto-again-ico');
       again.appendChild(ico);
-      again.appendChild(document.createTextNode('Another reply'));
-      again.title = 'Take that reply back and prepare for a different one';
+      again.appendChild(document.createTextNode(t('builder.anotherReply')));
+      again.title = t('builder.takeThatReplyBack');
       again.addEventListener('click', () => { void rerollReply(); });
       block.appendChild(again);
     }
@@ -382,7 +383,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
 
     const select = document.createElement('select');
     select.className = 'explore-auto-select';
-    select.setAttribute('aria-label', 'Where the reply comes from');
+    select.setAttribute('aria-label', t('builder.whereTheReplyComes'));
     select.disabled = !autoReply;
     for (const value of ['best', 'games', 'library', 'engine'] as AutoReplySource[]) {
       const opt = document.createElement('option');
@@ -536,8 +537,8 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     const label = db === 'masters'
       ? 'masters'
       : coverage === 'band'
-        ? `Lichess players ${bandRangeLabel(band, myLevel?.rating ?? null)}`
-        : band === 'all' ? 'Lichess players' : 'Lichess players (all ratings)';
+        ? t('builder.lichessPlayers', { site: bandRangeLabel(band, myLevel?.rating ?? null) })
+        : band === 'all' ? t('builder.lichessPlayers13') : t('builder.lichessPlayersAllRatings');
     const colour = deps.getColour();
     const chess = new Chess(fen);
     const out: Candidate[] = [];
@@ -662,7 +663,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       if (!m) return null;
       return {
         uci, san: m.san, source: 'library',
-        note: 'The next move of the line you’re building',
+        note: t('builder.theNextMoveOf'),
         weight: Number.MAX_SAFE_INTEGER,
       };
     } catch {
@@ -720,7 +721,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     btn.appendChild(add);
 
     const why = headline(c, faced);
-    btn.setAttribute('aria-label', `Add ${prefix} ${c.san} to the line — ${why}`);
+    btn.setAttribute('aria-label', t('builder.addToTheLine', { prefix: prefix, san: c.san, why: why }));
     btn.title = why;
     return btn;
   }
@@ -770,7 +771,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     grid.className = 'explore-stats';
 
     if (c.mine) {
-      grid.appendChild(span('explore-stat-label', 'You'));
+      grid.appendChild(span('explore-stat-label', t('builder.you')));
       grid.appendChild(wdlScoreRow(c.mine, gamesLabel(c.mine.games)));
     }
     if (c.db) {
@@ -798,14 +799,14 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     const kind = delta >= COMPARE_LEVEL_PTS ? 'up'
       : delta <= -COMPARE_LEVEL_PTS ? 'down'
       : 'level';
-    const label = c.dbLabel ?? 'the database';
+    const label = c.dbLabel ?? t('builder.theDatabase');
 
     const row = document.createElement('div');
     row.className = `explore-compare explore-compare--${kind}`;
 
     if (kind === 'level') {
       row.appendChild(span('explore-compare-text',
-        `You score about the same as ${label} here`));
+        t('builder.youScoreAboutThe', { label: label })));
       return row;
     }
 
@@ -815,8 +816,8 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     row.appendChild(span('explore-compare-delta',
       `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`));
     row.appendChild(span('explore-compare-text',
-      kind === 'up' ? `points better than ${label} here`
-        : `points worse than ${label} here`));
+      kind === 'up' ? t('builder.pointsBetterThanHere', { label: label })
+        : t('builder.pointsWorseThanHere', { label: label })));
     return row;
   }
 
@@ -829,20 +830,20 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     if (c.cp !== undefined || c.mate !== undefined) {
       const lean = evalLean(c.cp, c.mate);
       const text = evalText(c.cp, c.mate);
-      const f = fact('Engine', lean ? `${text} · ${lean}` : text);
-      f.title = 'The engine’s evaluation after this move, from White’s side';
+      const f = fact(t('story.engine'), lean ? `${text} · ${lean}` : text);
+      f.title = t('builder.theEngineSEvaluation');
       row.appendChild(f);
     }
     // A move of yours that is ALSO one of the engine's top three is the single
     // most reassuring thing this card can say, so it gets its own fact. On an
     // engine row the headline already said it.
     if (c.source !== 'engine' && c.engineRank !== undefined) {
-      row.appendChild(fact('Engine pick', `#${c.engineRank + 1}`));
+      row.appendChild(fact(t('builder.enginePick'), `#${c.engineRank + 1}`));
     }
     // For a library row the headline already IS the popularity — don't say it
     // twice; for a move of yours or the engine's, it's news.
     if (c.dbSharePct !== undefined && c.source !== 'library') {
-      row.appendChild(fact('Played by', `${c.dbSharePct}% of ${c.dbLabel ?? 'them'}`));
+      row.appendChild(fact(t('builder.playedBy'), `${c.dbSharePct}% of ${c.dbLabel ?? 'them'}`));
     }
     return row.childElementCount ? row : null;
   }
@@ -853,14 +854,14 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     const note = document.createElement('div');
     note.className = 'bx-empty';
     note.textContent = games && games.length
-      ? 'Nothing to suggest from here — this position is past everything we can reach.'
-      : 'Import your games and the suggestions here start with the moves you actually play.';
+      ? t('builder.nothingToSuggestFrom')
+      : t('builder.importYourGamesAnd');
     wrap.appendChild(note);
     if (!games || !games.length) {
       const cta = document.createElement('button');
       cta.type = 'button';
       cta.className = 'games-refresh-btn builder-slide-action';
-      cta.textContent = 'Import my games';
+      cta.textContent = t('tour.lines.import');
       cta.addEventListener('click', () => deps.onImportGames());
       wrap.appendChild(cta);
     }
@@ -918,18 +919,18 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
 // ── Auto-reply's source, in words ────────────────────────────────────────────
 
 const SOURCE_LABEL: Record<AutoReplySource, string> = {
-  best: 'Best guess',
-  games: 'My games',
-  library: 'Library',
-  engine: 'Engine',
+  best: t('builder.bestGuess'),
+  games: t('nav.games'),
+  library: t('builder.library'),
+  engine: t('story.engine'),
 };
 
 // Completes "Their answer is played for you, …".
 const SOURCE_NOTE: Record<AutoReplySource, string> = {
-  best: 'from whichever source knows this position best',
-  games: 'from what you have actually faced',
-  library: 'from what players play here',
-  engine: 'from what the engine would play',
+  best: t('builder.fromWhicheverSourceKnows'),
+  games: t('builder.fromWhatYouHave'),
+  library: t('builder.fromWhatPlayersPlay'),
+  engine: t('builder.fromWhatTheEngine'),
 };
 
 // ── the case for a move, in one line ─────────────────────────────────────────
@@ -940,17 +941,17 @@ function headline(c: Candidate, faced: boolean): string {
   if (c.source === 'games' && c.mine) {
     const n = c.mine.games;
     return faced
-      ? `You’ve faced this in ${n} game${n === 1 ? '' : 's'}`
-      : `You played this in ${n} game${n === 1 ? '' : 's'}`;
+      ? t('explore.faced', { n })
+      : t('explore.played', { n });
   }
   if (c.source === 'library') {
     return c.dbSharePct !== undefined
-      ? `${c.dbSharePct}% of ${c.dbLabel ?? 'players'} play this`
-      : 'Main opening theory';
+      ? (c.dbLabel ? t('explore.sharePlay', { pct: c.dbSharePct, who: c.dbLabel }) : t('explore.sharePlayers', { pct: c.dbSharePct }))
+      : t('builder.mainOpeningTheory');
   }
   if (c.source === 'engine') {
-    return c.engineRank ? `The engine’s #${c.engineRank + 1} choice here`
-      : 'The engine’s first choice here';
+    return c.engineRank ? t('explore.engineRank', { rank: c.engineRank + 1 })
+      : t('builder.theEngineSFirst');
   }
   return '';
 }
@@ -964,7 +965,7 @@ function sourceIcon(source: ExploreSource, size: number): SVGElement {
 }
 
 function sourceName(source: ExploreSource): string {
-  return source === 'games' ? 'Your games' : source === 'library' ? 'Library' : 'Engine';
+  return source === 'games' ? t('recap.yourGames') : source === 'library' ? t('builder.library') : t('story.engine');
 }
 
 // The badge that says why a move is on the list. It's the whole reason the
@@ -997,7 +998,7 @@ function gamesLabel(n: number): string {
 }
 
 function dbShort(label?: string): string {
-  return label === 'masters' ? 'Masters' : label ? 'Lichess' : 'Database';
+  return label === 'masters' ? 'Masters' : label ? 'Lichess' : t('builder.database');
 }
 
 function sideToMove(fen: string): 'white' | 'black' {
@@ -1020,8 +1021,8 @@ function evalText(cp?: number, mate?: number): string {
 // position is level, because "+0.12 · about level" is the number twice.
 function evalLean(cp?: number, mate?: number): string {
   if (mate !== undefined) {
-    return mate > 0 ? `White mates in ${mate}` : `Black mates in ${Math.abs(mate)}`;
+    return mate > 0 ? t('explore.whiteMates', { n: mate }) : t('explore.blackMates', { n: Math.abs(mate) });
   }
   if (cp === undefined) return '';
-  return cp > 40 ? 'White better' : cp < -40 ? 'Black better' : '';
+  return cp > 40 ? t('builder.whiteBetter') : cp < -40 ? t('builder.blackBetter') : '';
 }

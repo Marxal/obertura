@@ -10,6 +10,7 @@
 // one-line-per-chapter (the common convention) import fully.
 
 import { Chess } from 'chess.js';
+import { t as tr } from './i18n';
 
 export interface StudyRef {
   studyId: string;
@@ -110,7 +111,7 @@ export function parseAnnotatedPgn(pgn: string): StudyChapter | null {
   const chapterName = (headers['ChapterName'] ?? '').trim();
   const name = chapterName || (event.includes(': ')
     ? event.slice(event.lastIndexOf(': ') + 2).trim() || event
-    : event || 'Imported line');
+    : event || tr('builder.importedLine'));
 
   return { name, sans, ucis, notes, ...(intro ? { intro } : {}) };
 }
@@ -148,7 +149,7 @@ export function shortStudyTag(title: string): string {
     .replace(/^[^\p{L}\p{N}"'(]+/u, '')
     .replace(/[^\p{L}\p{N})"'!?.]+$/u, '')
     .trim();
-  if (!t) return 'Lichess study';
+  if (!t) return tr('builder.lichessStudy');
   if (t.length <= STUDY_TAG_MAX) return t;
   const cut = t.slice(0, STUDY_TAG_MAX + 1);
   const at = cut.lastIndexOf(' ');

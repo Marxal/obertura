@@ -21,9 +21,10 @@
 import type { ImportedGame } from './chesscom';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
+import { t } from './i18n';
 
 // ── Tunables ────────────────────────────────────────────────────────────────────
-export const UNKNOWN_FAMILY = 'Unrecognised opening';
+export const UNKNOWN_FAMILY = t('builder.unrecognisedOpening');
 // How deep a representative "here's the line" sample we keep for the Build button.
 export const REP_PLIES = 10;
 // Plies used to decide "do I already have prep that reaches this opening?".

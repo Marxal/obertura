@@ -26,7 +26,7 @@ import {
 } from './stats';
 import { countGamesPerLine } from './analysis';
 import { Icons } from './icons';
-import { appLocale } from './i18n';
+import { appLocale, t } from './i18n';
 
 // How many "most failed" moves the block lists before it stops. Three is enough
 // to see a pattern and short enough that the block stays a footnote to the line
@@ -40,16 +40,16 @@ export interface LinePriorityOpts {
 
 const PRIORITY_COPY: Record<LinePriority, { label: string; blurb: string }> = {
   high: {
-    label: 'High',
-    blurb: 'Comes round about 40% sooner than usual. For the lines you actually get.',
+    label: t('builder.high'),
+    blurb: t('builder.comesRoundAbout40'),
   },
   standard: {
-    label: 'Standard',
-    blurb: 'The normal spaced-repetition schedule.',
+    label: t('builder.standard'),
+    blurb: t('builder.theNormalSpacedRepetition'),
   },
   low: {
-    label: 'Low',
-    blurb: 'Comes round about 70% later than usual. For sidelines you keep but rarely face.',
+    label: t('builder.low'),
+    blurb: t('builder.comesRoundAbout70'),
   },
 };
 
@@ -58,13 +58,13 @@ export function renderLinePriority(host: HTMLElement, opts: LinePriorityOpts): v
 
   const head = document.createElement('div');
   head.className = 'lineinfo-head';
-  head.appendChild(spanEl('lineinfo-head-title', 'Training priority'));
+  head.appendChild(spanEl('lineinfo-head-title', t('builder.trainingPriority')));
   host.appendChild(head);
 
   const row = document.createElement('div');
   row.className = 'lprio-row';
   row.setAttribute('role', 'group');
-  row.setAttribute('aria-label', 'Training priority');
+  row.setAttribute('aria-label', t('builder.trainingPriority'));
 
   const blurb = document.createElement('p');
   blurb.className = 'lprio-blurb';
@@ -113,23 +113,21 @@ export function renderLineStatsEmpty(host: HTMLElement): void {
 
   const head = document.createElement('div');
   head.className = 'lineinfo-head';
-  head.appendChild(spanEl('lineinfo-head-title', 'How this line is going'));
-  head.appendChild(spanEl('lineinfo-head-meta', 'Not saved yet'));
+  head.appendChild(spanEl('lineinfo-head-title', t('builder.howThisLineIs')));
+  head.appendChild(spanEl('lineinfo-head-meta', t('builder.notSavedYet')));
   host.appendChild(head);
 
   const row = document.createElement('div');
   row.className = 'stats-quick-row lineinfo-quick lineinfo-quick--empty';
-  row.appendChild(statBox('faced', Icons.grid2x2(18), '—', 'Faced in games'));
-  row.appendChild(statBox('recall', Icons.brain(18), '—', 'Recalled'));
-  row.appendChild(statBox('runs', Icons.reset(18), '—', 'Full runs'));
-  row.appendChild(statBox('reviews', Icons.zap(18), '—', 'Reviews'));
+  row.appendChild(statBox('faced', Icons.grid2x2(18), '—', t('builder.facedInGames')));
+  row.appendChild(statBox('recall', Icons.brain(18), '—', t('builder.recalled')));
+  row.appendChild(statBox('runs', Icons.reset(18), '—', t('builder.fullRuns')));
+  row.appendChild(statBox('reviews', Icons.zap(18), '—', t('builder.reviews')));
   host.appendChild(row);
 
   const note = document.createElement('p');
   note.className = 'lineinfo-note';
-  note.textContent = 'Save the line and these fill in as you train it: how often '
-    + 'it turns up in your imported games, how much of it you remember, and which '
-    + 'move keeps breaking.';
+  note.textContent = t('builder.saveTheLineAnd');
   host.appendChild(note);
 }
 
@@ -156,9 +154,9 @@ export function addedLabel(createdAt: number | undefined): string {
   if (!createdAt) return '';
   const then = new Date(createdAt);
   const days = Math.floor((Date.now() - then.getTime()) / 86_400_000);
-  if (days <= 0) return 'Added today';
-  if (days === 1) return 'Added yesterday';
-  if (days < 7) return `Added ${days} days ago`;
+  if (days <= 0) return t('builder.addedToday');
+  if (days === 1) return t('builder.addedYesterday');
+  if (days < 7) return t('builder.addedDaysAgo', { days: days });
   return `Added ${then.toLocaleDateString(appLocale(), {
     day: 'numeric', month: 'short', year: 'numeric',
   })}`;
@@ -167,9 +165,9 @@ export function addedLabel(createdAt: number | undefined): string {
 /** The full date, for the title attribute behind the relative label. */
 export function addedExact(createdAt: number | undefined): string {
   if (!createdAt) return '';
-  return `Last added to on ${new Date(createdAt).toLocaleDateString(appLocale(), {
+  return t('lineInfo.lastAdded', { date: new Date(createdAt).toLocaleDateString(appLocale(), {
     day: 'numeric', month: 'long', year: 'numeric',
-  })}`;
+  }) });
 }
 
 export function renderLineStats(host: HTMLElement, opts: LineStatsOpts): void {
@@ -184,10 +182,10 @@ export function renderLineStats(host: HTMLElement, opts: LineStatsOpts): void {
 
   const head = document.createElement('div');
   head.className = 'lineinfo-head';
-  head.appendChild(spanEl('lineinfo-head-title', 'How this line is going'));
+  head.appendChild(spanEl('lineinfo-head-title', t('builder.howThisLineIs')));
   const due = describeDue(nextDue(line));
   head.appendChild(spanEl('lineinfo-head-meta',
-    line.inTraining ? due : 'Not in training'));
+    line.inTraining ? due : t('builder.notInTraining')));
   host.appendChild(head);
 
   // When it joined the book. Small, above the numbers, because it is the one
@@ -204,34 +202,34 @@ export function renderLineStats(host: HTMLElement, opts: LineStatsOpts): void {
   // the same thing in both places.
   const row = document.createElement('div');
   row.className = 'stats-quick-row lineinfo-quick';
-  row.appendChild(statBox('faced', Icons.grid2x2(18), String(faced), 'Faced in games'));
+  row.appendChild(statBox('faced', Icons.grid2x2(18), String(faced), t('builder.facedInGames')));
   row.appendChild(statBox('recall', Icons.brain(18),
-    memory.recallPct === null ? '—' : `${memory.recallPct}%`, 'Recalled'));
-  row.appendChild(statBox('runs', Icons.reset(18), String(runs), 'Full runs'));
-  row.appendChild(statBox('reviews', Icons.zap(18), String(reviews), 'Reviews'));
+    memory.recallPct === null ? '—' : `${memory.recallPct}%`, t('builder.recalled')));
+  row.appendChild(statBox('runs', Icons.reset(18), String(runs), t('builder.fullRuns')));
+  row.appendChild(statBox('reviews', Icons.zap(18), String(reviews), t('builder.reviews')));
   host.appendChild(row);
 
   // The honest caveat: a recall figure built from nothing is not a figure.
   const covered = document.createElement('p');
   covered.className = 'lineinfo-note';
   covered.textContent = memory.trained === 0
-    ? `None of this line’s ${memory.total} move${memory.total === 1 ? '' : 's'} has been drilled yet.`
-    : `${memory.solid} of ${memory.trained} drilled move${memory.trained === 1 ? '' : 's'} remembered at the last attempt`
-      + (memory.trained < memory.total ? ` · ${memory.total - memory.trained} still untouched` : '');
+    ? t('lineInfo.noneDrilled', { n: memory.total })
+    : t('lineInfo.remembered', { solid: memory.solid, n: memory.trained })
+      + (memory.trained < memory.total ? ` · ${t('lineInfo.untouched', { n: memory.total - memory.trained })}` : '');
   host.appendChild(covered);
 
   // ── Where it breaks ──
   const failHead = document.createElement('div');
   failHead.className = 'lineinfo-head';
-  failHead.appendChild(spanEl('lineinfo-head-title', 'Where it breaks'));
+  failHead.appendChild(spanEl('lineinfo-head-title', t('builder.whereItBreaks')));
   host.appendChild(failHead);
 
   if (!failed.length) {
     const none = document.createElement('p');
     none.className = 'lineinfo-note';
     none.textContent = memory.trained === 0
-      ? 'Nothing to report until the line has been trained.'
-      : 'No missed moves in this line — it is holding up.';
+      ? t('builder.nothingToReportUntil')
+      : t('builder.noMissedMovesIn');
     host.appendChild(none);
     return;
   }
@@ -253,7 +251,7 @@ export function renderLineStats(host: HTMLElement, opts: LineStatsOpts): void {
     // that just broke again.
     rowEl.appendChild(spanEl(
       `lineinfo-fail-state lineinfo-fail-state--${m.reps > 0 ? 'ok' : 'shaky'}`,
-      m.reps > 0 ? `${m.reps} clean` : 'shaky',
+      m.reps > 0 ? t('builder.clean', { reps: m.reps }) : 'shaky',
     ));
     list.appendChild(rowEl);
   }
