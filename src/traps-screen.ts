@@ -12,6 +12,7 @@ import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import type { Trap, TrapPack } from './traps';
 import { formatSanLine } from './notation';
 import { t } from './i18n';
+import { levelLabel, loadContentWords, translateTraps } from './content-language';
 
 type Colour = 'white' | 'black';
 
@@ -19,7 +20,8 @@ type Colour = 'white' | 'black';
 let packsPromise: Promise<TrapPack[]> | null = null;
 export function loadTraps(): Promise<TrapPack[]> {
   if (!packsPromise) {
-    packsPromise = import('./traps.json').then(m => (m.default ?? m) as unknown as TrapPack[]);
+    packsPromise = Promise.all([import('./traps.json'), loadContentWords()])
+      .then(([m, words]) => translateTraps((m.default ?? m) as unknown as TrapPack[], words?.traps));
   }
   return packsPromise;
 }
@@ -53,7 +55,7 @@ export function trapCard(
   titleRow.appendChild(nameEl);
   const lvl = document.createElement('span');
   lvl.className = 'tag-chip trap-level-chip';
-  lvl.textContent = trap.level;
+  lvl.textContent = levelLabel(trap.level);
   titleRow.appendChild(lvl);
 
   const fam = document.createElement('div');

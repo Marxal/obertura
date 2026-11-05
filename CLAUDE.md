@@ -75,6 +75,7 @@ All visible text goes through `t('key')` from `src/i18n.ts`, with the English in
 `src/locales/en.json`. Write whole sentences with `{name}` placeholders; never join
 fragments. A chip inside a sentence uses `tParts()`. Words come from
 `src/locales/GLOSSARY.md`. New features ship in English and fall back to it per key.
+Starter pack notes and traps are translated in `src/locales/content/`, never in their source files.
 Layout check: `npm run i18n:layout`. The plan is `TRANSLATION-PLAN.md`.
 
 ## The documentation

@@ -2261,6 +2261,7 @@ Every non-selftest module in `src/`, exactly once.
 | `i18n.ts` | `t()`, plurals and the English fallback; `locales/en.json` is the source (`TRANSLATION-PLAN.md`) |
 | `language-choice.ts` | which language to run in, as a pure decision |
 | `language.ts` | loading the language at startup, `?lang=` previews, saving a choice |
+| `content-language.ts` | laying translated starter pack notes and traps over the English, plus level and style labels |
 | `language-picker.ts` | the Language control, hidden until a second language is released |
 | `locales/pseudo.ts` | the fake language `xx`, for finding untranslated text and overflow |
 | `onboarding-recap.ts` | the recap's arithmetic — openings, trunks, picks (engine-free) |
@@ -2299,7 +2300,8 @@ never hand-edit.
 | `openings-library.json` | 1.7 MB | 12,352 library entries (name, ECO, moves) |
 | `starter-packs.json` | 64 KB | 6 packs, 62 lines |
 | `traps.json` | 10 KB | 19 traps in 2 groups |
-| `endgames.json` | 6.6 KB | 18 fundamental endgames, all ≤7 pieces |
+| `endgames.json` | 4 KB | 18 fundamental endgames, all ≤7 pieces. Their names and ideas are dictionary keys |
+| `locales/content/<lang>.json` | 70 KB each | translated starter pack notes and traps, matched by English name |
 | `onboarding-lines.json` | 3.4 KB | the 8 curated first lines |
 | `puzzle-openings.json` | 2.8 KB | 122 opening → Lichess puzzle "angle" mappings |
 | `explorer-stats.json` | 8.6 MB (1.5 MB compressed) | fetched on first use as a plain file — see §24 |

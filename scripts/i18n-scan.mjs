@@ -171,5 +171,5 @@ if (listing) {
   console.log(`Dates and numbers:   ${countOf(/\.toLocale\w*\(|\bIntl\.\w+/g, toLocale)} toLocale/Intl uses`);
   console.log(`CSS:                 ${countOf(/white-space:\s*nowrap/g, css)} no-wrap rules, ${countOf(/text-overflow:\s*ellipsis/g, css)} "…" rules, ${countOf(/overflow-wrap|word-break|hyphens/g, css)} wrap rules`);
   console.log(`Starter pack notes:  ${wordsInJson('src/starter-packs.json')} words`);
-  console.log(`Traps and endgames:  ${wordsInJson('src/traps.json') + wordsInJson('src/endgames.json')} words`);
+  console.log(`Traps:               ${wordsInJson('src/traps.json')} words`);
 }

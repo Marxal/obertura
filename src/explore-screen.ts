@@ -57,6 +57,7 @@ import {
 import { loadTraps, trapCard } from './traps-screen';
 import { trapsForPairs, type TrapPack } from './traps';
 import { loadPacks, type Pack, type PackLine } from './onboarding-starter';
+import { levelLabel, styleLabel } from './content-language';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar, type ColourFilter, type FilterSelection } from './filters';
@@ -863,7 +864,7 @@ function buildPacksTab(
     for (const pack of matchingPacks) {
       list.appendChild(packAccordion({
         title: pack.title,
-        meta: `${normalizePackLevel(pack.level)} · ${pack.style} · ${t('starter.lines', { n: pack.lines.length })}`,
+        meta: `${levelLabel(normalizePackLevel(pack.level))} · ${styleLabel(pack.style)} · ${t('starter.lines', { n: pack.lines.length })}`,
         colour: pack.colour,
         buildBody: () => {
           const blurb = document.createElement('p');

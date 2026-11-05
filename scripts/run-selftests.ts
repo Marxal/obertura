@@ -38,6 +38,7 @@ import { runBrilliantSelfTest } from '../src/brilliant.selftest';
 import { runDetectiveSelfTest } from '../src/detective.selftest';
 import { runWhichMoveSelfTest } from '../src/which-move.selftest';
 import { runI18nSelfTest } from '../src/i18n.selftest';
+import { runContentLanguageSelfTest } from '../src/content-language.selftest';
 import { runSpotRestSelfTest } from '../src/spot-rest.selftest';
 import { runGrowLineSelfTest } from '../src/grow-line.selftest';
 import { runNextReplySelfTest } from '../src/next-reply.selftest';
@@ -131,6 +132,7 @@ const SUITES: { suite: string; run: () => TestResult[] | Promise<TestResult[]> }
   { suite: 'local-keys', run: runLocalKeysSelfTest },
   { suite: 'train-progress', run: runTrainProgressSelfTest },
   { suite: 'i18n', run: runI18nSelfTest },
+  { suite: 'content-language', run: runContentLanguageSelfTest },
 ];
 
 let total = 0;

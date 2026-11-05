@@ -18,7 +18,9 @@ two disagree, this file wins, because it records the decisions made after that g
 - If a sentence sounds translated, rewrite it from scratch.
 - Check three things: is it the right chess word, would a speaker say it, is it the shortest
   clear way.
-- Move notation and opening names aren't translated yet (Phase 10).
+- Move notation isn't translated: a note says *Nf3* in every language, as it does in English.
+- Opening names from the library aren't translated yet (Phase 10). Names we wrote ourselves, for
+  starter pack lines and traps, are translated: see below.
 - "Bito" and "Bito Chess" are never translated.
 
 **Catalan only:** *badada* and *cagada* are Bito's one playful touch. Spanish and Swedish stay
@@ -164,6 +166,55 @@ sections 5 to 9.
 | Rating | Puntuació | Puntuación | Rating |
 | Continue as a guest | Continua sense compte | Continuar sin cuenta | Fortsätt utan konto |
 | Founding member | Membre d’honor | Acceso fundacional | Grundarmedlem |
+
+## Chess words in the notes (mine, to check with club players)
+
+| English | Catalan | Spanish | Swedish |
+|---|---|---|---|
+| castle / castling | enrocar, enroc | enrocar, enroque | rockera, rockad |
+| file / rank | columna, fila | columna, fila | linje, rad |
+| kingside / queenside | flanc de rei, flanc de dama | flanco de rey, flanco de dama | kungsflygel, damflygel |
+| break (pawn) | ruptura | ruptura | brytning |
+| tempo | temps | tiempo | tempo |
+| bishop pair | parella d'alfils | pareja de alfiles | löparpar |
+| passed pawn | peó passat | peón pasado | fribonde |
+| isolated queen's pawn | peó de dama aïllat | peón de dama aislado | isolerad dambonde |
+| pawn storm | allau de peons | avalancha de peones | bondestorm |
+| minority attack | atac de minories | ataque de minorías | minoritetsangrepp |
+| outpost | punt fort | puesto avanzado | utpost |
+| the exchange (rook for minor) | la qualitat | la calidad | kvalitet |
+| stalemate | ofegat | ahogado | patt |
+| opposition | oposició | oposición | opposition |
+| White, Black (the players) | les blanques, les negres | las blancas, las negras | vit, svart |
+
+## Opening names we wrote ourselves
+
+Starter pack lines and traps only. Spoken names, without *Defensa* or *Obertura* where a player would
+drop them.
+
+| English | Catalan | Spanish | Swedish |
+|---|---|---|---|
+| Italian | Italiana | Italiana | Italienskt |
+| Two Knights | Dos Cavalls | Dos Caballos | Tvåspringarspel |
+| Sicilian | Siciliana | Siciliana | Sicilianskt |
+| French | Francesa | Francesa | Franskt |
+| Scandinavian | Escandinava | Escandinava | Skandinaviskt |
+| Petroff | Petrov | Petrov | Ryskt |
+| London | Londres | Londres | London |
+| King's Indian | Índia de rei | India de rey | Kungsindiskt |
+| Ruy Lopez | Ruy López | Ruy López | Spanskt |
+| Scotch | Escocesa | Escocesa | Skotskt |
+| King's Gambit | Gambit de rei | Gambito de rey | Kungsgambit |
+| Vienna | Vienesa | Vienesa | Wienerparti |
+| Bishop's Opening | Obertura de l'alfil | Apertura de alfil | Löparspel |
+| Four Knights | Quatre Cavalls | Cuatro Caballos | Fyrspringarspel |
+| Centre Game | Joc del centre | Apertura del centro | Centrumspel |
+| Slav | Eslava | Eslava | Slaviskt |
+| Queen's Gambit Declined | Gambit de dama refusat, GDR | Gambito de dama rehusado, GDR | Avböjd damgambit |
+| Catalan | Catalana | Catalana | Katalanskt |
+| Exchange variation | Canvis | Cambios | Avbytesvarianten |
+| Advance variation | Avanç | Avance | Framskjutningsvarianten |
+| Fried Liver Attack | Atac Fegatello | Ataque Fegatello | Fried Liver-angreppet |
 
 ## Tactical themes (mine, to check with club players)
 

@@ -1,0 +1,839 @@
+{
+  "packs": {
+    "white-e4-beginner": {
+      "title": "1.e4 — Principiante",
+      "blurb": "Aperturas clásicas de peón de rey, con respuestas simples y seguras contra cada defensa de las negras. El mejor sitio para empezar.",
+      "lines": {
+        "Italian Game (Giuoco Piano)": {
+          "name": "Italiana (Giuoco Piano)",
+          "plan": "Construcción lenta: mantén el centro con c3/d3, lleva el caballo de b1 por d2–f1 hasta g3 y luego elige la ruptura: d4 en el centro o juego en el flanco de rey con ideas como Nf5/Ng5. Sin prisa: mejora una pieza en cada jugada.",
+          "notes": {
+            "4": "El alfil italiano apunta directamente a f7, la casilla más débil del campo negro (solo la defiende el rey).",
+            "6": "Prepara d4: después de c3, el avance d4 llega con el apoyo de un peón y el alfil negro tiene que ceder terreno.",
+            "8": "La opción moderna y paciente. El centro es sólido y la lucha pasa a las maniobras lentas, más fáciles de jugar.",
+            "10": "En posiciones abiertas, enroca pronto: la táctica en la columna e castiga al rey que se queda en el centro.",
+            "12": "La torre defiende e4 y espera, sin hacer ruido, detrás de una futura ruptura d4.",
+            "14": "Responde a la expansión negra en el flanco de dama: impide que ...b5 gane espacio y da al alfil de c4 una retirada en a2.",
+            "16": "Un pequeño respiro para el rey que además quita g4 a las piezas negras: ni clavada con ...Bg4 ni trucos con ...Ng4."
+          }
+        },
+        "Italian vs ...Nf6 (Two Knights, quiet)": {
+          "name": "Italiana contra ...Nf6 (Dos Caballos, tranquila)",
+          "plan": "Llegas a la misma estructura del Giuoco Pianissimo: c3/d3, Re1, a4 y luego la ruptura d4 o la ruta del caballo Nbd2–f1–g3. El orden de jugadas cambia; el plan, no.",
+          "notes": {
+            "5": "Las negras desarrollan con una amenaza contra e4: es la defensa de los Dos Caballos.",
+            "6": "Defiende e4 y ya está. Existe la aguda 4.Ng5, pero d3 te mantiene en terreno italiano conocido, sin ningún riesgo.",
+            "10": "Un clásico: la torre detrás del peón e antes de cualquier ruptura central.",
+            "12": "Espacio en el flanco de dama y una casilla de retirada (a2) para el alfil.",
+            "14": "La pareja habitual con d3: algún día jugarás d4 de una vez, bien apoyado.",
+            "16": "Empieza la ruta soñada: este caballo va hacia d2–f1–g3 (o c4), la maniobra típica de la italiana."
+          }
+        },
+        "Italian move order: 3...Nf6 4.d3 Bc5": {
+          "name": "Orden de jugadas italiano: 3...Nf6 4.d3 Bc5",
+          "plan": "Si las negras juegan ...Nf6 antes de ...Bc5, simplemente transpones: la misma estructura de peones (c3+d3), la misma torre en e1, la misma ruta del caballo. Un solo esquema, sea cual sea el orden.",
+          "notes": {
+            "7": "Las negras vuelven a las líneas del Giuoco: ya estás en el plan principal, solo has entrado por otra puerta.",
+            "10": "La idea de siempre: apoyar un futuro d4.",
+            "16": "El toque final del esquema: g4 queda prohibida y la última fila respira."
+          }
+        },
+        "vs Sicilian — Alapin (2...d5)": {
+          "name": "Contra la Siciliana — Alapin (2...d5)",
+          "plan": "Tienes un centro de tipo peón de dama aislado y un desarrollo fácil. Mantén las piezas activas, vigila el peón de d4 y aprovecha las líneas abiertas: los cambios favorecen a las negras, la actividad te favorece a ti.",
+          "notes": {
+            "2": "La Alapin: te ahorras la enorme teoría de la Siciliana Abierta y construyes un gran centro con d4.",
+            "4": "Cambia antes de que las negras jueguen ...d4: si recaptura la dama, Su Majestad queda expuesta a jugadas que te ganan tiempo.",
+            "6": "La idea de c3: un centro completo de peones mientras la dama negra está al descubierto.",
+            "10": "Deshaz la clavada con calma. Ninguna debilidad, y la siguiente es O-O.",
+            "14": "Refuerza d4 antes de que las negras carguen sobre él: toda la partida gira en torno a ese peón.",
+            "16": "Recaptura hacia el centro. Quizá acabes con un peón d aislado: no pasa nada, a cambio tienes líneas abiertas y buenas casillas."
+          }
+        },
+        "vs Sicilian — Alapin (2...Nf6)": {
+          "name": "Contra la Siciliana — Alapin (2...Nf6)",
+          "plan": "El caballo negro va de un lado a otro mientras tú construyes el centro. Desarrolla ganando tiempo (Bc4 ataca las casillas del caballo), mantén d4 sano y disfruta de una ventaja de espacio sin riesgo.",
+          "notes": {
+            "3": "La respuesta crítica: ataca e4 antes de que juegues d4.",
+            "4": "Avanza ganando tiempo. El caballo tiene que volver a moverse y tú ganas tiempo para el centro.",
+            "8": "El centro llega cuando toca, protegido por c3.",
+            "12": "Desarrolla haciendo una pregunta: el caballo de d5 ya no está cómodo.",
+            "14": "Conserva el alfil y clava el caballo de c6: de repente, recuperar e5 cuesta mucho.",
+            "16": "Recaptura con el caballo y mantén la presión: la clavada en c6 obliga a las negras a desenredarse con cuidado."
+          }
+        },
+        "vs Sicilian — Alapin (2...e6)": {
+          "name": "Contra la Siciliana — Alapin (2...e6)",
+          "plan": "Una estructura de tipo francesa donde a menudo ganas la tensión sobre el peón de c5. Juega contra el peón aislado de d5: bloquéalo con un caballo en d4, cambia los defensores de las casillas oscuras y presiona.",
+          "notes": {
+            "4": "Ocupa todo el centro: con ...e6, las negras no pueden presionarlo pronto con las piezas.",
+            "6": "Aclara la posición: las negras tendrán un peón d aislado que vigilar toda la partida.",
+            "10": "Un jaque útil: la pieza que lo tape quedará algo mal colocada.",
+            "14": "Resuelve la tensión en el momento justo: la recaptura cuesta otro tiempo a las negras.",
+            "16": "Va hacia b3 o f1–g3: a los caballos les encantan las casillas claras alrededor del peón aislado negro."
+          }
+        },
+        "vs French — Exchange": {
+          "name": "Contra la Francesa — Cambios",
+          "plan": "Una estructura simétrica donde gana quien se desarrolla mejor. Coloca los alfiles en sitios activos (Bd3+Bg5), pon los caballos en e5/g3 y prepara un ataque en el flanco de rey mientras las negras te imitan con un tiempo de retraso.",
+          "notes": {
+            "4": "La variante de cambios: sin cadenas de peones francesas ni debates de teoría. Una partida limpia y abierta donde las blancas salen primero.",
+            "8": "La mejor diagonal del alfil: mira a h7 durante todo el medio juego.",
+            "12": "Una clavada de verdad: el caballo negro de f6 sostiene todo el flanco de rey.",
+            "14": "Flexible: el caballo puede ir por f1–g3 o c4–e5. La simetría solo es igualdad si las negras también encuentran todas las buenas casillas.",
+            "16": "Una jugada modesta con un objetivo: más adelante, espacio con b4-b5, y el peón de d4 ya no sufrirá más."
+          }
+        },
+        "vs Caro-Kann — Exchange": {
+          "name": "Contra la Caro-Kann — Cambios",
+          "plan": "El clásico ataque de tipo Carlsbad: Qb3 presiona b7, los caballos van a e5/f3 y luego llegan las ideas de ataque de minorías (b4-b5) o una ofensiva en el flanco de rey. Casillas simples, plan claro.",
+          "notes": {
+            "4": "Cambia hacia una estructura que TÚ conoces mejor: es un gambito de dama, variante de cambios, con los colores invertidos y un tiempo de más.",
+            "6": "Ocupa la diagonal b1-h7 antes de que el alfil negro la dispute con ...Bf5.",
+            "8": "Consolida d4 y abre c2 para la dama.",
+            "10": "El alfil toma la mejor diagonal fuera de la cadena de peones antes de que ...Bg4/...e6 lo cierren.",
+            "12": "Ataque doble: b7 cuelga y d5 nota la presión. Las negras tienen que contorsionarse para cubrirlo todo.",
+            "14": "Fíjate en el orden de jugadas: este caballo sale primero para que f3 quede libre para el caballo de g1, y así ...Bxf3 no hace daño.",
+            "16": "Todo está conectado: ahora llegan O-O, Rfe1 o la típica Ne5."
+          }
+        },
+        "vs Scandinavian": {
+          "name": "Contra la Escandinava",
+          "plan": "Llevas dos tiempos de ventaja en el desarrollo. Enroca largo, lanza los peones del flanco de rey o rompe con d5/Ne5: la presión clásica contra la Escandinava. Vigila los trucos con ...Bxf3 y ...Qxd4; Bd2 y Qe2 los cubren.",
+          "notes": {
+            "2": "Acepta: toda la gracia de la Escandinava es que las negras recapturan con la dama y tú te desarrollas ganando tiempo.",
+            "4": "Desarrolla y ataca la dama a la vez. Jugadas gratis como esta explican por qué 1...d5 es rara en la élite.",
+            "12": "Una gran jugada tranquila: cubre el caballo de c3 (adiós a los trucos con ...Qxc3) y mira a la dama de a5 por la diagonal.",
+            "14": "Conecta las torres y prepara O-O-O: la torre llegará a d1, encarada a la columna de la dama negra.",
+            "16": "Enroca HACIA el ataque: tu rey está seguro detrás de los peones a-b-c y todas las piezas blancas apuntan a la posición negra."
+          }
+        },
+        "vs Pirc / Modern — Classical": {
+          "name": "Contra la Pirc / Moderna — Clásica",
+          "plan": "Responde al fianchetto con calma: centro completo, desarrollo natural y enroque corto. Cuando llegue ...e5, mantén la tensión o cambia si te conviene; con más espacio, cada cambio facilita tu partida, no la suya.",
+          "notes": {
+            "6": "El esquema clásico: ninguna avalancha de peones que memorizar, solo buenas casillas y una ventaja de espacio.",
+            "8": "Modesta pero ideal: te deja enrocar y más adelante apoya g4 o f3 si la partida se complica.",
+            "12": "Frena la expansión negra en el flanco de dama antes de que empiece: ...b5 era la principal fuente de juego de la Pirc.",
+            "15": "Las negras por fin reclaman el centro: la ruptura típica de la Pirc.",
+            "16": "Lo conservas todo: g4 queda vedada a las piezas negras y puedes elegir entre dxe5, d5 o simplemente Be3."
+          }
+        },
+        "vs Philidor (2...d6)": {
+          "name": "Contra la Philidor (2...d6)",
+          "plan": "Abre el centro y disfruta de más espacio y de piezas más libres. Reagrúpate con Re1/Bf1 (un truco de la Ruy López) y más adelante expándete con a4/b4 o f4. Las negras son sólidas pero pasivas; la paciencia gana.",
+          "notes": {
+            "3": "La Philidor: sólida, pero tapa el alfil de f8. Las negras aceptan una posición estrecha.",
+            "4": "Golpea enseguida: si las negras sostienen el centro con líneas de ...Nd7, conservas el espacio; si juegan ...exd4, la posición se abre para tus piezas, que son mejores.",
+            "14": "Las torres van a la columna (semi)abierta, y eso desanima cualquier truco con la ruptura ...d5.",
+            "16": "El mismo reagrupamiento que acaban de hacer las negras: el alfil se recoloca, la torre conserva la columna y luego llegan g3/Bg2 o b3/Bb2."
+          }
+        },
+        "vs Petroff (2...Nf6)": {
+          "name": "Contra la Petrov (2...Nf6)",
+          "plan": "Un medio juego casi simétrico donde tu presión con c4/Nc3 sobre d5 te da una iniciativa duradera. Conserva las piezas, ataca las casillas de retirada del caballo de e4 y expándete con c4-c5 o con cambios centrales cuando toque.",
+          "notes": {
+            "3": "La Petrov: en lugar de defender e5, las negras contraatacan e4.",
+            "4": "Captura primero. La trampa famosa: si las negras capturan enseguida con 3...Nxe4?, 4.Qe2! gana material, porque el caballo queda clavado ante un jaque a la descubierta.",
+            "8": "Reclama el centro mientras el caballo de e4 decide dónde vivir.",
+            "14": "El golpe principal: ataca d5 para que el caballo de e4 pierda su punto de apoyo.",
+            "16": "Apártate y mantén la tensión: el caballo de b4 tendrá que volver atrás, y cxd5 pende sobre las negras."
+          }
+        }
+      }
+    },
+    "white-d4-london": {
+      "title": "1.d4 — Sistema Londres",
+      "blurb": "Un solo esquema contra casi todo: Bf4, e3, Nf3, Bd3, c3. Poca teoría y muy sólido.",
+      "lines": {
+        "London vs ...d5 (classical)": {
+          "name": "Londres contra ...d5 (clásica)",
+          "plan": "El sueño completo de la Londres: caballo a e5, se suma el peón f o la dama, y las piezas se amontonan ante el rey negro. Si las negras cambian en e5, recaptura hacia el flanco de rey y ataca por la columna f o con h4-h5.",
+          "notes": {
+            "2": "La jugada de la Londres: el alfil SALE antes de que e3 cierre la puerta. El resto es el mismo muro: e3, Nf3, Bd3, c3, Nbd2.",
+            "4": "El muro se levanta. Fíjate en que el alfil ya está fuera.",
+            "7": "Las negras ofrecen cambiar tu alfil bueno: no captures nunca; haz que decidan ellas.",
+            "8": "Retíralo. Si algún día las negras capturan en g3, hxg3 abre la columna h directa a su rey: una columna de ataque gratis.",
+            "12": "El segundo ladrillo del muro: d4 es ahora una roca, hagan lo que hagan las negras.",
+            "14": "Este caballo cubre e4/c4 y libera al otro para la casilla estrella...",
+            "16": "La recompensa de la Londres: el caballo se instala en e5 para quedarse. Si ...Nxe5 dxe5, el peón hace horquilla a d6 y f6 y tus piezas inundan el flanco de rey."
+          }
+        },
+        "London vs ...c5": {
+          "name": "Londres contra ...c5",
+          "plan": "El mismo esquema y la misma recompensa con Ne5. Contra la presión de ...c5+...Qb6, Qb1 o Qc1 defienden b2 con calma: que el peón b no te distraiga nunca del plan en el flanco de rey.",
+          "notes": {
+            "3": "Las negras atacan d4 enseguida: c3 lo aguantará siempre.",
+            "8": "Ahora d4 está defendido tres veces. La Londres tampoco teme ...cxd4: exd4 te abre la columna e.",
+            "10": "La misma rutina en cada partida: primero este caballo, para que Ne5 quede disponible para su pareja.",
+            "16": "Aquí lo tienes otra vez. Apoyado por d4 y las ideas con f4, el caballo ahoga toda la posición negra."
+          }
+        },
+        "London vs King's Indian setup": {
+          "name": "Londres contra el esquema de India de rey",
+          "plan": "Contra el fianchetto, mantente compacto: h3 protege el alfil y c3 aguanta el centro. Responde a ...e5 con dxe5 y aprovecha la columna d; responde a ...Nh5 con Bh2, donde el alfil conserva la diagonal. Juega en el flanco de dama con c4/b4 si el centro sigue cerrado.",
+          "notes": {
+            "3": "Un esquema de India de rey: las negras apuntarán a tu centro con ...e5 o ...d6/...Nbd7.",
+            "8": "Aquí es más tranquilo que Bd3: contra un alfil de g6, el alfil de casillas claras es un actor secundario, no la estrella.",
+            "10": "Primero el rey. En la Londres no te dan mate en la apertura.",
+            "12": "Una pequeña jugada clave: da al alfil de f4 el escondite de h2, y así ...Nh5 o ...e5-e4 no lo ganan nunca.",
+            "14": "El cemento de siempre. Si ahora llega ...e5: dxe5 dxe5, retira el alfil y domina la columna d.",
+            "16": "Esquema completado. Ahora: a4 para ganar espacio, o Qb1/Re1 según dónde se comprometan las negras."
+          }
+        },
+        "London vs ...e6 (Queen's-side setup)": {
+          "name": "Londres contra ...e6 (esquema de flanco de dama)",
+          "plan": "Las negras retrasan ...d5, pero normalmente acaban jugándolo: transpones al plan clásico. Nbd2, Bd3 y luego Ne5 con una ofensiva en el flanco de rey. Un sistema, muchas puertas de entrada.",
+          "notes": {
+            "8": "Siempre este ladrillo antes de Bd3: si no, ...Nb4 acosa al alfil.",
+            "10": "De vuelta en terreno conocido: es la Londres clásica con una jugada de más para cada bando.",
+            "16": "La jugada alrededor de la cual se construye todo el sistema: consolídala con f4 o cambia hacia una avalancha de peones en el flanco de rey."
+          }
+        },
+        "London vs ...c6 + ...Bf5 (Slav-like)": {
+          "name": "Londres contra ...c6 + ...Bf5 (estilo Eslava)",
+          "plan": "Cuando las negras copian tu idea del alfil, cámbialo y reclama el centro: Qxd3 lo deja todo ordenado y luego e4! convierte tu muro «aburrido» en un auténtico centro de peones. De la simetría sales con la partida más libre.",
+          "notes": {
+            "7": "Las negras también desarrollan el alfil fuera del muro: la jugada de la copia.",
+            "8": "Ofrece el cambio: las opciones de recaptura con la columna e hacen que la posición simétrica te favorezca discretamente.",
+            "10": "La dama está perfectamente colocada: apoya la ruptura e4 que llega.",
+            "12": "Ahora los dos caballos apuntan a e4.",
+            "16": "La ruptura que gana el centro: el cambio en e4 te deja más libre, y si la ignoran puedes avanzar e5 con espacio."
+          }
+        },
+        "London vs ...Qb6 (the b2 poke)": {
+          "name": "Londres contra ...Qb6 (la presión en b2)",
+          "plan": "Qc1 neutraliza del todo la salida de la dama; la dama negra suele acabar mal colocada en b6. Y volvemos a la normalidad: Bd3/Bg3, O-O, Nbd2-e5 y la ofensiva habitual en el flanco de rey.",
+          "notes": {
+            "9": "La presión más molesta contra la Londres: la dama ataca b2, que el alfil ha dejado atrás.",
+            "10": "La respuesta tranquila: b2 queda cubierto, no creas ninguna debilidad y, de todos modos, tu dama ya iba por aquí (hacia h6).",
+            "16": "Algo más humilde que d3 (la dama vigila los asuntos de la columna c), pero el plan no cambia: O-O, Ne5, juego en el flanco de rey."
+          }
+        },
+        "London vs Modern (...d6 + ...g6)": {
+          "name": "Londres contra la Moderna (...d6 + ...g6)",
+          "plan": "La misma receta antifianchetto que contra la India de rey: h3, c3, centro paciente. Si las negras ganan espacio con ...e5, cambia en e5 y ataca d6 por la columna. La expansión en el flanco de dama con a4-a5 es tu victoria lenta.",
+          "notes": {
+            "12": "El escondite del alfil en h2, como siempre contra los esquemas con ...g6.",
+            "16": "Hecho. A partir de aquí: a4, Qb1 o Re1. Elige el flanco donde las negras sean más débiles."
+          }
+        },
+        "London vs ...Bg4 (the pin)": {
+          "name": "Londres contra ...Bg4 (la clavada)",
+          "plan": "Invita al cambio en f3: la recaptura con la dama es cómoda y te quedas la pareja de alfiles. Luego, el centro habitual (Nd2, Bd3, O-O) con el plan a largo plazo de e4 y un avance lento en el flanco de rey.",
+          "notes": {
+            "7": "La clavada: el intento más agudo contra el esquema tranquilo de la Londres.",
+            "8": "Haz la pregunta enseguida: retirarse (pierde tiempo) o cambiar (te da los alfiles).",
+            "10": "Totalmente segura: la dama incluso mira a b7 y apoya un e4 posterior.",
+            "12": "Hacia la tarea de apoyar e4. Las negras han dado un alfil por un caballo y la pareja es tuya: mantén la posición rica y evita más cambios.",
+            "16": "Pon el rey a resguardo y luego prepara e4 (ideas con Rfe1, Qe2): los alfiles quieren líneas abiertas."
+          }
+        },
+        "London vs early ...cxd4 (open centre)": {
+          "name": "Londres contra ...cxd4 pronto (centro abierto)",
+          "plan": "Con la columna c semiabierta, más adelante coloca la torre de dama en c1 y juega contra el flanco de dama negro. La pregunta h3 al alfil de g4 y una Ne5 en el momento oportuno siguen siendo tus herramientas habituales.",
+          "notes": {
+            "5": "Las negras liberan la tensión pronto: recaptura hacia el centro.",
+            "6": "Ahora la columna e está semiabierta para tu torre, y el alfil fuera de la cadena está justo donde quiere estar.",
+            "14": "Con la tensión en c resuelta, la dama encuentra trabajo: b7 es sensible y la columna b te llama.",
+            "16": "La pregunta habitual al alfil: cada retirada o cambio mejora un poco tu posición."
+          }
+        },
+        "London vs ...Be7 (flexible QGD style)": {
+          "name": "Londres contra ...Be7 (estilo GDR flexible)",
+          "plan": "Contra la modesta ...Be7, ocupa pronto el puesto avanzado de e5 y construye detrás: f4 si te lo permiten, elevaciones con Qf3/Rf3 en el mejor de los casos, o simplemente una ventaja sólida con más espacio. Aquí la Londres se juega sola.",
+          "notes": {
+            "7": "Las negras rechazan la oferta de cambio con ...Bd6: un problema menos para tu alfil de casillas oscuras.",
+            "16": "Sin el alfil de d6 para discutirlo, el caballo es aún más fuerte aquí. Con f4 a continuación, será permanente."
+          }
+        }
+      }
+    },
+    "white-e4-attacking": {
+      "title": "1.e4 — De ataque",
+      "blurb": "Líneas agudas para tomar la iniciativa: gambitos con 1.e4 e5 y esquemas incisivos contra la Siciliana, la Francesa y la Caro-Kann.",
+      "lines": {
+        "Evans Gambit (accepted)": {
+          "name": "Gambito Evans (aceptado)",
+          "plan": "Tienes un peón menos, un centro monstruoso y todas las piezas apuntando al rey. Conserva la iniciativa a cualquier precio: abre columnas, impide el enroque negro (Ba3!) y convierte el ataque antes de que las negras se consoliden. En el Evans se ataca: las jugadas tranquilas dan futuro al peón de más.",
+          "notes": {
+            "6": "El gambito Evans: un peón de flanco compra dos tiempos y un centro gigante. Fischer lo llamaba «una lección de tiempo».",
+            "8": "Ataca el alfil y prepara d4: el peón vuelve para construir el centro que las negras te acaban de ayudar a formar.",
+            "10": "La idea: un centro completo, líneas abiertas y las negras ya dos jugadas por detrás en el desarrollo.",
+            "12": "Primero la seguridad del rey, DESPUÉS la tormenta. El peón de d4 puede esperar: está clavado a tu iniciativa.",
+            "14": "Centro restablecido. Mira las piezas negras: el alfil fuera de juego en a5 y los caballos pasivos. Eso es lo que ha comprado el peón.",
+            "16": "¡Ábrelo todo! Cada línea abierta favorece a quien está mejor desarrollado, y ese eres tú de lejos.",
+            "18": "El golpe mortal: este alfil corta la diagonal f8–a3 y el rey negro queda atrapado en el centro. Ahora lleva las torres a e1/c1."
+          }
+        },
+        "Two Knights — 4.Ng5 (main, 5...Na5)": {
+          "name": "Dos Caballos — 4.Ng5 (principal, 5...Na5)",
+          "plan": "Has ganado un peón limpio; las negras tienen actividad. Devuelve algún tiempo con calma (Be2, Nf3, d3), desenrédate y llega a un medio juego donde el peón de más simplemente cuente. Ahora codicia, luego técnica.",
+          "notes": {
+            "6": "La jugada más exigente de la cuarta jugada en todo el ajedrez: f7 recibe dos ataques y las negras no tienen ninguna defensa limpia.",
+            "8": "Captura: cada respuesta negra tiene un coste. La línea principal 5...Na5 da un peón a cambio de actividad.",
+            "10": "Haz que el peón de más sea real: este jaque fuerza ...c6 y debilita aún más la estructura negra.",
+            "12": "Segundo peón: devolverás uno para tener una partida cómoda, pero haz que las negras demuestren la compensación.",
+            "14": "La retirada a sangre fría (más fuerte que las líneas con d3): conserva el alfil y neutraliza las baterías ...Qc7/...Bd6.",
+            "16": "Retirada con plan: cuando avance ...e4, Ne5! centraliza y el caballo está magnífico allí. Mira el paquete de las negras para ver qué quieren; aquí simplemente sigues con un peón de más."
+          }
+        },
+        "Fried Liver Attack (5...Nxd5?!)": {
+          "name": "Ataque Fegatello (5...Nxd5?!)",
+          "plan": "Una pieza por dos peones y la caza del rey. Sigue dando jaques y desarrollando con ganancia de tiempo: ideas con d4, Bf4, O-O-O. El rey negro en e6 tiene que sobrevivir veinte jugadas de presión; un error y es mate. Conoce las ideas, no solo las jugadas: ataca las casillas d5 y f7 y mantén la dama cerca.",
+          "notes": {
+            "9": "La recaptura natural es el error famoso: ahora el sacrificio funciona.",
+            "10": "El Fegatello: todo un caballo para sacar al rey al descubierto. ¿Incorrecto? Las máquinas dicen que por poco; los humanos no sobreviven nunca.",
+            "12": "La dama entra con jaque y ataca d5: el rey negro tiene que SUBIR por el tablero para sostener el caballo.",
+            "14": "Carga sobre d5. Cada jugada de desarrollo lleva una amenaza: por eso el ataque se alimenta solo.",
+            "16": "Centraliza y mantén vivas las dos amenazas (d5 y redes de mate en f5). El rey en e6 tapa todo el ejército negro.",
+            "18": "Pide con calma al caballo de b4 que se vaya: era el único defensor que trabajaba de verdad.",
+            "20": "Abre el centro sobre el rey atrapado: luego Bf4/O-O-O, se suman todas las piezas y el caballo de más de las negras lo mira desde a6."
+          }
+        },
+        "Scotch Gambit (Møller-style)": {
+          "name": "Gambito escocés (estilo Møller)",
+          "plan": "El avance d5 parte la posición negra en dos. Sigue con Re1 y Rxe4 recupera el material con una iniciativa que dura; o las negras devuelven la pieza y sales con mejor estructura. Estudia las ideas que hay detrás de d5: es una horquilla de conceptos, no solo de casillas.",
+          "notes": {
+            "4": "Abre el centro enseguida: el espíritu del gambito, desarrollo antes que material.",
+            "6": "Ofrece el peón d (otra vez): capturarlo cuesta dos tiempos más a las negras mientras tú enrocas y atacas f7.",
+            "10": "Centro restablecido, el alfil tiene que decidir y empieza la diversión.",
+            "13": "Las negras se quedan el peón y te retan a demostrarlo: la prueba crítica.",
+            "15": "Coherencia: las negras eliminan el caballo para conservar el peón de más.",
+            "16": "El golpe famoso: ignora el alfil, ataca c6 y abre todas las líneas. Después de ...Bf6, Re1 recupera la pieza con intereses."
+          }
+        },
+        "vs Sicilian — Grand Prix Attack": {
+          "name": "Contra la Siciliana — Ataque Grand Prix",
+          "plan": "El clásico ataque por la columna f: Qe1–h4, f5 en el momento justo, Bh6 para cambiar el defensor y, si hace falta, levantar una torre. El contrajuego negro en el flanco de dama te hace la carrera: no levantes el pie, en flancos opuestos el tiempo cuenta más que el material.",
+          "notes": {
+            "2": "El orden de jugadas inteligente: esquiva 2.f4 d5! y f4 llega igualmente a continuación.",
+            "4": "El Grand Prix: anuncias el plan en la tercera jugada. Peón a f5 y piezas hacia el rey.",
+            "8": "Apunta a f7 mientras está blando; contra los esquemas con ...e6, el alfil se retira a b3 y conserva la diagonal.",
+            "12": "Un centro modesto a propósito: el trabajo de los peones es liberar las piezas para el flanco de rey, no ganar el centro.",
+            "14": "La maniobra típica: la dama gira hacia h4, donde las ideas de mate con f5/Bh6/Ng5 aparecen solas.",
+            "16": "Mantén vivo el alfil y alta la tensión: exd5 solo cuando abra líneas hacia el rey."
+          }
+        },
+        "vs Sicilian — Open, English Attack": {
+          "name": "Contra la Siciliana — Abierta, Ataque inglés",
+          "plan": "Enroques opuestos significa una carrera pura: g4-g5 desgarra el flanco de rey mientras las negras avanzan ...b5. Manda la velocidad: cada jugada que no ataca es una jugada perdida. Cambia los defensores negros, nunca tus atacantes.",
+          "notes": {
+            "4": "La Siciliana Abierta: la respuesta más coherente y más temida. Ocupa el centro y desarróllate más rápido.",
+            "10": "El esquema del Ataque inglés: Be3+f3+Qd2+O-O-O, una sola receta contra toda la Najdorf.",
+            "14": "La columna vertebral: defiende e4, apoya g4 y da refugio a tu rey después del enroque largo.",
+            "16": "Batería de dama y alfil: más adelante ideas con Bh6, y O-O-O ya está listo.",
+            "18": "Reyes en flancos opuestos: ahora es una pelea a cuchillo, y tus peones g/h son los cuchillos.",
+            "20": "Empieza la tormenta. g5 echa al caballo de f6 (el mejor defensor del rey) y luego h4-h5 arranca la cobertura."
+          }
+        },
+        "vs French — Advance": {
+          "name": "Contra la Francesa — Avance",
+          "plan": "La clave es el espacio: e5 ahoga a las negras para siempre. Aguanta d4 (el objetivo eterno de la Francesa) y luego expándete en el flanco de rey: Bd3, O-O y las ideas f4-f5 o Nf3-g5. Si el flanco de dama se pone tenso, b4-b5 gana aún más espacio.",
+          "notes": {
+            "4": "El Avance: gana espacio, cierra el centro y deja el alfil de c8 enterrado detrás de sus propios peones.",
+            "10": "La jugada principal moderna: prepara b4, gana espacio en el flanco de dama y neutraliza todo el esquema de presión de ...c5.",
+            "12": "Expándete ganando tiempo: el peón de c5 tiene que definirse y el flanco de dama se convierte en un segundo frente.",
+            "16": "El alfil defiende d4 desde la emboscada. Las piezas negras atacan d4 tres veces y tú lo defiendes tres veces: el empate de fuerzas típico de la Francesa, y el espacio es tuyo."
+          }
+        },
+        "vs Caro-Kann — Panov Attack": {
+          "name": "Contra la Caro-Kann — Ataque Panov",
+          "plan": "Lo mejor del peón de dama aislado: aprovecha que el peón d estrecha a las negras para tener piezas activas. Bg5, Rc1/Re1, Ne5 y la ruptura clásica d5 o los patrones del sacrificio griego con Bxh7. Los cambios llevan a la igualdad: mantén el tablero lleno y las piezas apuntando al rey.",
+          "notes": {
+            "6": "La Panov: la «aburrida» Caro-Kann se convierte de repente en una batalla abierta y de iniciativa con peón de dama aislado, y en tus condiciones.",
+            "12": "Llegas a la estructura clásica: tu futuro peón pasado de d4 contra un esquema negro sólido pero pasivo.",
+            "16": "Todo natural: luego Re1, ideas de batería con a3/Bc2-Qd3 o Ne4. Las herramientas de ataque del peón de dama aislado."
+          }
+        },
+        "Scotch Gambit — 4...Nf6 (declined)": {
+          "name": "Gambito escocés — 4...Nf6 (rehusado)",
+          "plan": "Un duelo de estructuras: tu ventaja de desarrollo y la presión en c6/d4 contra el caballo central negro. Juega contra los peones de c6: Nd2 o Qe2 discuten el caballo de e4, las ideas con c4 fijan las debilidades y tus piezas siguen más libres.",
+          "notes": {
+            "7": "Las negras rehúsan el gambito y contraatacan: la elección sólida y moderna.",
+            "8": "Avanza ganando tiempo: el caballo tiene que saltar y la posición se abre línea a línea, a tu favor.",
+            "10": "Clava, protege la avanzadilla de e5 y mantén viva la iniciativa.",
+            "12": "Recupera el peón con un buen caballo central. Material igualado y la actividad es tuya.",
+            "14": "Cambia en el momento justo: los peones negros quedan doblados y c6 se convierte en un objetivo permanente.",
+            "16": "Seguridad y amenaza (ahora viene f3, que ataca e4). A partir de aquí, presión sobre c6 y mejores piezas menores."
+          }
+        }
+      }
+    },
+    "black-vs-e4-carokann": {
+      "title": "Contra 1.e4 — Caro-Kann",
+      "blurb": "Una respuesta muy sólida a 1.e4: buena estructura de peones, un alfil fácil de sacar y poco que memorizar.",
+      "lines": {
+        "Advance — Short system (...c5 break)": {
+          "name": "Avance — Sistema Short (ruptura ...c5)",
+          "plan": "Tu juego está en el flanco de dama y contra d4: acumula fuerzas con ...Nc6, ...Qb6, ...Rc8 en la columna c semiabierta. El peón de e5 te estrecha un poco, pero tu alfil ha salido ANTES de ...e6: toda la gracia de la Caro-Kann frente a la Francesa.",
+          "notes": {
+            "5": "La promesa de la Caro-Kann cumplida: el alfil sale antes de que ...e6 lo tape. Compáralo con el pobre alfil francés de c8.",
+            "9": "El golpe típico: ataca d4 mientras las blancas aún se desarrollan. Toda la carrera del peón de c6 era para preparar esto.",
+            "11": "Cambia cuando te conviene: el caballo que recaptura se puede cuestionar luego con ...Bc5 o ...Nc6.",
+            "13": "Desarrollo flexible: este caballo puede ir a c6 o g6, y luego vendrá ...Nd7. Lento ya va bien; la posición es cerrada.",
+            "15": "Discute enseguida el fuerte caballo de d4: los cambios alivian tu posición, algo estrecha."
+          }
+        },
+        "Exchange Variation": {
+          "name": "Variante de cambios",
+          "plan": "Una estructura de gambito de dama invertida donde conoces los planes: termina el desarrollo sin prisas y luego elige entre ...Rc8 con presión en la columna c o la ruptura ...e5 cuando tengas las piezas en su sitio. El «ataque» blanco aquí es sobre todo un rumor: iguala y luego juega mejor.",
+          "notes": {
+            "4": "La variante de cambios: las blancas evitan la teoría, pero te regalan un desarrollo libre y natural.",
+            "7": "Desarrolla presionando d4 antes de que las blancas jueguen c3 con comodidad... Normalmente lo hacen igualmente, pero el tiempo te sigue ayudando.",
+            "9": "Casillas naturales, ninguna debilidad: la receta de la Caro-Kann.",
+            "11": "Tu «pieza problema» encuentra trabajo: provoca debilidades o se cambia por el futuro caballo de f3.",
+            "13": "Defiende b7 con calma. Fíjate en que ...Na5, que ataca la dama, también es un recurso si las blancas presionan.",
+            "15": "Estructura completa. Ahora ...Bd6 o ...Be7, enroca, y la partida está del todo igualada y aún tiene juego."
+          }
+        },
+        "Classical (4...Bf5 main line)": {
+          "name": "Clásica (línea principal 4...Bf5)",
+          "plan": "La famosa Caro-Kann «aburrida pero bonita»: tu estructura no tiene debilidades, los peones h4-h5 que las blancas han avanzado pueden ser objetivos y los finales te favorecen. Enroca largo o corto según el esquema blanco; rompe con ...c5 cuando estés desarrollado.",
+          "notes": {
+            "5": "Cambia en el centro, la Clásica: aceptas menos espacio a cambio de una posición sin ninguna debilidad.",
+            "7": "Otra vez el alfil sale primero. El mejor intento blanco es perseguirlo, y eso cuesta tiempo y afloja peones.",
+            "9": "El alfil se aparta; deja que las blancas «ganen» tiempos debilitando casillas.",
+            "11": "Da al alfil el escondite de h7 y quita g5 a las piezas blancas. El peón de h4 quizá se arrepienta de haber avanzado.",
+            "15": "Bien escondido. Parece pasivo; volverá a salir después de ...e6 y los cambios: la historia clásica del alfil de la Caro-Kann.",
+            "17": "Cambia hacia la seguridad total: el alfil atacante blanco sale del tablero.",
+            "19": "El muro se completa. Ahora: ...Ngf6, ...Bd6 o ...Be7, enroca y tienes una partida igualada con la estructura más sana."
+          }
+        },
+        "vs Two Knights (2.Nf3 3.Nc3)": {
+          "name": "Contra los Dos Caballos (2.Nf3 3.Nc3)",
+          "plan": "El cambio en f3 resuelve todas las cuestiones de desarrollo. Busca la estructura fiable: ...e6, ...Nd7/...Ngf6, cambia una pareja de caballos y juega a largo plazo. Tu formación de peones no tiene objetivos.",
+          "notes": {
+            "5": "Contra los Dos Caballos, la clavada es el desarrollo correcto: 3...dxe4 4.Nxe4 deja menos cómodos los planes del alfil en f5.",
+            "7": "Cede la pareja de alfiles a cambio de una estructura sólida y una igualdad fácil: un cambio muy de Caro-Kann.",
+            "11": "Captura ahora que ya se ha jugado d4: el caballo blanco recaptura y entra en los cambios de piezas que tienes preparados.",
+            "15": "Desarrolla y ofrece el cambio: cada cambio adelgaza la «ventaja» de la pareja de alfiles blanca.",
+            "17": "Recaptura con el caballo y mantén los peones ordenados. Igualado y fácil de jugar: ahora ...Bd6/...Be7 y enroque."
+          }
+        },
+        "vs Panov Attack": {
+          "name": "Contra el Ataque Panov",
+          "plan": "Bloquea el peón aislado: un caballo se instala en d5, se cambian piezas y cada cambio hace mayor la debilidad del peón. Los finales son tus amigos: lleva allí la partida y recoge el peón de d4 en el segundo asalto.",
+          "notes": {
+            "6": "La Panov: las blancas quieren la actividad del peón de dama aislado. Tu plan es simple: bloqueo, cambios, final.",
+            "9": "Sólido: mantén d5 con firmeza. El alfil de c8 refunfuña, pero aquí el bloqueo cuenta más.",
+            "13": "Llega el caballo bloqueador. En d5 ningún peón lo puede echar: el problema permanente del peón de dama aislado.",
+            "17": "Desarrollo terminado. Ahora reagrupamientos con ...Bf6/...Nce7, presión en d4 y simplificación paciente."
+          }
+        },
+        "vs Fantasy (3.f3)": {
+          "name": "Contra la Fantasía (3.f3)",
+          "plan": "Responde a la excentricidad con lo clásico: ...e5! contraataca enseguida. La clavada de g4 es tu recurso clave: el caballo de f3 está atado a la dama y la tensión central te favorece. Desarrolla rápido; f3 ha quitado una casilla al caballo de rey, y eso lo aprovechas.",
+          "notes": {
+            "4": "La variante Fantasía: las blancas sostienen e4 de una manera extraña. Castiga la rareza con un golpe en el centro.",
+            "7": "El contragolpe: sin el peón de f3, la diagonal del rey blanco queda abierta y d4 recibe presión de verdad.",
+            "9": "La clavada es la clave: ahora dxe5?? pierde la dama por trucos con ...Bxf3. Compruébalo: el caballo está clavado ante d1.",
+            "11": "Defiende e5 y completa la idea: el centro blanco queda congelado mientras terminas el desarrollo.",
+            "13": "Todo defendido, todo desarrollado. El f3 prematuro de las blancas no les ha dado nada.",
+            "15": "Sólido y activo: enroca ahora, conserva el punto fuerte de e5 y juega contra el rey blanco debilitado."
+          }
+        },
+        "vs King's Indian Attack (2.d3)": {
+          "name": "Contra el Ataque de India de rey (2.d3)",
+          "plan": "Si las blancas renuncian al centro, ocúpalo tú: ...e5 y ...d5 te dan el espacio, por una vez. Mantén sano el dúo e5/d5, desarróllate detrás y responde a las ideas lentas del flanco de rey blanco con una marcha más rápida en el flanco de dama (...b5-b4).",
+          "notes": {
+            "2": "El Ataque de India de rey: las blancas juegan un sistema, sin mirar tus jugadas. Perfecto: tu sistema es más grande.",
+            "5": "El lujo que la Caro-Kann casi nunca tiene: un centro completo de peones para ti. Tómalo.",
+            "11": "Enroca detrás de tu ventaja de espacio. El ataque habitual es mucho más lento cuando c6+d5 neutralizan el alfil de g2.",
+            "13": "Sobreprotege e5, el punto fuerte en el que se apoya todo el esquema.",
+            "15": "Completo y cómodo. Ideas siguientes: ...b5, espacio en el flanco de dama con ...a5-a4, o reagrupar con ...Bf8 si las blancas presionan e5."
+          }
+        },
+        "vs Advance, 4.Nc3 (Shirov's g4 lunge)": {
+          "name": "Contra el Avance, 4.Nc3 (la embestida g4 de Shírov)",
+          "plan": "No temas la avalancha de peones: afloja más a las blancas que a ti. Mantén el alfil seguro en g6, golpea el peón fijo de d4 con ...c5 y recuerda que el rey blanco también vive en ese lado del tablero. El desarrollo tranquilo vence a los peones salvajes.",
+          "notes": {
+            "6": "El esquema agresivo: las blancas quieren g4 y una avalancha de peones en el flanco de rey.",
+            "8": "Ya está aquí. Los peones no dan mate: aguanta.",
+            "10": "Va hacia f4 para molestar a tu alfil: era de esperar y tiene respuesta.",
+            "11": "La contrarregla: a un ataque de flanco se responde con un golpe en el centro. d4 cruje enseguida.",
+            "13": "Una jugada profiláctica: frena g5, a h5 se puede responder con ...Bh7, y ahora las blancas tienen que justificar los peones avanzados."
+          }
+        },
+        "vs 3.Nd2 (same as Classical)": {
+          "name": "Contra 3.Nd2 (igual que la Clásica)",
+          "plan": "El juego es idéntico a la línea principal de la Clásica: el caballo blanco ha llegado a e4 por otro camino y no cambia nada. Los mismos cambios, el mismo muro, la misma estructura sana y la misma confianza a largo plazo.",
+          "notes": {
+            "4": "Solo es otra puerta para entrar en la Clásica: después de tu jugada siguiente, transpone exactamente.",
+            "17": "El cambio conocido: a estas alturas, esta posición ya debería parecerte tu casa.",
+            "19": "Y el muro conocido. Un solo repertorio para varios órdenes de jugadas blancos: eso es la eficiencia de la Caro-Kann."
+          }
+        },
+        "vs Accelerated Panov (2.c4)": {
+          "name": "Contra la Panov acelerada (2.c4)",
+          "plan": "La misma canción que en la Panov: bloqueo en d5, cambios de piezas y objetivo el peón de d4. El c4 prematuro incluso evita los esquemas blancos más peligrosos: desarrolla con naturalidad e iguala sin drama.",
+          "notes": {
+            "2": "La versión acelerada: responde en el centro exactamente como siempre.",
+            "7": "Recaptura con el CABALLO (no con la dama): llega a d5 como bloqueador permanente.",
+            "13": "El esquema de siempre. Las blancas tienen el peón aislado; tú tienes la casilla d5 y el plan.",
+            "15": "Desarrolla, enroca y luego ...Bf6 y ...Nce7-f5 cargan sobre d4. Posiciones de Panov, soluciones de Caro-Kann."
+          }
+        }
+      }
+    },
+    "black-vs-e4-openGames": {
+      "title": "Contra 1.e4 — Aperturas abiertas (1...e5)",
+      "blurb": "Planta cara a 1.e4 con 1...e5: respuestas sólidas y coherentes contra la Ruy López, la Italiana, la Escocesa y los gambitos.",
+      "lines": {
+        "Ruy Lopez — Closed (Chigorin setup)": {
+          "name": "Ruy López — Cerrada (esquema Chigorin)",
+          "plan": "La eterna batalla española: tu espacio en el flanco de dama (ideas con ...b5, ...c5, ...Na5-c4) contra el juego blanco en el centro y en el flanco de rey. Mantén vivo el punto fuerte de e5, responde a d4 con cambios solo cuando las piezas estén listas y no toques nunca los peones del flanco de rey sin motivo.",
+          "notes": {
+            "5": "La jugada de Morphy: haz la pregunta al alfil antes de nada más. Casi universal, y con razón.",
+            "7": "Desarrolla y ataca e4: las blancas tienen que ocuparse de ello (O-O y Re1 lo hacen tácticamente; las líneas con ...Nxe4 existen, pero piden cuidado).",
+            "9": "La Ruy López Cerrada: sólida, flexible y jugable toda la vida. La aguda ...Nxe4 (Abierta) es otro mundo.",
+            "11": "Ahora llega ganando tiempo: el alfil se retira y ya ha empezado tu expansión en el flanco de dama.",
+            "13": "Consolida e5. El centro aguanta; los planes pueden respirar.",
+            "15": "Rey seguro. El c3 blanco anuncia d4: ya estás listo.",
+            "17": "La maniobra Chigorin: molesta al alfil español y gana las casillas c4/b3.",
+            "19": "Despliegue completo en el flanco de dama: luego vuelven ...Qc7 y ...Nc6, con una partida totalmente sana."
+          }
+        },
+        "Italian — Giuoco Pianissimo": {
+          "name": "Italiana — Giuoco Pianissimo",
+          "plan": "Imita la construcción lenta de las blancas y estás igualado: ...a6/...Ba7 conserva el alfil, ...h6 vigila g5 y luego llegan los reagrupamientos ...Ne7-g6 o ...Be6. Quien se lanza primero suele quedar peor: que sean las blancas.",
+          "notes": {
+            "5": "Simétrica y la mejor: el alfil toma la diagonal ideal antes de que ...Nf6 invite a las complicaciones de Ng5.",
+            "7": "Ataca e4 para que las blancas tengan que gastar una jugada: d3 lo mantiene todo tranquilo.",
+            "13": "Una jugada de orden con un objetivo: prepara ...Ba7 y conserva la fuerte diagonal del alfil aunque d4 llegue ganando tiempo.",
+            "15": "Bien colocado y para siempre: desde a7 mira a f2 toda la partida. Un activo de cocción lenta."
+          }
+        },
+        "Two Knights — vs 4.Ng5 (the real test)": {
+          "name": "Dos Caballos — contra 4.Ng5 (la prueba de verdad)",
+          "plan": "Has dado un peón a cambio de ventaja de desarrollo y de atar a las blancas: ...e4 y ...Bd6 hacen volver las piezas blancas a casa. Conserva la iniciativa: abre la columna e, enroca rápido y haz valer el tiempo de más antes de que las blancas se desenreden. Es la respuesta combativa a la Italiana.",
+          "notes": {
+            "5": "Los Dos Caballos: invitas a 4.Ng5 porque tienes una buena respuesta preparada.",
+            "7": "Forzada pero excelente: tapa el ataque a f7 y abre tu juego.",
+            "9": "LA jugada que recordar: 5...Nxd5?? cae en el sacrificio del Fegatello. En cambio, el caballo ataca el alfil de c4.",
+            "14": "La mejor retirada blanca; el peón ya está capturado y ahora cobras los intereses...",
+            "15": "Echa al intruso ganando tiempo: solo tiene un camino seguro para volver a casa.",
+            "17": "Vuelve a avanzar ganando tiempo: el caballo se mueve por cuarta vez mientras tus piezas salen.",
+            "19": "Discute enseguida el caballo orgulloso. Tienes un peón menos y una actividad monstruosa: históricamente, las negras puntúan muy bien aquí."
+          }
+        },
+        "Scotch Game": {
+          "name": "Escocesa",
+          "plan": "Los peones c doblados te compran el centro: ...d5 lo libera todo y tus piezas llegan a casillas naturales y activas. Juega contra la estructura blanca de e4/d3, aprovecha la columna b semiabierta y disfruta de un medio juego a partes iguales.",
+          "notes": {
+            "5": "No te aferres a e5: captura y desarrolla. La Escocesa da a las negras juego de piezas gratis.",
+            "9": "Clavada y presión: ahora e4 pide atención constante.",
+            "11": "Hacia el centro y abriendo la columna b: los peones doblados controlan d5 y son difíciles de atacar.",
+            "13": "La ruptura que iguala, justo a tiempo. Todo lo que tienen las negras cobra vida.",
+            "17": "Seguridad simétrica; tu pareja de alfiles y el peón central te dan una partida cómoda y rica."
+          }
+        },
+        "vs King's Gambit (3...d5, the modern cure)": {
+          "name": "Contra el Gambito de rey (3...d5, la cura moderna)",
+          "plan": "Devuelve el peón enseguida para tener un desarrollo fácil y mejor estructura: los sueños blancos con f4 y la columna f no se hacen nunca realidad. Enroca rápido, ten el peón de f4 como rehén a largo plazo y juega el medio juego con una ventaja pequeña pero estable.",
+          "notes": {
+            "2": "El Gambito de rey: romántico y, objetivamente, inofensivo si mantienes la calma.",
+            "3": "Captura primero y DESPUÉS devuélvelo cuando te convenga.",
+            "5": "El antídoto moderno: abre el centro mientras la diagonal del rey blanco está abierta. Nada de memorizar teoría para defender f4.",
+            "11": "Recaptura con el caballo: desarrollo antes que peones, principios antes que codicia.",
+            "13": "Vigila el trofeo de f4 y apunta al blando flanco de rey blanco: las debilidades del gambito cortan por los dos lados.",
+            "15": "Todo desarrollado y con el rey más sano. Las blancas aún están explicando dónde ha ido a parar la compensación."
+          }
+        },
+        "vs Vienna (3.f4 d5!)": {
+          "name": "Contra la Vienesa (3.f4 d5!)",
+          "plan": "El contraataque central gana siempre al peón de flanco: tu caballo de e4 es una roca, ...f5 lo ha reforzado y las debilidades son de las blancas. Desarrolla alrededor del caballo, enroca y deja que las blancas demuestren algo.",
+          "notes": {
+            "3": "Un desarrollo natural que conserva todas las buenas opciones y esquiva las ideas más engañosas de la Vienesa.",
+            "5": "El golpe clave, con el mismo espíritu que contra el Gambito de rey: responde a f4 con el centro, nunca con miedo.",
+            "7": "Un caballo magnífico se instala para quedarse: capturarlo (Nxe4 dxe4) solo ayuda a tu estructura.",
+            "11": "Primero la seguridad; el caballo de e4 aún no necesita a nadie que lo vigile.",
+            "13": "Refuerza el punto fuerte y gana espacio en el flanco de rey: la captura al paso permite cambiar, pero tus piezas recapturan encantadas.",
+            "15": "La columna f queda semiabierta hacia el rey blanco y tus piezas funcionan. Una imagen modelo contra la Vienesa."
+          }
+        },
+        "vs Bishop's Opening": {
+          "name": "Contra la Apertura de alfil",
+          "plan": "El contraataque ...c6/...d5 ocupa el centro y neutraliza toda la idea del alfil de c4. Después de los cambios, desarrolla con naturalidad y una estructura ordenada: una partida igualada donde conocer el plan (ideas de minorías, juego por la columna e) vale más que la lista de jugadas.",
+          "notes": {
+            "2": "La Apertura de alfil: a menudo es una Italiana disfrazada, pero con trucos si te duermes.",
+            "5": "La respuesta precisa: prepara ...d5 y pregunta al alfil qué hace en c4.",
+            "7": "Aquí lo tienes: el centro completo, con el alfil mordiendo granito.",
+            "11": "El bloqueo práctico: cambia la pieza que da jaque y simplifica hacia una igualdad cómoda.",
+            "13": "Recaptura el caballo de b8: la pareja de f6 queda flexible y el peón de d5, cubierto.",
+            "15": "Bien activo y listo para enrocar: tu peón central y la partida fácil ya inclinan la posición a tu favor."
+          }
+        },
+        "Ruy Lopez — Exchange (4.Bxc6)": {
+          "name": "Ruy López — Cambios (4.Bxc6)",
+          "plan": "Tienes la pareja de alfiles para siempre; las blancas tienen una mayoría de peones más sana. Conserva las piezas (los finales sin damas favorecen la estructura blanca), abre líneas para los alfiles y aprovecha la actividad de ...c5/...Bg4: en el medio juego, los dos alfiles ganan la discusión a los peones doblados.",
+          "notes": {
+            "6": "La variante de cambios: las blancas apuestan por la estructura. Tú apuestas por la pareja de alfiles, una buena apuesta en el medio juego.",
+            "8": "Un cuidado necesario: 5.Nxe5? Qd4! hace horquilla al caballo y al peón de e4 y lo recupera todo con intereses. Las blancas lo saben y enrocan.",
+            "9": "Protección sólida de e5. Parece rara, pero es habitual y fuerte: el peón de e5 aguanta el centro para los alfiles.",
+            "11": "Cambia cuando te convenga.",
+            "13": "Gana un tiempo y actívate: el peón doblado hace un trabajo honesto.",
+            "15": "Hacia el «final» sin miedo: con dos alfiles y piezas activas, este medio juego sin damas es bueno para las negras. Lo dice la teoría, no es fanfarronería.",
+            "17": "La idea: actividad inmediata. La torre recibe empujones y terminas el desarrollo con amenazas."
+          }
+        },
+        "vs Evans Gambit (decline it!)": {
+          "name": "Contra el Gambito Evans (¡rehúsalo!)",
+          "plan": "Rehusarlo conserva todas las ventajas posicionales sin ningún peligro: a la larga, los peones blancos de b4/a4 quedan flojos. Desarrolla con normalidad, enroca, ataca el centro con ...d6/...Nf6: el jugador de gambitos se queda sin líneas abiertas y sin diversión.",
+          "notes": {
+            "6": "El Evans. Aceptarlo es jugable pero pide mucha memoria; rehusarlo es la opción práctica para el repertorio.",
+            "7": "Una casilla atrás y todos los problemas resueltos: el alfil conserva la diagonal y en algunas líneas b4 cuelga.",
+            "13": "Los peones han ido demasiado lejos: cambia y deja que el flanco de dama blanco enseñe las cicatrices.",
+            "15": "Un desarrollo sencillo que ataca e4. El «ataque» blanco se ha convertido en peones flojos y una partida normal donde estás bien."
+          }
+        },
+        "vs Four Knights (Spanish, Metger unwind)": {
+          "name": "Contra los Cuatro Caballos (española, maniobra Metger)",
+          "plan": "La maniobra Metger lo desenreda todo: ...Qe7 y ...Nd8-e6 recolocan las piezas, ...Bxc3 ha quitado la presión y la estructura simétrica aguanta. Una respuesta fiable y con poca teoría al intento más sólido de las blancas.",
+          "notes": {
+            "7": "Imita la clavada: el igualador clásico en los Cuatro Caballos.",
+            "13": "El momento preciso: elimina el caballo ANTES de que Nd5 haga realmente molesta la clavada de g5.",
+            "15": "Empieza la maniobra Metger: la dama avanza para que la ruta del caballo de d8 (d8–e6) deshaga la clavada."
+          }
+        },
+        "vs Centre Game (2.d4)": {
+          "name": "Contra la Apertura del centro (2.d4)",
+          "plan": "La dama blanca prematura es tu objetivo: desarrolla ganando tiempo, enroca rápido y abre el centro mientras la dama pasea. Con enroques opuestos en el horizonte, tu ataque suele llegar primero: ...Re8, ...d5 o incluso trucos de torre por e4 están en el aire.",
+          "notes": {
+            "2": "La Apertura del centro: las blancas ganan el peón central, pero la dama tiene que salir pronto para mantenerlo.",
+            "5": "Desarrolla ganando tiempo: la dama se vuelve a mover y tú te desarrollas gratis. Toda la apertura en una idea.",
+            "9": "Clavada y presión; el esquema blanco solo funciona si dejas que se coordinen los trucos en e4/f2.",
+            "13": "La torre mira a e4 y a la dama blanca al descubierto: ahora, cada ruptura central cae con doble fuerza."
+          }
+        }
+      }
+    },
+    "black-vs-d4-solid": {
+      "title": "Contra 1.d4 — Eslava / GDR",
+      "blurb": "Respuestas clásicas y fiables contra 1.d4: aguanta el centro con ...d5 y desarrolla con naturalidad.",
+      "lines": {
+        "Slav Defense (main line, 4...dxc4)": {
+          "name": "Defensa Eslava (línea principal, 4...dxc4)",
+          "plan": "La promesa de la Eslava checa: el alfil de c8 sale FUERA de la cadena de peones antes de ...e6. Busca las rupturas ...c5 o ...e5 cuando estés desarrollado, mantén la presión del alfil de b4 y disfruta de una posición sin casillas débiles y con opciones reales de ganar.",
+          "notes": {
+            "3": "La Eslava: defiende d5 con un peón y mantiene abierta la diagonal del alfil de c8. La mejora sobre el antiguo GDR.",
+            "7": "La línea principal: gana un tiempo. Las blancas tienen que gastar una jugada (a4) para recuperar el peón, y esa jugada debilita b4.",
+            "9": "La idea de todo: el alfil llega a la casilla soñada antes de que ...e6 cierre la puerta.",
+            "13": "A la casilla que a4 ha debilitado: clava y prepara un enroque cómodo.",
+            "17": "La última pieza encuentra su sitio; luego llegan ...Bg6, ...Qa5 o las rupturas ...e5/...c5, según el esquema blanco."
+          }
+        },
+        "Slav — Exchange (drawish? only if you let it)": {
+          "name": "Eslava — Cambios (¿tablas? solo si lo permites)",
+          "plan": "La simetría es una tregua, no unas tablas: conserva las últimas piezas, lucha por las casillas e4/e5 y deja que las blancas se queden primero sin ideas. Tu esquema es a prueba de balas: los intentos de ganar de las blancas crean las debilidades contra las que jugarás.",
+          "notes": {
+            "4": "La Eslava de cambios: las blancas esperan un apretón de manos. Declínalo con educación.",
+            "11": "Simetría mantenida, y tu alfil es tan bueno como el de las blancas.",
+            "15": "Cambia por iniciativa TUYA: la recaptura de la dama frena por un momento las ambiciones blancas en la columna d.",
+            "18": "Las blancas cambian; recaptura y la posición queda del todo igualada, con todo el juego aún por delante."
+          }
+        },
+        "QGD — Tartakower (the lifetime system)": {
+          "name": "GDR — Tartakower (el sistema de toda la vida)",
+          "plan": "La Tartakower ha servido a campeones del mundo durante un siglo: ...b6 resuelve el alfil malo (va a b7), la ruptura ...c5 iguala el espacio y la estructura se dobla pero no se rompe nunca. Aprende sus ideas una vez y juégala para siempre.",
+          "notes": {
+            "3": "El gambito de dama rehusado: la respuesta más clásica del ajedrez. Aguanta d5 con el peón e.",
+            "7": "Deshaz la clavada con calma. El GDR es una fortaleza construida con jugadas modestas, una a una.",
+            "11": "Un empujón útil: el alfil tiene que definirse, y h6 da aire a tu rey para siempre.",
+            "13": "La jugada Tartakower: el alfil «problemático» de c8 obtiene la gran diagonal y ...c5 gana apoyo.",
+            "15": "Aquí lo tienes: desde b7, el alfil vigila e4 y apoya todas las rupturas centrales.",
+            "17": "Recaptura encantado: los dos alfiles en una posición que se abrirá con ...c5. Un cambio justo por la «presión» de las blancas.",
+            "19": "Conserva el peón central: d5 controla e4/c4 y tus piezas se desarrollan cómodas a su alrededor."
+          }
+        },
+        "QGD — Exchange (know the Carlsbad)": {
+          "name": "GDR — Cambios (conoce la Carlsbad)",
+          "plan": "La estructura Carlsbad: las blancas juegan el ataque de minorías (b4-b5); tú respondes en el centro o en el flanco de rey con ...Ne4, la tenaza de ...f5 o rupturas ...c5 oportunas. La colocación de las piezas lo es todo: ¿caballos a d6? No: sueños en e4 y g6-f4; torre a e8; alfil fuera antes de que se cierre el muro.",
+          "notes": {
+            "4": "El GDR de cambios: las blancas fijan la estructura pronto, con el objetivo del famoso ataque de minorías.",
+            "9": "Desclavada habitual; las decisiones de estructura ya están tomadas, así que desarrolla con un objetivo.",
+            "13": "Hacia f8/g6 o b6: en la Carlsbad, los caballos eligen carrera pronto.",
+            "15": "Seguro y listo para las típicas ...Re8 y ...Ne4, tus respuestas habituales al avance por el flanco de dama.",
+            "17": "La torre ocupa la columna que dominará toda la partida. Cuando llegue b4-b5, se responde con ...Ne4 y juego en el flanco de rey."
+          }
+        },
+        "vs London System": {
+          "name": "Contra el Sistema Londres",
+          "plan": "No copies el piloto automático del jugador de la Londres, cuestiónalo: presión con ...c5, ...b6/...Bb7 y un ...Ne4 o un cambio con ...Bf5 bien calculados. La Londres solo es cómoda hasta que las negras toman la iniciativa en el flanco de dama, y ese es tu trabajo.",
+          "notes": {
+            "2": "La Londres: te la encontrarás continuamente, así que esta línea merece la pena.",
+            "7": "Haz la pregunta enseguida: el cambio en d6 te ayuda, y si se retira a g3 puedes ignorarlo.",
+            "11": "La ruptura que da juego real a las negras: ataca d4 mientras c3 aún no ha llegado.",
+            "15": "El plan completo: ...Bb7, ...Qe7 o ...Rc8, y presión en el flanco de dama, donde los jugadores de la Londres se despistan.",
+            "17": "Desarrolla con calma: el caballo de e5 parece orgulloso, pero ...Nxe5 y las rupturas centrales lo neutralizan cuando quieras."
+          }
+        },
+        "vs Catalan (open, ...dxc4 + ...b5)": {
+          "name": "Contra la Catalana (abierta, ...dxc4 + ...b5)",
+          "plan": "Has capturado en c4 y lo has conservado lo suficiente para desarrollar ...Bb7: el alfil catalán muerde tus peones de b5/c6. Consolídate (...Nbd7, ...c5 más adelante), devuelve el peón solo a cambio de la igualdad completa y neutraliza la diagonal de g2 con tu alfil.",
+          "notes": {
+            "4": "La Catalana: el alfil de g2 de las blancas quiere dominar la gran diagonal toda la partida. Tu plan: neutralizarlo.",
+            "11": "La Catalana abierta: captura el peón en el momento en que las blancas no pueden recuperarlo fácilmente.",
+            "13": "Conserva el peón de más un poco más: las blancas tienen que trabajar (Qxc4 pierde tiempo por tu jugada siguiente).",
+            "15": "El golpe que gana tiempo y justifica toda la línea: la dama se retira y tu alfil reclama la diagonal PRIMERO.",
+            "17": "Misión cumplida: el alfil catalán se mira al espejo. ...Nbd7 y ...c5 terminan el trabajo."
+          }
+        },
+        "vs Colle / Torre setups": {
+          "name": "Contra los esquemas Colle / Torre",
+          "plan": "Contra los jugadores de sistema, aprovecha el momento en que el sistema se compromete: tu tensión libre c5/cxd4 y la casilla e4 son los premios. Después del avance e4 de las blancas, cambia hacia una posición con piezas más libres y objetivos claros.",
+          "notes": {
+            "4": "La Colle: modesta, popular en los clubes, y se responde con jugadas naturales.",
+            "7": "Golpea antes de que el muro se asiente: la tensión en la columna c la gestionas tú toda la partida.",
+            "11": "Imita la buena diagonal del alfil: cuando las blancas por fin jueguen e4, tú estarás más preparado.",
+            "15": "Recaptura y vuelve a apuntar: el alfil ha encontrado una diagonal aún mejor.",
+            "17": "Responde a la ruptura sin complicaciones.",
+            "19": "Una retirada prudente (el caballo miraba a c5) y la posición es simplemente igualada, contigo conociendo los planes: ...b6, ...Bb7, cambios de piezas menores."
+          }
+        },
+        "vs Torre Attack (3.Bg5)": {
+          "name": "Contra el Ataque Torre (3.Bg5)",
+          "plan": "La Torre quiere un dominio barato de e5; niégaselo con ...c5 y las preguntas de ...h6. Haz el fianchetto del alfil de c8, cambia la presión y llega a un medio juego donde el «sistema» blanco no ha dado ninguna ventaja y tienes el plan más claro (juego de minorías en el flanco de dama o una ruptura central).",
+          "notes": {
+            "4": "El Ataque Torre: una clavada que de momento no tiene ningún caballo en la casilla pareja de f6 que la apoye.",
+            "7": "Haz la pregunta pronto: cualquier decisión del alfil te ayuda.",
+            "9": "Fija el centro mientras el alfil está fuera de juego.",
+            "11": "Desclava con calma: el peón blanco de d4 es ahora el único rasgo estático de la partida, y es un objetivo.",
+            "15": "El esquema fiable: gran diagonal, ...d6 o ...d5 para elegir, e igualdad fácil contra el sistema."
+          }
+        },
+        "vs Trompowsky (2.Bg5)": {
+          "name": "Contra la Trompowsky (2.Bg5)",
+          "plan": "Recaptura con el peón e y abraza los peones f doblados: controlan e5/g5, la columna e semiabierta va bien a las torres y los dos alfiles son un interés a largo plazo. Juega ...Bd6, enroca y luego ...f5 o rupturas centrales: el «daño» es tu dinamismo.",
+          "notes": {
+            "2": "La Trompowsky: las blancas ofrecen daños a la estructura a cambio de la pareja de alfiles. Acepta el cambio cuando te convenga.",
+            "5": "La recaptura correcta: columna e abierta, e5 controlada y el peón de f6 vigila casillas del flanco de rey. Doblado ≠ débil.",
+            "7": "El alfil toma la diagonal b8–h2, que el cambio ha dejado sin vigilar.",
+            "9": "Captura cuando a las blancas les cueste un tiempo recuperarlo.",
+            "13": "Hacia b6 o f8-g6: flexible, sólido, y los alfiles esperan a que se abra el tablero.",
+            "15": "Recupera el tiempo (el alfil tiene que moverse) y controla c4/d5: igualdad completa con la posición más rica."
+          }
+        },
+        "vs Slow Slav (4.e3 with ...Bf5)": {
+          "name": "Contra la Eslava lenta (4.e3 con ...Bf5)",
+          "plan": "Cuando las blancas juegan tranquilo, tu alfil TAMBIÉN sale primero: es toda la identidad de la Eslava. Si Nh4 lo persigue, el cambio te deja la estructura más sólida y g6 como palanca útil. Luego ...Nbd7, ...Be7 o d6, enroque, igualdad y fácil de jugar.",
+          "notes": {
+            "6": "La Eslava tranquila: sin el bloqueo con a4, desarrolla el alfil enseguida.",
+            "10": "El único intento real de las blancas: cazar el alfil antes de que se complete el muro.",
+            "11": "Aguanta: la captura en g6 abre TU columna h y no arregla nada para las blancas.",
+            "15": "Desarrolla como siempre: la columna h semiabierta es un pequeño regalo permanente y tu estructura no tiene agujeros."
+          }
+        }
+      }
+    }
+  },
+  "traps": {
+    "white-traps": {
+      "title": "Blancas — trampas de apertura",
+      "blurb": "Respuestas tentadoras que pierden en el acto. Las tiendes tú, con blancas.",
+      "traps": {
+        "Légal's Mate": {
+          "name": "Mate de Légal",
+          "bait": "…Bxd1 (se queda la dama)",
+          "idea": "Sacrifica la dama con Nxe5; si las negras la capturan, Bxf7+ y Nd5 es un mate de manual."
+        },
+        "Fried Liver Attack": {
+          "name": "Ataque Fegatello",
+          "bait": "…Nxd5 (recaptura el peón)",
+          "idea": "Ng5 ya ataca f7. Después de 5…Nxd5, el sacrificio de caballo 6.Nxf7! hace horquilla a la dama y la torre y saca al rey negro al descubierto para un ataque furioso."
+        },
+        "Caro-Kann Smothered Mate (Qe2)": {
+          "name": "Mate de la coz en la Caro-Kann (Qe2)",
+          "bait": "…Ngf6 (desarrollo natural)",
+          "idea": "5.Qe2 clava discretamente por la columna e. Después de …Ngf6, Nd6# es mate: …exd6 es ilegal porque el peón de e7 está clavado ante el rey."
+        },
+        "Monticelli Trap": {
+          "name": "Trampa Monticelli",
+          "bait": "…Nxc3 (se queda un caballo)",
+          "idea": "Ignora el caballo: 10.Ng5! ataca a la vez h7 y el alfil de b7, y las blancas ganan la calidad con una presión decisiva."
+        },
+        "Tennison Gambit Trap": {
+          "name": "Trampa del gambito Tennison",
+          "bait": "…h6 (echa al caballo)",
+          "idea": "La tranquila 6.Nxf7! Kxf7 7.Bg6+!! Kxg6 8.Qxd8 gana la dama: el jaque de alfil saca al rey de la columna d."
+        },
+        "Danish Gambit Trap": {
+          "name": "Trampa del gambito danés",
+          "bait": "…Nf6 (desarrolla con un peón de más)",
+          "idea": "Los dos alfiles barren el flanco de rey. Después de 6.Bxd5 Nf6??, 7.Bxf7+! Kxf7 8.Qxd8 atrapa la dama."
+        },
+        "Légal Trap (Philidor)": {
+          "name": "Trampa de Légal (Philidor)",
+          "bait": "…Bxd1 (se queda la dama)",
+          "idea": "La posición original de Légal: 5.Nxe5! y si 5…Bxd1?? 6.Bxf7+ Ke7 7.Nd5#. Los dos caballos y el alfil tejen una red de mate."
+        },
+        "Rubinstein Trap (Queen’s Gambit Declined)": {
+          "name": "Trampa de Rubinstein (gambito de dama rehusado)",
+          "bait": "…b6 (un fianchetto de aspecto natural)",
+          "idea": "El caballo de f6 está clavado ante la dama, así que 8.cxd5 exd5 9.Nxd5! gana un peón: 9…Nxd5 10.Bxe7 gana luego el alfil y el peón."
+        }
+      }
+    },
+    "black-traps": {
+      "title": "Negras — trampas de apertura",
+      "blurb": "Gambitos y contratrampas donde una jugada blanca codiciosa o natural pierde. Las tiendes tú, con negras.",
+      "traps": {
+        "Kieninger Trap (Budapest)": {
+          "name": "Trampa Kieninger (Budapest)",
+          "bait": "8.axb4 (gana el alfil)",
+          "idea": "La temprana …Qe7 clava el peón e blanco. Cuando las blancas se quedan el alfil, …Nd3 es un mate de la coz: exd3 es ilegal."
+        },
+        "Lasker Trap (Albin Countergambit)": {
+          "name": "Trampa Lasker (contragambito Albin)",
+          "bait": "4.e3 (la ruptura natural)",
+          "idea": "El peón d avanzado del Albin permite una subpromoción: …exf2+ y luego …fxg1=N+! gana, porque cuando el caballo es capturado …Bg4+ hace una enfilada a la dama."
+        },
+        "Englund Gambit Trap": {
+          "name": "Trampa del gambito Englund",
+          "bait": "6.Bc3?? (defiende b2)",
+          "idea": "Después de 6.Bc3 Bb4! el alfil está clavado; 7.Qd2 Bxc3 8.Qxc3 Qc1# es un mate de la coz en la última fila."
+        },
+        "Mortimer Trap (Ruy Lopez)": {
+          "name": "Trampa Mortimer (Ruy López)",
+          "bait": "5.Nxe5?? (se queda el peón «gratis»)",
+          "idea": "La curiosa 4…Ne7 invita a 5.Nxe5?? c6! 6.Bc4 Qa5+!: un jaque que hace horquilla al rey y al caballo varado de e5."
+        },
+        "From's Gambit Trap": {
+          "name": "Trampa del gambito From",
+          "bait": "4.Nc3?? (desarrollo natural)",
+          "idea": "Contra el gambito From, 4.Nc3?? Qh4+ 5.g3 Qxg3+! 6.hxg3 Bxg3# es un mate clásico, de estilo coz, por las casillas oscuras."
+        },
+        "Stafford Gambit Trap": {
+          "name": "Trampa del gambito Stafford",
+          "bait": "6.Bg5?? (clava el caballo de f6)",
+          "idea": "La Stafford muerde: 6.Bg5?? Nxe4! 7.Bxd8 Bxf2+ 8.Ke2 Bg4#. La captura codiciosa de la dama acaba en mate."
+        },
+        "Noah's Ark Trap (Ruy Lopez)": {
+          "name": "Trampa del arca de Noé (Ruy López)",
+          "bait": "8.Qxd4 (recaptura en el centro)",
+          "idea": "El avance de peones …c5–c4 encierra el alfil de b3: con los peones a y c y los suyos propios cubriéndole las casillas, no tiene adónde ir y se pierde."
+        },
+        "Elephant Trap (Queen’s Gambit Declined)": {
+          "name": "Trampa del elefante (gambito de dama rehusado)",
+          "bait": "6.Nxd5 (se queda el peón)",
+          "idea": "Si las blancas capturan en d5, …Nxd5! funciona: después de Bxd8, …Bb4+ recupera el alfil con intereses y las negras acaban con una pieza limpia de más."
+        },
+        "Siberian Trap (Smith-Morra)": {
+          "name": "Trampa siberiana (Smith-Morra)",
+          "bait": "9.h3?? (echa al caballo)",
+          "idea": "En la Smith-Morra, …Ng4 tiende la trampa: 9.h3?? Nd4! 10.Nxd4?? Qh2#. La dama gira hacia h2 con la protección del caballo de g4."
+        },
+        "Blackburne Shilling Gambit Trap": {
+          "name": "Trampa del gambito Blackburne Shilling",
+          "bait": "4.Nxe5?? (gana el peón de e5)",
+          "idea": "La atrevida 3…Nd4 la tiende: 4.Nxe5?? Qg5! 5.Nxf7 Qxg2 6.Rf1 Qxe4+ 7.Be2 Nf3#. El alfil clavado de e2 no puede capturar el caballo que da mate."
+        },
+        "Cambridge Springs Trap": {
+          "name": "Trampa de Cambridge Springs",
+          "bait": "7.Bd3?? (se desarrolla hacia la clavada)",
+          "idea": "Cambridge Springs: 7…dxc4 8.Bxc4 Ne4! hace horquilla al caballo clavado de c3 (sujeto por …Qa5) y al alfil de g5, y gana una pieza."
+        }
+      }
+    }
+  }
+}

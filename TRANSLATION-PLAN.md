@@ -1,10 +1,10 @@
 # Translating Bito Chess: the plan
 
-Status: **Phases 0 to 4 and 6 done (2026-11-05).** Every screen goes through `t()`, in Catalan,
-Spanish and Swedish (`src/locales/`), reachable with `?lang=ca`, `?lang=es` and `?lang=sv`. None is
-released. Marçal has read the first 949 keys of Catalan on a phone. The rest of the Catalan, all the
-Spanish and all the Swedish are unread. Still to do: Phase 5 (reading it), Phase 7 (starter pack notes,
-traps, endgames), Phase 8 (landing, privacy, terms, emails, checkout), then release.
+Status: **Phases 0 to 4, 6 and 7 done (2026-11-05).** Every screen, starter pack note, trap and endgame
+is in Catalan, Spanish and Swedish (`src/locales/`), reachable with `?lang=ca`, `?lang=es` and `?lang=sv`.
+None is released. Marçal has read the first 949 keys of Catalan on a phone. The rest of the Catalan, all
+the Spanish and all the Swedish are unread, including all of Phase 7. Still to do: Phase 5 (reading it),
+Phase 8 (landing, privacy, terms, emails, checkout), then release.
 
 Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
 and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
@@ -33,8 +33,8 @@ isn't the personal one.
 | App text | 3,190 strings, 2,316 different, 13,700 words, in 144 files | `npm run i18n:scan`, 2026-11-04. Replaces a rougher count of 1,960; repeats like "Cancel" need one translation |
 | Text with inserted values | 520 | Must become whole sentences with placeholders |
 | Hand-written plurals | 113 | `n === 1 ? '' : 's'` and similar |
-| Starter pack notes | about 7,400 words | `src/starter-packs.json`, shown during training |
-| Traps and endgames | about 1,150 words | `src/traps.json`, `src/endgames.json` |
+| Starter pack notes | about 7,400 words | English in `src/starter-packs.json`, translations in `src/locales/content/` |
+| Traps and endgames | about 1,150 words | Traps as above. Endgame names and ideas are ordinary dictionary keys |
 | Landing page copy | about 4,900 words | `docs/LANDING-COPY.md` is the source |
 | Privacy and terms | about 4,600 words | Includes some markup in the count |
 | Opening names | 10,765 names in 407 families | Top 100 families cover 93% |
@@ -96,6 +96,12 @@ Cf3 / Sf3 problem. The optional letter notation stays in English letters.
   `t()` can stay synchronous and work in module-level constants.
   Each dictionary should be about 100 KB raw. Check that after the first batch.
 - **Fallback per key:** a missing key shows English and never the key name.
+- **Starter packs and traps:** `src/locales/content/<lang>.json`, loaded only when those lists open,
+  and matched by each line's and trap's English name. The moves stay in the source. A selftest fails if
+  a translated note names a different move, square or move number from the English.
+  If `build-starter-packs.mjs` renames a line or changes a note, that selftest shows what to redo.
+- **A pack line someone has already added keeps the language it was added in.** Its name and notes are
+  saved with the line and become that person's own text.
 - **Change tracking:** `src/locales/status.json` records, per language and key, a
   hash of the English it was translated from and whether it's `machine` or
   `reviewed`. If the English changes, that key is out of date and shows English
@@ -222,7 +228,7 @@ Each phase can stop safely, because of the English fallback.
 | 4 ✅ | Translate the core screens into all three | Layout check passes in all languages. The review page waits until there is a Swedish reviewer |
 | 5 | Marçal reviews Catalan first, then Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
 | 6 ✅ | The remaining screens, one or two rounds at a time | No untranslated text in the fake language, apart from names, opening names and what Phase 7 covers |
-| 7 | Starter pack notes, traps, endgames | Reviewed by sampling |
+| 7 ✅ | Starter pack notes, traps, endgames | Written and checked by machine. Still to be sampled by a chess player |
 | 8 | Landing, privacy, terms, emails, checkout | Each language's full path works, landing to purchase |
 | 9 | Release Catalan, then Spanish, then Swedish, each once reviewed. Phones in Spain's Spanish get Catalan from the first release. They can only switch to Spanish once it's released, so ideally release the two together | |
 | 10 | Opening names | |

@@ -3111,3 +3111,17 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   names, developer-only sync errors, feedback email subjects.
 - The automatic check doesn't reach most exercises or their end screens, so those need reading on a phone.
 
+### Translation: starter pack notes, traps and endgames (Phase 7)
+
+- **All 6 packs, 62 lines, 19 traps and 18 endgames, in Catalan, Spanish and Swedish.** Not released, and nobody has
+  read them yet.
+- **Packs and traps load only when those lists open** (`src/locales/content/`, 21 KB gzipped per language), so starting
+  the app costs the same as before. English loads none of it.
+- ✅ **A selftest compares the chess:** every move, square and move number in a translated note has to match the English.
+  It catches a wrong square, tested by planting one.
+- ✅ **Moves, filters and matching keep reading the English values,** so a trap still finds the openings you play.
+- ✅ **Level and style chips were still English** on pack and trap cards. Fixed in the same pass.
+- ✅ **The layout check passes in all three languages,** and packs, traps and endgame lists were driven in each.
+- A pack line already added keeps the language it was added in, because its notes are saved as that person's own.
+- Moves inside notes still use English letters (*Nf3*), while the move lists above them use piece symbols.
+

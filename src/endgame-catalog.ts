@@ -5,7 +5,7 @@
 // the trainer plays it out (see endgame-playout.ts).
 
 import RAW from './endgames.json';
-import { t } from './i18n';
+import { t, type MessageKey } from './i18n';
 
 export type EndgameCategory = 'mates' | 'pawn' | 'rook' | 'queen' | 'minor';
 export type EndgameLevel = 'essential' | 'intermediate' | 'advanced';
@@ -43,7 +43,13 @@ export const LEVEL_META: Record<EndgameLevel, { label: string; rank: number }> =
   advanced: { label: t('open.tag.advanced'), rank: 2 },
 };
 
-const ENDGAMES: Endgame[] = RAW as Endgame[];
+// The name and idea are sentences like any other, so they live in the dictionaries
+// (`endgame.<id>.name`, `endgame.<id>.idea`). The file holds the chess.
+const ENDGAMES: Endgame[] = (RAW as Omit<Endgame, 'name' | 'idea'>[]).map((e) => ({
+  ...e,
+  name: t(`endgame.${e.id}.name` as MessageKey),
+  idea: t(`endgame.${e.id}.idea` as MessageKey),
+}));
 
 export function allEndgames(): Endgame[] {
   return ENDGAMES;

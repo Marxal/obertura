@@ -1,0 +1,839 @@
+{
+  "packs": {
+    "white-e4-beginner": {
+      "title": "1.e4 — Nybörjare",
+      "blurb": "Klassiska kungsbondeöppningar med enkla och säkra svar mot alla svarta försvar. Det bästa stället att börja på.",
+      "lines": {
+        "Italian Game (Giuoco Piano)": {
+          "name": "Italienskt (Giuoco Piano)",
+          "plan": "Bygg upp långsamt: håll centrum med c3/d3, för springaren från b1 via d2–f1 till g3 och välj sedan brytning: d4 i centrum eller spel på kungsflygeln med idéer som Nf5/Ng5. Ingen brådska: förbättra en pjäs varje drag.",
+          "notes": {
+            "4": "Den italienska löparen siktar rakt på f7, den svagaste rutan i svarts läger (bara kungen försvarar den).",
+            "6": "Förbereder d4: efter c3 kommer framstöten d4 med bondestöd och svarts löpare måste ge vika.",
+            "8": "Det moderna, tålmodiga valet. Centrum står stadigt och kampen flyttas till långsamt manövrerande, som är lättare att spela.",
+            "10": "Rockera tidigt i öppna ställningar: taktik på e-linjen straffar en kung som blir kvar i mitten.",
+            "12": "Tornet stöder e4 och väntar i lugn och ro bakom en framtida brytning med d4.",
+            "14": "Svarar på svarts framstöt på damflygeln: hindrar ...b5 från att vinna utrymme och ger löparen på c4 en reträtt till a2.",
+            "16": "Lite luft som också tar g4 från svarts pjäser: ingen bindning med ...Bg4, inga knep med ...Ng4."
+          }
+        },
+        "Italian vs ...Nf6 (Two Knights, quiet)": {
+          "name": "Italienskt mot ...Nf6 (Tvåspringarspel, lugnt)",
+          "plan": "Du når samma Giuoco Pianissimo-struktur: c3/d3, Re1, a4 och sedan brytningen d4 eller springarens väg Nbd2–f1–g3. Dragföljden skiljer sig, planen gör det inte.",
+          "notes": {
+            "5": "Svart utvecklar med ett hot mot e4: det är tvåspringarspelet.",
+            "6": "Försvara helt enkelt e4. Det skarpa 4.Ng5 finns, men d3 håller dig på känd italiensk mark utan någon risk.",
+            "10": "Standardinredning: tornet bakom e-bonden före varje brytning i centrum.",
+            "12": "Utrymme på damflygeln och en reträttruta (a2) för löparen.",
+            "14": "Det vanliga paret med d3: en dag spelar du d4 i ett svep, med fullt stöd.",
+            "16": "Drömresan börjar: den här springaren är på väg d2–f1–g3 (eller c4), den typiska italienska manövern."
+          }
+        },
+        "Italian move order: 3...Nf6 4.d3 Bc5": {
+          "name": "Italiensk dragföljd: 3...Nf6 4.d3 Bc5",
+          "plan": "Om svart spelar ...Nf6 före ...Bc5 transponerar du bara: samma bondestruktur (c3+d3), samma torn på e1, samma springarväg. En uppställning, oavsett dragföljd.",
+          "notes": {
+            "7": "Svart går tillbaka till Giuoco-linjerna: du är tillbaka i huvudplanen, bara genom en annan dörr.",
+            "10": "Samma idé som alltid: stöd ett framtida d4.",
+            "16": "Sista handen vid uppställningen: g4 är förbjuden mark och första raden kan andas."
+          }
+        },
+        "vs Sicilian — Alapin (2...d5)": {
+          "name": "Mot Sicilianskt — Alapin (2...d5)",
+          "plan": "Du får ett centrum av isolerad dambonde-typ och en enkel utveckling. Håll pjäserna aktiva, bevaka bonden på d4 och utnyttja de öppna linjerna: byten gynnar svart, aktivitet gynnar dig.",
+          "notes": {
+            "2": "Alapin: du slipper den enorma teorin i öppet sicilianskt och bygger ett stort centrum med d4.",
+            "4": "Byt innan svart hinner med ...d4: tar damen tillbaka blir Hennes Majestät utsatt för drag som vinner tempo.",
+            "6": "Poängen med c3: ett komplett bondecentrum medan svarts dam står öppet.",
+            "10": "Lös bindningen i lugn och ro. Inga svagheter, och nästa drag är O-O.",
+            "14": "Stärk d4 innan svart samlar sig mot den: hela partiet kretsar kring den bonden.",
+            "16": "Ta tillbaka mot centrum. Du kan få en isolerad d-bonde: det gör inget, den ger öppna linjer och utposter."
+          }
+        },
+        "vs Sicilian — Alapin (2...Nf6)": {
+          "name": "Mot Sicilianskt — Alapin (2...Nf6)",
+          "plan": "Svarts springare jagas runt medan du bygger centrum. Utveckla med tempo (Bc4 slår mot springarens rutor), håll d4 frisk och njut av ett riskfritt utrymmesövertag.",
+          "notes": {
+            "3": "Det kritiska svaret: angriper e4 innan du spelat d4.",
+            "4": "Gå fram med tempo. Springaren måste flytta igen och du vinner tid för centrum.",
+            "8": "Centrum kommer enligt plan, skyddat av c3.",
+            "12": "Utveckla med en fråga: springaren på d5 står nu obekvämt.",
+            "14": "Behåll löparen och bind springaren på c6: plötsligt är e5 svår att vinna tillbaka.",
+            "16": "Ta tillbaka med springaren och behåll trycket: bindningen på c6 gör att svart måste reda ut sig försiktigt."
+          }
+        },
+        "vs Sicilian — Alapin (2...e6)": {
+          "name": "Mot Sicilianskt — Alapin (2...e6)",
+          "plan": "En fransk-liknande struktur där du ofta vinner spänningen kring bonden på c5. Spela mot den isolerade bonden på d5: blockera den med en springare på d4, byt försvararna av de mörka rutorna och pressa.",
+          "notes": {
+            "4": "Ta hela centrum: med ...e6 kan svart inte sätta tidig pjäspress på det.",
+            "6": "Klargör ställningen: svart får en isolerad d-bonde att passa resten av partiet.",
+            "10": "En nyttig schack: det som blockerar hamnar lite fel.",
+            "14": "Lös spänningen i rätt ögonblick: återtagningen kostar svart ytterligare ett tempo.",
+            "16": "På väg till b3 eller f1–g3: springare älskar de ljusa rutorna runt svarts isolerade bonde."
+          }
+        },
+        "vs French — Exchange": {
+          "name": "Mot Franskt — Avbytesvarianten",
+          "plan": "En symmetrisk struktur där den som utvecklar bäst vinner. Placera löparparet aktivt (Bd3+Bg5), sätt springarna på e5/g3 och bygg ett angrepp på kungsflygeln medan svart härmar dig ett tempo efter.",
+          "notes": {
+            "4": "Avbytesvarianten: inga franska bondekedjor, inga teoridebatter. Bara ett rent, öppet parti där vit drar först.",
+            "8": "Löparens bästa diagonal: den stirrar på h7 under hela mittspelet.",
+            "12": "En riktig bindning: svarts springare på f6 håller ihop kungsflygeln.",
+            "14": "Flexibelt: springaren kan gå f1–g3 eller c4–e5. Symmetri är bara lika om svart också hittar alla bra rutor.",
+            "16": "Ett blygsamt drag med ett syfte: utrymme med b4-b5 senare, och bonden på d4 behöver aldrig oroa sig igen."
+          }
+        },
+        "vs Caro-Kann — Exchange": {
+          "name": "Mot Caro-Kann — Avbytesvarianten",
+          "plan": "Det klassiska Carlsbad-angreppet: Qb3 petar på b7, springarna kommer till e5/f3 och sedan följer minoritetsidéer (b4-b5) eller en uppbyggnad på kungsflygeln. Enkla rutor, tydlig plan.",
+          "notes": {
+            "4": "Byt till en struktur som DU kan bättre: det är damgambitens avbytesvariant med omvända färger och ett extra tempo.",
+            "6": "Ta diagonalen b1-h7 innan svarts löpare kan ifrågasätta den med ...Bf5.",
+            "8": "Stabiliserar d4 och öppnar c2 för damen.",
+            "10": "Löparen tar bästa diagonalen utanför bondekedjan innan ...Bg4/...e6 låser allt.",
+            "12": "Dubbelangrepp: b7 hänger och d5 känner trycket. Svart måste vrida sig för att täcka båda.",
+            "14": "Notera dragföljden: den här springaren utvecklas först så att f3 är ledig för springaren på g1, vilket gör ...Bxf3 ofarligt.",
+            "16": "Allt hänger ihop: härnäst kommer O-O, Rfe1 eller det typiska Ne5."
+          }
+        },
+        "vs Scandinavian": {
+          "name": "Mot Skandinaviskt",
+          "plan": "Du leder utvecklingen med två tempon. Rockera långt, sätt igång kungsflygelns bönder eller bryt med d5/Ne5: den klassiska skandinaviska pressen. Se upp för knep med ...Bxf3 och ...Qxd4; Bd2 och Qe2 täcker dem.",
+          "notes": {
+            "2": "Ta emot: hela poängen med skandinaviskt är att svart tar tillbaka med damen och du utvecklar med tempo.",
+            "4": "Utveckla OCH angrip damen. Gratisdrag som det här är skälet till att 1...d5 är ovanligt i toppen.",
+            "12": "Ett lugnt stjärndrag: det täcker springaren på c3 (knepen med ...Qxc3 försvinner) och siktar på damen på a5 längs diagonalen.",
+            "14": "Förbind tornen och förbered O-O-O: tornet landar på d1 och blänger på svarts damlinje.",
+            "16": "Rockera IN i angreppet: din kung står säkert bakom a-b-c-bönderna medan varje vit pjäs siktar på svarts ställning."
+          }
+        },
+        "vs Pirc / Modern — Classical": {
+          "name": "Mot Pirc / Modernt — Klassiskt",
+          "plan": "Möt fianchettot lugnt: fullt centrum, naturlig utveckling, kort rockad. När ...e5 kommer, behåll spänningen eller byt på rätt sätt; ditt extra utrymme gör att varje byte underlättar ditt spel, inte deras.",
+          "notes": {
+            "6": "Den klassiska uppställningen: inga skarpa bondestormar att memorera, bara bra rutor och ett utrymmesövertag.",
+            "8": "Blygsamt men perfekt: du kan rockera och senare stödja g4 eller f3 om partiet skärps.",
+            "12": "Stoppa svarts expansion på damflygeln innan den börjar: ...b5 var Pircs främsta källa till spel.",
+            "15": "Svart gör äntligen anspråk på centrum: den typiska Pirc-brytningen.",
+            "16": "Behåll allt: g4 nekas svarts pjäser och du kan välja mellan dxe5, d5 eller helt enkelt Be3."
+          }
+        },
+        "vs Philidor (2...d6)": {
+          "name": "Mot Philidor (2...d6)",
+          "plan": "Öppna centrum och njut av mer utrymme och friare pjäser. Gruppera om med Re1/Bf1 (ett knep från spanskt) och expandera senare med a4/b4 eller f4. Svart står solitt men passivt; tålamod vinner.",
+          "notes": {
+            "3": "Philidor: solitt, men det stänger in löparen på f8. Svart accepterar en trång ställning.",
+            "4": "Slå till direkt: håller svart centrum med ...Nd7-linjer behåller du utrymmet, spelar svart ...exd4 öppnas ställningen för dina bättre pjäser.",
+            "14": "Torn hör hemma på den (halv)öppna linjen, och det avskräcker alla knep med brytningen ...d5.",
+            "16": "Samma omgruppering som svart just gjorde: löparen omplaceras, tornet behåller linjen och sedan kommer g3/Bg2 eller b3/Bb2."
+          }
+        },
+        "vs Petroff (2...Nf6)": {
+          "name": "Mot Ryskt (2...Nf6)",
+          "plan": "Ett nästan symmetriskt mittspel där ditt tryck med c4/Nc3 mot d5 ger ett varaktigt initiativ. Behåll pjäserna, sikta på reträttrutorna för springaren på e4 och expandera med c4-c5 eller byten i centrum vid rätt tillfälle.",
+          "notes": {
+            "3": "Ryskt: i stället för att försvara e5 motangriper svart e4.",
+            "4": "Ta först. Den berömda fällan: om svart direkt tar med 3...Nxe4? vinner 4.Qe2! material, eftersom springaren är bunden inför en avtäckt schack.",
+            "8": "Ta centrum medan springaren på e4 bestämmer var den ska bo.",
+            "14": "Huvudstöten: slå mot d5 så att springaren på e4 förlorar sitt fäste.",
+            "16": "Vik undan och behåll spänningen: springaren på b4 måste gå tillbaka, och cxd5 hänger över svart."
+          }
+        }
+      }
+    },
+    "white-d4-london": {
+      "title": "1.d4 — Londonsystemet",
+      "blurb": "En uppställning mot nästan allt: Bf4, e3, Nf3, Bd3, c3. Lite teori och mycket stabilt.",
+      "lines": {
+        "London vs ...d5 (classical)": {
+          "name": "London mot ...d5 (klassiskt)",
+          "plan": "Hela Londondrömmen: springaren till e5, f-bonden eller damen ansluter och pjäserna samlas mot svarts kung. Om svart byter på e5, ta tillbaka mot kungsflygeln och angrip längs f-linjen eller med h4-h5.",
+          "notes": {
+            "2": "Londondraget: löparen kommer UT innan e3 stänger dörren. Allt annat är samma mur: e3, Nf3, Bd3, c3, Nbd2.",
+            "4": "Muren reser sig. Notera att löparen redan står utanför.",
+            "7": "Svart erbjuder byte av din bra löpare: ta aldrig, låt svart bestämma.",
+            "8": "Dra tillbaka den. Om svart någon gång tar på g3 öppnar hxg3 h-linjen rakt mot kungen: en gratis angreppslinje.",
+            "12": "Murens andra tegelsten: d4 står nu bergfast, vad svart än hittar på.",
+            "14": "Den här springaren täcker e4/c4 och frigör den andra till stjärnrutan...",
+            "16": "Londonbelöningen: springaren landar på e5 för att stanna. Efter ...Nxe5 dxe5 gafflar bonden d6 och f6 och dina pjäser väller in på kungsflygeln."
+          }
+        },
+        "London vs ...c5": {
+          "name": "London mot ...c5",
+          "plan": "Samma uppställning och samma belöning med Ne5. Mot pet med ...c5+...Qb6 håller Qb1 eller Qc1 b2 i lugn och ro: låt aldrig b-bonden distrahera dig från planen på kungsflygeln.",
+          "notes": {
+            "3": "Svart slår direkt mot d4: c3 håller den för evigt.",
+            "8": "Nu är d4 försvarad tre gånger. London är inte heller rädd för ...cxd4: exd4 öppnar e-linjen för dig.",
+            "10": "Samma rutin varje parti: den här springaren först, så att Ne5 finns kvar för den andra.",
+            "16": "Där är den igen. Med stöd av d4 och f4-idéer tränger springaren in hela svarts ställning."
+          }
+        },
+        "London vs King's Indian setup": {
+          "name": "London mot kungsindisk uppställning",
+          "plan": "Mot fianchettot, håll ihop spelet: h3 håller löparen säker och c3 håller centrum. Möt ...e5 med dxe5 och använd d-linjen; möt ...Nh5 med Bh2, där löparen behåller sin diagonal. Spela på damflygeln med c4/b4 om centrum förblir stängt.",
+          "notes": {
+            "3": "En kungsindisk uppställning: svart siktar på ditt centrum med ...e5 eller ...d6/...Nbd7.",
+            "8": "Lugnare än Bd3 här: mot en löpare på g6 är den ljusfältade löparen en biroll, inte stjärnan.",
+            "10": "Kungen först. I London blir du aldrig matt i öppningen.",
+            "12": "Ett litet nyckeldrag: det ger löparen på f4 gömstället h2, så att ...Nh5 eller ...e5-e4 aldrig vinner den.",
+            "14": "Det vanliga klistret. Kommer ...e5 nu: dxe5 dxe5, dra tillbaka löparen och ta över d-linjen.",
+            "16": "Uppställningen klar. Härnäst: a4 för utrymme, eller Qb1/Re1 beroende på var svart binder sig."
+          }
+        },
+        "London vs ...e6 (Queen's-side setup)": {
+          "name": "London mot ...e6 (damflygeluppställning)",
+          "plan": "Svart skjuter upp ...d5 men brukar spela det ändå: du transponerar till den klassiska planen. Nbd2, Bd3 och sedan Ne5 med en uppbyggnad på kungsflygeln. Ett system, många ingångar.",
+          "notes": {
+            "8": "Alltid den här tegelstenen före Bd3: annars jagar ...Nb4 löparen.",
+            "10": "Tillbaka på känd mark: det är klassiskt London med ett extra drag för vardera sidan.",
+            "16": "Draget som hela systemet bygger på: cementera det med f4 eller byt till en bondestorm på kungsflygeln."
+          }
+        },
+        "London vs ...c6 + ...Bf5 (Slav-like)": {
+          "name": "London mot ...c6 + ...Bf5 (slaviskt)",
+          "plan": "När svart kopierar din löparidé, byt av den och ta centrum: Qxd3 håller allt prydligt och sedan förvandlar e4! din \"tråkiga\" mur till ett riktigt bondecentrum. Ur symmetrin får du det friare spelet.",
+          "notes": {
+            "7": "Svart utvecklar också löparen utanför muren: härmningsmetoden.",
+            "8": "Erbjud bytet: dina möjligheter att ta tillbaka med e-linjen gör att den symmetriska ställningen i tysthet gynnar dig.",
+            "10": "Damen står perfekt: den stöder den kommande brytningen e4.",
+            "12": "Båda springarna siktar nu på e4.",
+            "16": "Brytningen som vinner centrum: byte på e4 gör dig friare, ignoreras den går du på e5 med utrymme."
+          }
+        },
+        "London vs ...Qb6 (the b2 poke)": {
+          "name": "London mot ...Qb6 (petet på b2)",
+          "plan": "Qc1 desarmerar damutfallet helt; svarts dam hamnar oftast fel på b6. Sedan vanlig ordning: Bd3/Bg3, O-O, Nbd2-e5 och den vanliga uppbyggnaden på kungsflygeln.",
+          "notes": {
+            "9": "Det mest irriterande petet mot London: damen slår mot b2, som löparen lämnade bakom sig.",
+            "10": "Det lugna svaret: b2 är täckt, inga svagheter skapas och din dam var ändå på väg hit (mot h6).",
+            "16": "Lite ödmjukare än d3 (damen håller koll på c-linjen), men planen är oförändrad: O-O, Ne5, spel på kungsflygeln."
+          }
+        },
+        "London vs Modern (...d6 + ...g6)": {
+          "name": "London mot Modernt (...d6 + ...g6)",
+          "plan": "Samma recept mot fianchetto som mot kungsindiskt: h3, c3, tålmodigt centrum. Om svart tar utrymme med ...e5, byt på e5 och sikta på d6 längs linjen. Expansion på damflygeln med a4-a5 är din långsamma vinst.",
+          "notes": {
+            "12": "Löparens gömställe på h2, som alltid mot uppställningar med ...g6.",
+            "16": "Klart. Härifrån: a4, Qb1 eller Re1. Välj flygeln där svart är svagast."
+          }
+        },
+        "London vs ...Bg4 (the pin)": {
+          "name": "London mot ...Bg4 (bindningen)",
+          "plan": "Bjud in till byte på f3: återtagningen med damen är bekväm och du behåller löparparet. Sedan det vanliga centrumet (Nd2, Bd3, O-O) med den långsiktiga planen e4 och en långsam framstöt på kungsflygeln.",
+          "notes": {
+            "7": "Bindningen: det skarpaste försöket mot Londons lugna uppställning.",
+            "8": "Ställ frågan direkt: reträtt (förlorar tid) eller byte (ger dig löparna).",
+            "10": "Helt säkert: damen siktar till och med på b7 och stöder ett senare e4.",
+            "12": "På väg för att stödja e4. Svart gav en löpare för en springare, så paret är ditt: håll ställningen rik och undvik fler byten.",
+            "16": "Sätt kungen i säkerhet och förbered sedan e4 (idéer med Rfe1, Qe2): löparna vill ha öppna linjer."
+          }
+        },
+        "London vs early ...cxd4 (open centre)": {
+          "name": "London mot tidigt ...cxd4 (öppet centrum)",
+          "plan": "Med c-linjen halvöppen, placera damtornet på c1 senare och spela mot svarts damflygel. Frågan h3 till löparen på g4 och ett Ne5 i rätt läge är fortfarande dina standardverktyg.",
+          "notes": {
+            "5": "Svart släpper spänningen tidigt: ta tillbaka mot centrum.",
+            "6": "Nu är e-linjen halvöppen för ditt torn, och löparen utanför kedjan står precis där den vill.",
+            "14": "När spänningen på c-linjen är löst hittar damen jobb: b7 är känslig och spel på b-linjen lockar.",
+            "16": "Standardfrågan till löparen: varje reträtt eller byte förbättrar din ställning lite."
+          }
+        },
+        "London vs ...Be7 (flexible QGD style)": {
+          "name": "London mot ...Be7 (flexibel damgambitstil)",
+          "plan": "Mot det blygsamma ...Be7, ta utposten e5 tidigt och bygg bakom den: f4 om det går, lyft med Qf3/Rf3 i drömläget, eller bara ett stabilt plus med mer utrymme. Här spelar London sig självt.",
+          "notes": {
+            "7": "Svart avböjer bytet med ...Bd6: ett problem mindre för din mörkfältade löpare.",
+            "16": "Utan en löpare på d6 som utmanar är springaren ännu starkare här. Med f4 härnäst blir det permanent."
+          }
+        }
+      }
+    },
+    "white-e4-attacking": {
+      "title": "1.e4 — Angrepp",
+      "blurb": "Skarpa linjer som tar initiativet: gambiter efter 1.e4 e5 och vassa uppställningar mot sicilianskt, franskt och Caro-Kann.",
+      "lines": {
+        "Evans Gambit (accepted)": {
+          "name": "Evansgambit (antaget)",
+          "plan": "Du ligger en bonde under med ett monstercentrum och alla pjäser riktade mot kungen. Behåll initiativet till varje pris: öppna linjer, hindra svarts rockad (Ba3!) och omsätt angreppet innan svart konsoliderar. I Evans angriper man: lugna drag ger merbonden en framtid.",
+          "notes": {
+            "6": "Evansgambiten: en kantbonde köper två tempon och ett jättecentrum. Fischer kallade den \"en lektion i tid\".",
+            "8": "Slå mot löparen och förbered d4: bonden kommer tillbaka för att bygga centrumet som svart just hjälpt dig med.",
+            "10": "Poängen: fullt centrum, öppna linjer och svart redan två drag efter i utvecklingen.",
+            "12": "Kungens säkerhet först, SEDAN stormen. Bonden på d4 kan vänta: den är bunden vid ditt initiativ.",
+            "14": "Centrum återställt. Titta på svarts pjäser: löparen vid sidan av på a5 och passiva springare. Det är vad bonden köpte.",
+            "16": "Öppna! Varje öppen linje gynnar den bäst utvecklade sidan, och det är du med råge.",
+            "18": "Dödsstöten: den här löparen skär av diagonalen f8–a3, så svarts kung fastnar i mitten. För nu tornen till e1/c1."
+          }
+        },
+        "Two Knights — 4.Ng5 (main, 5...Na5)": {
+          "name": "Tvåspringarspel — 4.Ng5 (huvudlinje, 5...Na5)",
+          "plan": "Du har vunnit en ren bonde; svart har fått aktivitet. Ge tillbaka ett tempo eller två i lugn och ro (Be2, Nf3, d3), red ut dig och nå ett mittspel där merbonden helt enkelt räknas. Girighet nu, teknik sedan.",
+          "notes": {
+            "6": "Det mest krävande fjärde draget i hela schacket: f7 är angripen två gånger och svart har inget rent försvar.",
+            "8": "Ta: varje svart svar har ett pris. Huvudlinjen 5...Na5 ger en bonde för aktivitet.",
+            "10": "Se till att merbonden håller: den här schacken tvingar fram ...c6 och luckrar upp svarts struktur ännu mer.",
+            "12": "Andra bonden: du ger tillbaka en för ett smidigt spel, men låt svart bevisa kompensationen.",
+            "14": "Den kallblodiga reträtten (starkare än linjerna med d3): behåll löparen och dämpa batterierna ...Qc7/...Bd6.",
+            "16": "Reträtt med plan: när ...e4 kommer centraliserar Ne5! och springaren står utmärkt där. Se startpaketet för svart för vad svart vill; här är du helt enkelt kvar med en merbonde."
+          }
+        },
+        "Fried Liver Attack (5...Nxd5?!)": {
+          "name": "Fried Liver-angreppet (5...Nxd5?!)",
+          "plan": "En pjäs för två bönder och en kungsjakt. Fortsätt schacka och utveckla med tempo: idéer med d4, Bf4, O-O-O. Svarts kung på e6 måste överleva tjugo drag av press; ett snedsteg och det är matt. Kunna idéerna, inte bara dragen: sikta på rutorna d5 och f7, håll damen nära.",
+          "notes": {
+            "9": "Det naturliga återtagandet är det berömda misstaget: nu fungerar offret.",
+            "10": "Fried Liver: en hel springare för att dra ut kungen i det öppna. Inkorrekt? Motorerna säger knappt; människor överlever det aldrig.",
+            "12": "Damen kommer in med schack och slår mot d5: svarts kung måste gå UPP på brädet för att hålla springaren.",
+            "14": "Samla på d5. Varje utvecklingsdrag kommer med ett hot: det är därför angreppet driver sig självt.",
+            "16": "Centralisera och håll båda hoten vid liv (d5 samt mattnät på f5). Kungen på e6 blockerar hela svarts armé.",
+            "18": "Be lugnt springaren på b4 att gå: den var den enda försvararen som gjorde verkligt jobb.",
+            "20": "Öppna centrum mot den instängda kungen: sedan Bf4/O-O-O, alla pjäser ansluter och svarts extra springare ser på från a6."
+          }
+        },
+        "Scotch Gambit (Møller-style)": {
+          "name": "Skotsk gambit (Møller-stil)",
+          "plan": "Framstöten d5 klyver svarts ställning i två delar. Följ upp med Re1 så vinner Rxe4 tillbaka materialet med fortsatt initiativ; eller så ger svart tillbaka pjäsen och du får den bättre strukturen. Studera idéerna bakom d5: det är en gaffel av begrepp, inte bara av rutor.",
+          "notes": {
+            "4": "Öppna centrum direkt: gambitandan, utveckling före material.",
+            "6": "Erbjud d-bonden (igen): att ta den kostar svart två tempon till medan du rockerar och slår mot f7.",
+            "10": "Centrum återupprättat, löparen måste bestämma sig och det roliga börjar.",
+            "13": "Svart tar bonden och utmanar dig att bevisa det: det kritiska testet.",
+            "15": "Konsekvent: svart tar bort springaren för att behålla merbonden.",
+            "16": "Den berömda stöten: strunta i löparen, slå mot c6 och öppna varje linje. Efter ...Bf6 vinner Re1 tillbaka pjäsen med ränta."
+          }
+        },
+        "vs Sicilian — Grand Prix Attack": {
+          "name": "Mot Sicilianskt — Grand Prix-angreppet",
+          "plan": "Det klassiska f-linjeangreppet: Qe1–h4, f5 i rätt ögonblick, Bh6 för att byta försvararen och ett tornlyft vid behov. Svarts motspel på damflygeln tävlar mot dig: håll foten på gasen, på motsatta flyglar betyder tempo mer än material.",
+          "notes": {
+            "2": "Den smarta dragföljden: den undviker 2.f4 d5! och f4 kommer ändå härnäst.",
+            "4": "Grand Prix: du meddelar planen på tredje draget. Bonde till f5, pjäser mot kungen.",
+            "8": "Sikta på f7 medan den är mjuk; mot uppställningar med ...e6 backar löparen till b3 och behåller diagonalen.",
+            "12": "Blygsamt centrum med flit: böndernas jobb är att frigöra pjäserna för kungsflygeln, inte att vinna mitten.",
+            "14": "Det typiska lyftet: damen svänger till h4, där mattidéer med f5/Bh6/Ng5 dyker upp av sig själva.",
+            "16": "Håll löparen vid liv och spänningen hög: exd5 bara när det öppnar linjer mot kungen."
+          }
+        },
+        "vs Sicilian — Open, English Attack": {
+          "name": "Mot Sicilianskt — Öppet, engelskt angrepp",
+          "plan": "Motsatta rockader betyder ren kapplöpning: g4-g5 river upp kungsflygeln medan svart spelar ...b5. Fart styr: varje drag som inte angriper är ett bortkastat drag. Byt av svarts försvarare, aldrig dina angripare.",
+          "notes": {
+            "4": "Öppet sicilianskt: det mest principiella och fruktade svaret. Ta centrum och utveckla snabbare.",
+            "10": "Det engelska angreppets uppställning: Be3+f3+Qd2+O-O-O, ett recept mot hela Najdorf.",
+            "14": "Ryggraden: den skyddar e4, stöder g4 och ger din kung skydd efter lång rockad.",
+            "16": "Dam- och löparbatteri: idéer med Bh6 senare, och O-O-O är redo.",
+            "18": "Kungar på motsatta flyglar: nu är det knivslagsmål, och dina g/h-bönder är knivarna.",
+            "20": "Stormen börjar. g5 kör bort springaren på f6 (kungens bästa försvarare) och sedan river h4-h5 upp skyddet."
+          }
+        },
+        "vs French — Advance": {
+          "name": "Mot Franskt — Framskjutningsvarianten",
+          "plan": "Utrymmet är poängen: e5 tränger in svart för alltid. Håll d4 (det eviga franska målet) och expandera sedan på kungsflygeln: Bd3, O-O och idéerna f4-f5 eller Nf3-g5. Blir det spänt på damflygeln ger b4-b5 ännu mer plats.",
+          "notes": {
+            "4": "Framskjutningsvarianten: ta utrymme, lås centrum och lämna löparen på c8 begravd bakom sina egna bönder.",
+            "10": "Det moderna huvuddraget: det förbereder b4, tar utrymme på damflygeln och dämpar hela svarts press med ...c5.",
+            "12": "Expandera med tempo: bonden på c5 måste bestämma sig och din damflygel blir en andra front.",
+            "16": "Löparen försvarar d4 från bakhåll. Svarts pjäser slår mot d4 tre gånger och du håller den tre gånger: det franska dödläget, och utrymmet är ditt."
+          }
+        },
+        "vs Caro-Kann — Panov Attack": {
+          "name": "Mot Caro-Kann — Panov-angreppet",
+          "plan": "Isolerad dambonde när det är som bäst: använd trycket från d-bonden till pjäsaktivitet. Bg5, Rc1/Re1, Ne5 och den klassiska brytningen d5 eller mönster med grekiskt offer på Bxh7. Byten leder mot lika, så håll brädet fullt och pjäserna riktade mot kungen.",
+          "notes": {
+            "6": "Panov: det \"tråkiga\" Caro-Kann blir plötsligt en öppen, initiativdriven kamp med isolerad dambonde, på dina villkor.",
+            "12": "Du når den klassiska strukturen: din blivande fribonde på d4 mot svarts solida men passiva uppställning.",
+            "16": "Allt naturligt: sedan Re1, batteriidéer med a3/Bc2-Qd3 eller Ne4. Angreppsverktygen med isolerad dambonde."
+          }
+        },
+        "Scotch Gambit — 4...Nf6 (declined)": {
+          "name": "Skotsk gambit — 4...Nf6 (avböjd)",
+          "plan": "En strukturduell: ditt utvecklingsförsprång och trycket mot c6/d4 mot svarts centrala springare. Spela mot bönderna på c6: Nd2 eller Qe2 utmanar springaren på e4, idéer med c4 låser svagheterna och dina pjäser förblir friare.",
+          "notes": {
+            "7": "Svart avböjer gambiten och motangriper: det sunda, moderna valet.",
+            "8": "Gå fram med tempo: springaren måste hoppa och ställningen öppnas en linje i taget, till din fördel.",
+            "10": "Bind, skydda e5-bondens utpostjobb och håll initiativet levande.",
+            "12": "Vinn tillbaka bonden med en fin central springare. Lika material, aktiviteten är din.",
+            "14": "Byt i rätt ögonblick: svarts bönder blir dubblerade och c6 blir ett permanent mål.",
+            "16": "Säkerhet plus hot (f3 mot e4 kommer härnäst). Härifrån är det tryck mot c6 och bättre lätta pjäser."
+          }
+        }
+      }
+    },
+    "black-vs-e4-carokann": {
+      "title": "Mot 1.e4 — Caro-Kann",
+      "blurb": "Ett bergfast svar på 1.e4: bra bondestruktur, en lättspelad löpare och lite att memorera.",
+      "lines": {
+        "Advance — Short system (...c5 break)": {
+          "name": "Framskjutning — Short-systemet (brytning ...c5)",
+          "plan": "Ditt spel finns på damflygeln och mot d4: samla kraft med ...Nc6, ...Qb6, ...Rc8 på den halvöppna c-linjen. Bonden på e5 tränger dig lite, men din löpare kom ut FÖRE ...e6: det är hela poängen med Caro-Kann jämfört med franskt.",
+          "notes": {
+            "5": "Caro-Kanns löfte hålls: löparen kommer ut innan ...e6 murar in den. Jämför med den stackars franska löparen på c8.",
+            "9": "Den typiska stöten: slå mot d4 mitt i vits utveckling. Hela c6-bondens karriär var en förberedelse för detta.",
+            "11": "Byt när det passar dig: springaren som tar tillbaka kan ifrågasättas senare med ...Bc5 eller ...Nc6.",
+            "13": "Flexibel utveckling: springaren kan gå till c6 eller g6, och ...Nd7 följer. Långsamt går bra; ställningen är stängd.",
+            "15": "Utmana den starka springaren på d4 direkt: byten underlättar ditt lite trånga spel."
+          }
+        },
+        "Exchange Variation": {
+          "name": "Avbytesvarianten",
+          "plan": "En omvänd damgambitstruktur där du kan planerna: slutför utvecklingen i lugn och ro och välj sedan ...Rc8 med tryck på c-linjen eller brytningen ...e5 när pjäserna står rätt. Vits \"angrepp\" här är mest ett rykte: utjämna och spela sedan ut.",
+          "notes": {
+            "4": "Avbytesvarianten: vit undviker teorin men ger dig fri, naturlig utveckling.",
+            "7": "Utveckla med tryck mot d4 innan vit bekvämt får in c3... Vit brukar göra det ändå, men tempot hjälper dig fortfarande.",
+            "9": "Naturliga rutor, inga svagheter: Caro-Kann-receptet.",
+            "11": "Din \"problempjäs\" hittar ett jobb: den framkallar svagheter eller byter sig mot den blivande springaren på f3.",
+            "13": "Håll b7 lugnt. Notera att ...Na5, som slår mot damen, också är en resurs om vit pressar.",
+            "15": "Strukturen klar. Härnäst ...Bd6 eller ...Be7, rockera, och partiet är helt lika med spel kvar."
+          }
+        },
+        "Classical (4...Bf5 main line)": {
+          "name": "Klassiskt (huvudlinje 4...Bf5)",
+          "plan": "Det berömda \"tråkiga men vackra\" Caro-Kann: din struktur har inga svagheter, bönderna h4-h5 som vit kastat fram kan bli mål och slutspelen gynnar dig. Rockera långt eller kort beroende på vits uppställning; bryt med ...c5 när du är utvecklad.",
+          "notes": {
+            "5": "Byt i centrum, det klassiska: du accepterar mindre utrymme för en ställning helt utan svagheter.",
+            "7": "Återigen kommer löparen ut först. Vits bästa försök är att jaga den, vilket kostar tid och luckrar upp bönderna.",
+            "9": "Löparen viker undan; låt vit \"vinna\" tempon genom att försvaga rutor.",
+            "11": "Ge löparen gömstället h7 och ta g5 från vits pjäser. Bonden på h4 kan komma att ångra marschen.",
+            "15": "Säkert undanstoppad. Den ser passiv ut; den kommer tillbaka efter ...e6 och byten: den klassiska historien om Caro-Kann-löparen.",
+            "17": "Byt till total säkerhet: vits angreppslöpare lämnar brädet.",
+            "19": "Muren är klar. Härnäst: ...Ngf6, ...Bd6 eller ...Be7, rockera, och du har lika spel med den friskare strukturen."
+          }
+        },
+        "vs Two Knights (2.Nf3 3.Nc3)": {
+          "name": "Mot två springare (2.Nf3 3.Nc3)",
+          "plan": "Bytet på f3 löser alla utvecklingsfrågor. Sikta på den pålitliga strukturen: ...e6, ...Nd7/...Ngf6, byt ett par springare och spela långsiktigt. Din bondeformation har inga mål.",
+          "notes": {
+            "5": "Mot två springare är bindningen rätt utveckling: 3...dxe4 4.Nxe4 gör planerna med löparen på f5 mindre smidiga.",
+            "7": "Släpp löparparet för en stabil struktur och enkel utjämning: ett mycket Caro-Kann-typiskt byte.",
+            "11": "Ta nu när d4 är spelat: vits springare tar tillbaka och går in i dina förberedda pjäsbyten.",
+            "15": "Utveckla och erbjud byte: varje byte tunnar ut vits \"fördel\" med löparparet.",
+            "17": "Ta tillbaka med springaren och håll bönderna prydliga. Lika och lättspelat: sedan ...Bd6/...Be7 och rockad."
+          }
+        },
+        "vs Panov Attack": {
+          "name": "Mot Panov-angreppet",
+          "plan": "Blockera den isolerade bonden: en springare parkerar på d5, pjäser byts och varje byte förstorar den svaga bonden. Slutspel är din vän: styr dit och plocka bonden på d4 i andra ronden.",
+          "notes": {
+            "6": "Panov: vit vill ha aktiviteten med isolerad dambonde. Din motplan är enkel: blockad, byten, slutspel.",
+            "9": "Solitt: håll d5 stadigt. Löparen på c8 muttrar, men blockaden betyder mer här.",
+            "13": "Blockadspringaren kommer. På d5 kan ingen bonde köra bort den: det isolerade bondens eviga problem.",
+            "17": "Utvecklingen klar. Nu omgrupperingar med ...Bf6/...Nce7, tryck mot d4 och tålmodig förenkling."
+          }
+        },
+        "vs Fantasy (3.f3)": {
+          "name": "Mot Fantasy (3.f3)",
+          "plan": "Möt det excentriska med det klassiska: ...e5! slår tillbaka direkt. Bindningen på g4 är din nyckelresurs: springaren på f3 är bunden till damen, så spänningen i centrum gynnar dig. Utveckla snabbt; vits f3 tog en ruta från kungsspringaren, och det utnyttjar du.",
+          "notes": {
+            "4": "Fantasy-varianten: vit stöder e4 på ett udda sätt. Straffa det udda med en stöt i centrum.",
+            "7": "Motstöten: utan bonden på f3 är vits kungsdiagonal luftig och d4 under verkligt tryck.",
+            "9": "Bindningen är poängen: nu förlorar dxe5?? damen på knep med ...Bxf3. Kontrollera: springaren är bunden framför d1.",
+            "11": "Skydda e5 och slutför idén: vits centrum är fruset medan du avslutar utvecklingen.",
+            "13": "Allt försvarat, allt utvecklat. Vits tidiga f3 gav ingenting.",
+            "15": "Solitt och aktivt: rockera nu, behåll stödjepunkten e5 och spela mot den försvagade vita kungen."
+          }
+        },
+        "vs King's Indian Attack (2.d3)": {
+          "name": "Mot kungsindiskt i förhand (2.d3)",
+          "plan": "När vit avstår från centrum, ta det själv: ...e5 och ...d5 ger dig utrymmet för en gångs skull. Håll duon e5/d5 frisk, utveckla bakom den och möt vits långsamma idéer på kungsflygeln med en snabbare marsch på damflygeln (...b5-b4).",
+          "notes": {
+            "2": "Kungsindiskt i förhand: vit spelar ett system, inte mot dina drag. Bra, ditt system är större.",
+            "5": "Lyxen Caro-Kann sällan får: ett helt eget bondecentrum. Ta det.",
+            "11": "Rockera bakom ditt utrymmesövertag. Det vanliga angreppet är mycket långsammare när c6+d5 dämpar löparen på g2.",
+            "13": "Överskydda e5, stödjepunkten hela uppställningen vilar på.",
+            "15": "Komplett och bekvämt. Nästa idéer: ...b5, utrymme på damflygeln med ...a5-a4, eller omgruppering med ...Bf8 om vit petar på e5."
+          }
+        },
+        "vs Advance, 4.Nc3 (Shirov's g4 lunge)": {
+          "name": "Mot framskjutning, 4.Nc3 (Sjirovs g4-utfall)",
+          "plan": "Var inte rädd för bondestormen: den luckrar upp vit mer än dig. Håll löparen säker på g6, slå mot den fasta bonden på d4 med ...c5 och kom ihåg att vits kung också bor på den sidan av brädet. Lugn utveckling slår vilda bönder.",
+          "notes": {
+            "6": "Den aggressiva uppställningen: vit vill spela g4 och en bondelavin på kungsflygeln.",
+            "8": "Där kommer den. Bönder kan inte göra matt: stå emot.",
+            "10": "På väg till f4 för att störa din löpare: väntat, och det finns svar.",
+            "11": "Motregeln: ett flygelangrepp möts med en stöt i centrum. d4 knakar direkt.",
+            "13": "Ett profylaktiskt drag: g5 stoppas, h5 kan mötas med ...Bh7 och nu måste vit försvara sina lösa bönder."
+          }
+        },
+        "vs 3.Nd2 (same as Classical)": {
+          "name": "Mot 3.Nd2 (samma som klassiskt)",
+          "plan": "Samma spel som i den klassiska huvudlinjen: vits springare tog en annan väg till e4 och inget ändras. Samma byten, samma mur, samma friska struktur och långsiktiga trygghet.",
+          "notes": {
+            "4": "Bara en annan dörr in i det klassiska: efter ditt nästa drag transponerar det exakt.",
+            "17": "Det välbekanta bytet: vid det här laget borde ställningen kännas som hemma.",
+            "19": "Och den välbekanta muren. En repertoar, flera vita dragföljder: det är Caro-Kanns effektivitet."
+          }
+        },
+        "vs Accelerated Panov (2.c4)": {
+          "name": "Mot accelererat Panov (2.c4)",
+          "plan": "Samma visa som i Panov: blockad på d5, pjäsbyten och bonden på d4 som mål. Tidigt c4 hoppar till och med över vits farligaste uppställningar: utveckla naturligt och utjämna utan drama.",
+          "notes": {
+            "2": "Den accelererade versionen: svara i centrum precis som alltid.",
+            "7": "Ta tillbaka med SPRINGAREN (inte damen): den landar på d5 som permanent blockad.",
+            "13": "Standardskalet. Vit har den isolerade bonden; du har rutan d5 och planen.",
+            "15": "Utveckla, rockera, sedan samlar ...Bf6 och ...Nce7-f5 på d4. Panov-ställningar, Caro-Kann-lösningar."
+          }
+        }
+      }
+    },
+    "black-vs-e4-openGames": {
+      "title": "Mot 1.e4 — Öppna spel (1...e5)",
+      "blurb": "Möt 1.e4 rakt på med 1...e5: sunda, principiella svar mot spanskt, italienskt, skotskt och gambiterna.",
+      "lines": {
+        "Ruy Lopez — Closed (Chigorin setup)": {
+          "name": "Spanskt — Stängt (Tjigorin-uppställning)",
+          "plan": "Den eviga spanska kampen: ditt utrymme på damflygeln (idéer med ...b5, ...c5, ...Na5-c4) mot vits spel i centrum och på kungsflygeln. Håll stödjepunkten e5 vid liv, möt d4 med byten bara när pjäserna är redo och rör aldrig kungsflygelns bönder utan skäl.",
+          "notes": {
+            "5": "Morphys drag: ställ frågan till löparen innan något annat. Nästan universellt, av goda skäl.",
+            "7": "Utveckla och slå mot e4: vit måste ta hand om det (O-O och Re1 gör det taktiskt; linjerna med ...Nxe4 finns men kräver försiktighet).",
+            "9": "Stängt spanskt: sunt, flexibelt och spelbart hela livet. Det skarpa ...Nxe4 (öppet) är en annan värld.",
+            "11": "Nu kommer det med tempo: löparen backar och din expansion på damflygeln har börjat.",
+            "13": "Cementera e5. Centrum håller; planerna kan andas.",
+            "15": "Kungen säker. Vits c3 signalerar d4: du är redo.",
+            "17": "Tjigorin-manövern: stör den spanska löparen och ta rutorna c4/b3.",
+            "19": "Full utplacering på damflygeln: ...Qc7 och ...Nc6 tillbaka härnäst, med ett helt friskt spel."
+          }
+        },
+        "Italian — Giuoco Pianissimo": {
+          "name": "Italienskt — Giuoco Pianissimo",
+          "plan": "Spegla vits långsamma uppbyggnad så är det helt enkelt lika: ...a6/...Ba7 behåller löparen, ...h6 bevakar g5 och omgrupperingarna ...Ne7-g6 eller ...Be6 följer. Den som slår till först står oftast sämre: låt det vara vit.",
+          "notes": {
+            "5": "Symmetriskt och bäst: löparen tar sin idealdiagonal innan ...Nf6 bjuder in till Ng5-förvecklingar.",
+            "7": "Slå mot e4 så att vit måste lägga ett drag på det: d3 håller det lugnt.",
+            "13": "Städning med en poäng: det förbereder ...Ba7 och behåller löparens starka diagonal även om d4 kommer med tempo.",
+            "15": "Undanstoppad och permanent: från a7 siktar den på f2 hela partiet. En tillgång på lång sikt."
+          }
+        },
+        "Two Knights — vs 4.Ng5 (the real test)": {
+          "name": "Tvåspringarspel — mot 4.Ng5 (det riktiga testet)",
+          "plan": "Du gav en bonde för utvecklingsförsprång och ett grepp: ...e4 och ...Bd6 jagar hem vits pjäser. Behåll initiativet: öppna e-linjen, rockera snabbt och få det extra tempot att räknas innan vit reder ut sig. Det här är det kämpande svaret på italienskt.",
+          "notes": {
+            "5": "Tvåspringarspelet: du bjuder in till 4.Ng5 för att du har ett bra svar förberett.",
+            "7": "Tvunget men utmärkt: blockera angreppet på f7 och öppna ditt spel.",
+            "9": "DRAGET att komma ihåg: 5...Nxd5?? går rakt in i Fried Liver-offret. Springaren slår i stället mot löparen på c4.",
+            "14": "Vits bästa reträtt; bondetagningen är klar och nu kasserar du in räntan...",
+            "15": "Sparka bort inkräktaren med tempovinst: den har en säker väg hem.",
+            "17": "Gå fram med tempo igen: springaren flyttar för fjärde gången medan dina pjäser väller ut.",
+            "19": "Utmana den stolta springaren direkt. Du ligger en bonde under med enorm aktivitet: historiskt får svart fina resultat här."
+          }
+        },
+        "Scotch Game": {
+          "name": "Skotskt",
+          "plan": "De dubblerade c-bönderna köper dig centrum: ...d5 frigör allt och dina pjäser når naturliga, aktiva rutor. Spela mot vits struktur e4/d3, använd den halvöppna b-linjen och få din fulla del av mittspelet.",
+          "notes": {
+            "5": "Klamra dig inte fast vid e5: ta och utveckla. Skotskt ger svart gratis pjäsaktivitet.",
+            "9": "Bindning och tryck: e4 kräver ständig uppmärksamhet nu.",
+            "11": "Mot centrum och b-linjen öppnas: de dubblerade bönderna kontrollerar d5 och är svåra att angripa.",
+            "13": "Utjämningsbrytningen, precis i tid. Allt svart äger vaknar till liv.",
+            "17": "Symmetrisk säkerhet; ditt löparpar och din centrumbonde ger ett bekvämt, rikt spel."
+          }
+        },
+        "vs King's Gambit (3...d5, the modern cure)": {
+          "name": "Mot kungsgambit (3...d5, det moderna botemedlet)",
+          "plan": "Ge tillbaka bonden direkt för smidig utveckling och bättre struktur: vits drömmar om f4 och f-linjen blir aldrig av. Rockera snabbt, håll bonden på f4 som långsiktig gisslan och spela mittspelet ett litet men stabilt steg före.",
+          "notes": {
+            "2": "Kungsgambiten: romantisk och objektivt ofarlig om du håller dig lugn.",
+            "3": "Ta först och ge SEDAN tillbaka på dina villkor.",
+            "5": "Det moderna motgiftet: öppna centrum medan vits kungsdiagonal är luftig. Ingen teori om försvaret av f4 att memorera.",
+            "11": "Ta tillbaka med springaren: utveckling före bönder, princip före girighet.",
+            "13": "Bevaka trofén på f4 och sikta på vits mjuka kungsflygel: gambitens svagheter skär åt båda håll.",
+            "15": "Fullt utvecklad med den friskare kungen. Vit förklarar fortfarande vart kompensationen tog vägen."
+          }
+        },
+        "vs Vienna (3.f4 d5!)": {
+          "name": "Mot Wienerparti (3.f4 d5!)",
+          "plan": "Motstöten i centrum slår flygelbonden varje gång: din springare på e4 är en klippa, ...f5 stärkte den och svagheterna finns i vits ställning. Utveckla runt springaren, rockera och låt vit bevisa något.",
+          "notes": {
+            "3": "Naturlig utveckling som behåller alla bra alternativ och undviker wienerpartiets knepigaste idéer.",
+            "5": "Nyckelstöten, i samma anda som mot kungsgambit: möt f4 med centrum, aldrig med rädsla.",
+            "7": "En utmärkt springare landar för att stanna: att ta den (Nxe4 dxe4) hjälper bara din struktur.",
+            "11": "Säkerheten först; springaren på e4 behöver ingen barnvakt än.",
+            "13": "Stärk utposten och ta utrymme på kungsflygeln: en passant låter vit byta, men dina pjäser tar gärna tillbaka.",
+            "15": "F-linjen halvöppnas mot vits kung och dina pjäser surrar. En mönsterbild mot wienerpartiet."
+          }
+        },
+        "vs Bishop's Opening": {
+          "name": "Mot Löparspel",
+          "plan": "Motspelet ...c6/...d5 tar centrum och dämpar hela idén med löparen på c4. Efter bytena utvecklar du naturligt med en prydlig struktur: lika spel där det är mer värt att kunna planen (minoritetsidéer, spel på e-linjen) än draglistan.",
+          "notes": {
+            "2": "Löparspelet: ofta bara ett förklätt italienskt, men med knep om du slappnar av.",
+            "5": "Det precisa svaret: förbered ...d5 och fråga löparen vad den gör på c4.",
+            "7": "Där är det: fullt centrum, med löparen som biter i granit.",
+            "11": "Den praktiska blockeringen: byt av den schackande pjäsen och förenkla mot bekväm jämvikt.",
+            "13": "Springaren från b8 tar tillbaka, vilket håller partnern på f6 flexibel och bonden på d5 täckt.",
+            "15": "Aktivt placerad och redo att rockera: din centrumbonde och enkla spel lutar redan ställningen åt ditt håll."
+          }
+        },
+        "Ruy Lopez — Exchange (4.Bxc6)": {
+          "name": "Spanskt — Avbytesvarianten (4.Bxc6)",
+          "plan": "Du har löparparet för alltid; vit har en friskare bondemajoritet. Behåll pjäserna (slutspel utan damer gynnar vits struktur), öppna linjer för löparna och använd aktiviteten från ...c5/...Bg4: i mittspelet argumenterar de två löparna ut de dubblerade bönderna.",
+          "notes": {
+            "6": "Avbytesvarianten: vit satsar på strukturen. Du satsar på löparparet, ett bra val i mittspelet.",
+            "8": "Nödvändig försiktighet: 5.Nxe5? Qd4! gafflar springaren och e4-bonden och vinner tillbaka allt med ränta. Vit vet detta och rockerar.",
+            "9": "Stabilt skydd av e5. Ser ovanligt ut, men är standard och starkt: bonden på e5 håller centrum åt löparna.",
+            "11": "Byt på dina villkor.",
+            "13": "Vinn ett tempo och aktivera dig: den dubblerade bonden gör ett hederligt jobb.",
+            "15": "In i \"slutspelet\" utan rädsla: med två löpare och aktiva pjäser är det här damlösa mittspelet bra för svart. Teorins dom, inte skryt.",
+            "17": "Poängen: omedelbar aktivitet. Tornet knuffas runt och du slutför utvecklingen med hot."
+          }
+        },
+        "vs Evans Gambit (decline it!)": {
+          "name": "Mot Evansgambit (avböj den!)",
+          "plan": "Att avböja behåller alla positionella plus utan någon fara: vits bönder på b4/a4 blir lösa i längden. Utveckla normalt, rockera, slå mot centrum med ...d6/...Nf6: gambitspelaren får inga öppna linjer och inget nöje.",
+          "notes": {
+            "6": "Evans. Att anta går att spela men kräver mycket minne; att avböja är det praktiska repertoarvalet.",
+            "7": "En ruta tillbaka och alla problem är lösta: löparen behåller diagonalen och b4 hänger i vissa linjer.",
+            "13": "Bönderna gick för långt: byt och låt vits damflygel visa sina ärr.",
+            "15": "Enkel utveckling med ett slag mot e4. Vits \"angrepp\" blev lösa bönder och ett normalt parti där du står bra."
+          }
+        },
+        "vs Four Knights (Spanish, Metger unwind)": {
+          "name": "Mot Fyrspringarspel (spanskt, Metger-manöver)",
+          "plan": "Metger-manövern reder ut allt: ...Qe7 och ...Nd8-e6 omgrupperar, ...Bxc3 tog bort trycket och den symmetriska strukturen håller. Ett pålitligt svar med lite teori på vits mest solida försök.",
+          "notes": {
+            "7": "Spegla bindningen: den klassiska utjämningen i fyrspringarspelet.",
+            "13": "Det precisa ögonblicket: ta bort springaren INNAN Nd5 gör bindningen på g5 verkligt irriterande.",
+            "15": "Metger-manövern börjar: damen går upp så att springarens väg från d8 (d8–e6) kan lösa bindningen."
+          }
+        },
+        "vs Centre Game (2.d4)": {
+          "name": "Mot Centrumspel (2.d4)",
+          "plan": "Vits tidiga dam är ditt mål: utveckla med tempo, rockera snabbt och öppna centrum medan damen vandrar omkring. Med motsatta rockader i sikte brukar ditt angrepp komma först: ...Re8, ...d5 eller till och med tornknep på e4 ligger i luften.",
+          "notes": {
+            "2": "Centrumspelet: vit vinner centrumbonden, men damen måste ut tidigt för att hålla den.",
+            "5": "Utveckla med tempo: damen flyttar igen och du utvecklar gratis. Hela öppningen i en idé.",
+            "9": "Bindning och tryck; vits uppställning fungerar bara om du låter knepen på e4/f2 samverka.",
+            "13": "Tornet blänger på e4 och den luftiga vita damen: varje brytning i centrum slår nu med dubbel kraft."
+          }
+        }
+      }
+    },
+    "black-vs-d4-solid": {
+      "title": "Mot 1.d4 — Slaviskt / Avböjd damgambit",
+      "blurb": "Klassiska, pålitliga svar på 1.d4: håll centrum med ...d5 och utveckla naturligt.",
+      "lines": {
+        "Slav Defense (main line, 4...dxc4)": {
+          "name": "Slaviskt försvar (huvudlinje, 4...dxc4)",
+          "plan": "Det tjeckiska slaviska löftet: löparen på c8 utvecklas UTANFÖR bondekedjan före ...e6. Spela för brytningarna ...c5 eller ...e5 när du är utvecklad, håll trycket från löparen på b4 och njut av en ställning utan svaga rutor och med verkliga vinstchanser.",
+          "notes": {
+            "3": "Slaviskt: försvara d5 med en bonde och håll diagonalen öppen för löparen på c8. Förbättringen av den gamla avböjda damgambiten.",
+            "7": "Huvudlinjen: vinn ett tempo. Vit måste lägga ett drag (a4) på att få tillbaka bonden, och det draget försvagar b4.",
+            "9": "Poängen med allt: löparen når sin drömruta innan ...e6 stänger dörren.",
+            "13": "Till rutan som a4 försvagade: binder och förbereder en smidig rockad.",
+            "17": "Den sista pjäsen hittar sin plats; härnäst kommer ...Bg6, ...Qa5 eller brytningarna ...e5/...c5, beroende på vits uppställning."
+          }
+        },
+        "Slav — Exchange (drawish? only if you let it)": {
+          "name": "Slaviskt — Avbytesvarianten (remi? bara om du tillåter det)",
+          "plan": "Symmetri är vapenvila, inte remi: behåll de sista pjäserna, kämpa om rutorna e4/e5 och låt vit få slut på idéer först. Din uppställning är skottsäker: vits vinstförsök skapar svagheterna du sedan spelar mot.",
+          "notes": {
+            "4": "Slaviskt avbyte: vit hoppas på ett handslag. Tacka artigt nej.",
+            "11": "Symmetrin består, och din löpare är lika bra som vits.",
+            "15": "Byt på DITT initiativ: återtagningen med damen stoppar vits ambitioner på d-linjen för stunden.",
+            "18": "Vit byter; ta tillbaka så är ställningen helt jämn med allt spel kvar."
+          }
+        },
+        "QGD — Tartakower (the lifetime system)": {
+          "name": "Avböjd damgambit — Tartakower (systemet för livet)",
+          "plan": "Tartakower har tjänat världsmästare i ett sekel: ...b6 löser den dåliga löparen (den går till b7), brytningen ...c5 utjämnar utrymmet och strukturen böjs men bryts aldrig. Lär dig idéerna en gång och spela det för alltid.",
+          "notes": {
+            "3": "Avböjd damgambit: det mest klassiska svaret i schack. Håll d5 med e-bonden.",
+            "7": "Lös bindningen i lugn och ro. Avböjd damgambit är en fästning byggd med ett blygsamt drag i taget.",
+            "11": "En nyttig knuff: löparen måste bestämma sig, och h6 ger din kung luft för alltid.",
+            "13": "Tartakower-draget: \"problemlöparen\" på c8 får långa diagonalen och ...c5 får stöd.",
+            "15": "Där är den: från b7 bevakar löparen e4 och stöder varje brytning i centrum.",
+            "17": "Ta gärna tillbaka: två löpare i en ställning som snart öppnas med ...c5. Ett rättvist byte mot vits \"tryck\".",
+            "19": "Behåll centrumbonden: d5 kontrollerar e4/c4 och dina pjäser utvecklas bekvämt runt den."
+          }
+        },
+        "QGD — Exchange (know the Carlsbad)": {
+          "name": "Avböjd damgambit — Avbytesvarianten (kan din Carlsbad)",
+          "plan": "Carlsbad-strukturen: vit spelar för minoritetsangreppet (b4-b5); du svarar i centrum eller på kungsflygeln med ...Ne4, greppet ...f5 eller brytningar med ...c5 i rätt läge. Pjäsplaceringen är allt: springare till d6? Nej, drömmar om e4 och g6-f4; tornet till e8; löparen ut innan muren stängs.",
+          "notes": {
+            "4": "Avböjd damgambit, avbyte: vit låser strukturen tidigt och siktar på det berömda minoritetsangreppet.",
+            "9": "Vanlig lösning av bindningen; strukturbesluten är redan fattade, så utveckla med ett syfte.",
+            "13": "Mot f8/g6 eller b6: i Carlsbad väljer springarna karriär tidigt.",
+            "15": "Säkert och redo för de typiska ...Re8 och ...Ne4, dina standardsvar på framstöten på damflygeln.",
+            "17": "Tornet tar linjen det ska äga hela partiet. När b4-b5 kommer svarar ...Ne4 och spel på kungsflygeln."
+          }
+        },
+        "vs London System": {
+          "name": "Mot Londonsystemet",
+          "plan": "Kopiera inte Londonspelarens autopilot, ifrågasätt den: tryck med ...c5, ...b6/...Bb7 och ett vältajmat ...Ne4 eller byte med ...Bf5. London är bara bekvämt tills svart tar initiativet på damflygeln, och det är ditt jobb här.",
+          "notes": {
+            "2": "London: du ser det hela tiden, så den här linjen är värd sin plats.",
+            "7": "Ställ frågan direkt: byte på d6 hjälper dig, och backar löparen till g3 kan du ignorera den.",
+            "11": "Brytningen som ger svart verkligt spel: slå mot d4 medan vits c3 ännu inte kommit.",
+            "15": "Hela planen: ...Bb7, ...Qe7 eller ...Rc8, och tryck på damflygeln där Londonspelare tappar tråden.",
+            "17": "Utveckla lugnt: springaren på e5 ser stolt ut, men ...Nxe5 följt av brytningar i centrum desarmerar den när du vill."
+          }
+        },
+        "vs Catalan (open, ...dxc4 + ...b5)": {
+          "name": "Mot Katalanskt (öppet, ...dxc4 + ...b5)",
+          "plan": "Du tog c4 och höll den tillräckligt länge för att utveckla ...Bb7: den katalanska löparen biter på dina bönder på b5/c6. Konsolidera (...Nbd7, ...c5 senare), ge tillbaka bonden bara för full jämvikt och neutralisera diagonalen från g2 med din egen löpare.",
+          "notes": {
+            "4": "Katalanskt: vits löpare på g2 vill äga långa diagonalen hela partiet. Din plan: dämpa den.",
+            "11": "Öppet katalanskt: ta bonden i ögonblicket då vit inte kan ta tillbaka billigt.",
+            "13": "Håll merbonden lite längre: vit måste jobba (Qxc4 förlorar tid på ditt nästa drag).",
+            "15": "Tempostöten som gör hela linjen: damen backar och din löpare tar diagonalen FÖRST.",
+            "17": "Uppdraget slutfört: den katalanska löparen stirrar på sin spegelbild. ...Nbd7 och ...c5 avslutar jobbet."
+          }
+        },
+        "vs Colle / Torre setups": {
+          "name": "Mot Colle- / Torre-uppställningar",
+          "plan": "Mot systemspelare, ta ögonblicket då systemet binder sig: din fria spänning c5/cxd4 och rutan e4 är priserna. Efter vits framstöt e4, byt till en ställning där du har friare pjäser och tydliga mål.",
+          "notes": {
+            "4": "Colle: blygsamt, populärt på klubbnivå och går att möta med naturliga drag.",
+            "7": "Slå till innan muren stelnar: spänningen på c-linjen är din att hantera hela partiet.",
+            "11": "Spegla den bra löpardiagonalen: när vit till slut spelar e4 är du den som är bäst förberedd.",
+            "15": "Ta tillbaka och sikta om: löparen har hittat en ännu bättre diagonal.",
+            "17": "Möt brytningen rent.",
+            "19": "En försiktig reträtt (springaren siktade på c5) och ställningen är helt enkelt lika, och du kan planerna: ...b6, ...Bb7, byten av lätta pjäser."
+          }
+        },
+        "vs Torre Attack (3.Bg5)": {
+          "name": "Mot Torre-angreppet (3.Bg5)",
+          "plan": "Torre vill ha ett billigt grepp om e5; neka det med ...c5 och frågorna från ...h6. Fianchettera löparen på c8, byt bort trycket och nå ett mittspel där vits \"system\" inte gett något övertag och du har den tydligare planen (minoritetsspel på damflygeln eller en brytning i centrum).",
+          "notes": {
+            "4": "Torre-angreppet: en bindning som ännu inte har någon springare på f6:s partnerruta som stöd.",
+            "7": "Ställ frågan tidigt: varje beslut av löparen hjälper dig.",
+            "9": "Lås centrum medan löparen står vid sidan av.",
+            "11": "Lös bindningen i lugn och ro: vits bonde på d4 är nu partiets enda statiska drag, och den är ett mål.",
+            "15": "Den pålitliga uppställningen: långa diagonalen, ...d6 eller ...d5 att välja på och enkel jämvikt mot systemet."
+          }
+        },
+        "vs Trompowsky (2.Bg5)": {
+          "name": "Mot Trompowsky (2.Bg5)",
+          "plan": "Ta tillbaka med e-bonden och omfamna de dubblerade f-bönderna: de kontrollerar e5/g5, den halvöppna e-linjen passar dina torn och de två löparna är en långsiktig ränta. Spela ...Bd6, rockera och sedan ...f5 eller brytningar i centrum: \"skadan\" är din dynamik.",
+          "notes": {
+            "2": "Trompowsky: vit erbjuder strukturskada för löparparet. Ta bytet på dina villkor.",
+            "5": "Rätt återtagning: öppen e-linje, e5 under kontroll och bonden på f6 bevakar rutor på kungsflygeln. Dubblerad ≠ svag.",
+            "7": "Löparen tar diagonalen b8–h2, som bytet lämnade obevakad.",
+            "9": "Ta när det kostar vit ett tempo att vinna tillbaka.",
+            "13": "Mot b6 eller f8-g6: flexibelt, solitt, och löparna väntar på att brädet ska öppnas.",
+            "15": "Vinn tillbaka tempot (löparen måste flytta) och håll c4/d5: full jämvikt med den rikare ställningen."
+          }
+        },
+        "vs Slow Slav (4.e3 with ...Bf5)": {
+          "name": "Mot långsamt slaviskt (4.e3 med ...Bf5)",
+          "plan": "När vit spelar lugnt kommer din löpare ÄNDÅ ut först: det är hela slaviskts identitet. Om Nh4 jagar den ger bytet dig den sundare strukturen och g6 som en nyttig hävstång. Sedan ...Nbd7, ...Be7 eller d6, rockad, lika och lättspelat.",
+          "notes": {
+            "6": "Det lugna slaviska: ingen låsning med a4, så utveckla löparen direkt.",
+            "10": "Vits enda riktiga försök: jaga löparen innan muren är klar.",
+            "11": "Stå fast: att ta på g6 öppnar DIN h-linje och reparerar ingenting för vit.",
+            "15": "Utveckla som vanligt: den halvöppna h-linjen är en liten permanent gåva och din struktur har inga hål."
+          }
+        }
+      }
+    }
+  },
+  "traps": {
+    "white-traps": {
+      "title": "Vit — öppningsfällor",
+      "blurb": "Lockande svar som förlorar direkt. Du gillrar dem som vit.",
+      "traps": {
+        "Légal's Mate": {
+          "name": "Légals matt",
+          "bait": "…Bxd1 (tar damen)",
+          "idea": "Offra damen med Nxe5; tar svart den är Bxf7+ och Nd5 en mönstermatt."
+        },
+        "Fried Liver Attack": {
+          "name": "Fried Liver-angreppet",
+          "bait": "…Nxd5 (tar tillbaka bonden)",
+          "idea": "Ng5 slår redan mot f7. Efter 5…Nxd5 gafflar springaroffret 6.Nxf7! dam och torn och drar ut svarts kung i det öppna för ett rasande angrepp."
+        },
+        "Caro-Kann Smothered Mate (Qe2)": {
+          "name": "Kvävmatt i Caro-Kann (Qe2)",
+          "bait": "…Ngf6 (naturlig utveckling)",
+          "idea": "5.Qe2 binder i tysthet längs e-linjen. Efter …Ngf6 är Nd6# matt: …exd6 är olagligt eftersom bonden på e7 är bunden vid kungen."
+        },
+        "Monticelli Trap": {
+          "name": "Monticelli-fällan",
+          "bait": "…Nxc3 (norpar en springare)",
+          "idea": "Strunta i springaren: 10.Ng5! angriper samtidigt h7 och löparen på b7, och vit vinner kvalitet med ett avgörande grepp."
+        },
+        "Tennison Gambit Trap": {
+          "name": "Tennisongambit-fällan",
+          "bait": "…h6 (sparkar springaren)",
+          "idea": "Det lugna 6.Nxf7! Kxf7 7.Bg6+!! Kxg6 8.Qxd8 vinner damen: löparschacken avleder kungen från d-linjen."
+        },
+        "Danish Gambit Trap": {
+          "name": "Fällan i nordisk gambit",
+          "bait": "…Nf6 (utvecklar med en merbonde)",
+          "idea": "Båda löparna sveper över kungsflygeln. Efter 6.Bxd5 Nf6?? fångar 7.Bxf7+! Kxf7 8.Qxd8 damen."
+        },
+        "Légal Trap (Philidor)": {
+          "name": "Légal-fällan (Philidor)",
+          "bait": "…Bxd1 (tar damen)",
+          "idea": "Légals ursprungliga ställning: 5.Nxe5! och om 5…Bxd1?? 6.Bxf7+ Ke7 7.Nd5#. De två springarna och löparen väver ett mattnät."
+        },
+        "Rubinstein Trap (Queen’s Gambit Declined)": {
+          "name": "Rubinstein-fällan (avböjd damgambit)",
+          "bait": "…b6 (ett naturligt fianchetto)",
+          "idea": "Springaren på f6 är bunden vid damen, så 8.cxd5 exd5 9.Nxd5! vinner en bonde: 9…Nxd5 10.Bxe7 tar sedan löparen och bonden."
+        }
+      }
+    },
+    "black-traps": {
+      "title": "Svart — öppningsfällor",
+      "blurb": "Gambiter och motfällor där ett girigt eller naturligt vitt drag förlorar. Du gillrar dem som svart.",
+      "traps": {
+        "Kieninger Trap (Budapest)": {
+          "name": "Kieninger-fällan (Budapest)",
+          "bait": "8.axb4 (vinner löparen)",
+          "idea": "Det tidiga …Qe7 binder vits e-bonde. När vit tar löparen är …Nd3 kvävmatt: exd3 är olagligt."
+        },
+        "Lasker Trap (Albin Countergambit)": {
+          "name": "Lasker-fällan (Albins motgambit)",
+          "bait": "4.e3 (den naturliga brytningen)",
+          "idea": "Albins framskjutna d-bonde möjliggör en underförvandling: …exf2+ och sedan …fxg1=N+! vinner, eftersom …Bg4+ spetsar damen när springaren tagits."
+        },
+        "Englund Gambit Trap": {
+          "name": "Englundgambit-fällan",
+          "bait": "6.Bc3?? (försvarar b2)",
+          "idea": "Efter 6.Bc3 Bb4! är löparen bunden; 7.Qd2 Bxc3 8.Qxc3 Qc1# är en kvävmatt på baklinjen."
+        },
+        "Mortimer Trap (Ruy Lopez)": {
+          "name": "Mortimer-fällan (spanskt)",
+          "bait": "5.Nxe5?? (tar den \"gratis\" bonden)",
+          "idea": "Det udda 4…Ne7 bjuder in till 5.Nxe5?? c6! 6.Bc4 Qa5+!: en schack som gafflar kungen och den strandade springaren på e5."
+        },
+        "From's Gambit Trap": {
+          "name": "Fällan i Froms gambit",
+          "bait": "4.Nc3?? (naturlig utveckling)",
+          "idea": "Mot Froms gambit är 4.Nc3?? Qh4+ 5.g3 Qxg3+! 6.hxg3 Bxg3# en klassisk matt i kvävmattstil längs de mörka rutorna."
+        },
+        "Stafford Gambit Trap": {
+          "name": "Staffordgambit-fällan",
+          "bait": "6.Bg5?? (binder springaren på f6)",
+          "idea": "Stafford biter tillbaka: 6.Bg5?? Nxe4! 7.Bxd8 Bxf2+ 8.Ke2 Bg4#. Det giriga damtagandet går rakt in i matt."
+        },
+        "Noah's Ark Trap (Ruy Lopez)": {
+          "name": "Noaks ark-fällan (spanskt)",
+          "bait": "8.Qxd4 (tar tillbaka i centrum)",
+          "idea": "Bondemarschen …c5–c4 stänger in löparen på b3: med a- och c-bönderna och de egna bönderna på dess rutor har den ingenstans att gå och är förlorad."
+        },
+        "Elephant Trap (Queen’s Gambit Declined)": {
+          "name": "Elefantfällan (avböjd damgambit)",
+          "bait": "6.Nxd5 (norpar bonden)",
+          "idea": "Om vit tar på d5 fungerar …Nxd5!: efter Bxd8 vinner …Bb4+ tillbaka löparen med ränta och svart står en hel pjäs över."
+        },
+        "Siberian Trap (Smith-Morra)": {
+          "name": "Sibiriska fällan (Smith-Morra)",
+          "bait": "9.h3?? (sparkar springaren)",
+          "idea": "I Smith-Morra gillrar …Ng4 fällan: 9.h3?? Nd4! 10.Nxd4?? Qh2#. Damen svänger till h2 med stöd av springaren på g4."
+        },
+        "Blackburne Shilling Gambit Trap": {
+          "name": "Blackburne Shilling-fällan",
+          "bait": "4.Nxe5?? (vinner bonden på e5)",
+          "idea": "Det fräcka 3…Nd4 gillrar den: 4.Nxe5?? Qg5! 5.Nxf7 Qxg2 6.Rf1 Qxe4+ 7.Be2 Nf3#. Den bundna löparen på e2 kan inte ta den mattande springaren."
+        },
+        "Cambridge Springs Trap": {
+          "name": "Cambridge Springs-fällan",
+          "bait": "7.Bd3?? (utvecklar in i bindningen)",
+          "idea": "Cambridge Springs: 7…dxc4 8.Bxc4 Ne4! gafflar den bundna springaren på c3 (hållen av …Qa5) och löparen på g5, och vinner en pjäs."
+        }
+      }
+    }
+  }
+}

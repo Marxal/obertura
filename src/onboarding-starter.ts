@@ -22,6 +22,7 @@ import { pushBack } from './back-nav';
 import { track } from './metrics';
 import { freeTrainingSlots, showBulkCapToast } from './entitlement';
 import { t } from './i18n';
+import { levelLabel, loadContentWords, styleLabel, translatePacks } from './content-language';
 
 // Lines in training that count as "onboarded". The Train screen stamps the
 // completion flag once this is reached, which is how the first-run picker knows
@@ -112,7 +113,8 @@ export type AddLineFn = (
 let packsPromise: Promise<Pack[]> | null = null;
 export function loadPacks(): Promise<Pack[]> {
   if (!packsPromise) {
-    packsPromise = import('./starter-packs.json').then(m => (m.default ?? m) as unknown as Pack[]);
+    packsPromise = Promise.all([import('./starter-packs.json'), loadContentWords()])
+      .then(([m, words]) => translatePacks((m.default ?? m) as unknown as Pack[], words?.packs));
   }
   return packsPromise;
 }
@@ -259,7 +261,7 @@ function packCard(
   titleWrap.appendChild(title);
   const meta = document.createElement('span');
   meta.className = 'onb-pack-meta';
-  meta.textContent = `${pack.level} · ${pack.style} · ${t('starter.lines', { n: pack.lines.length })}`;
+  meta.textContent = `${levelLabel(pack.level)} · ${styleLabel(pack.style)} · ${t('starter.lines', { n: pack.lines.length })}`;
   titleWrap.appendChild(meta);
   headBtn.appendChild(titleWrap);
 
