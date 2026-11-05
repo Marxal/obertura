@@ -78,8 +78,12 @@ Pieces: *peó, cavall, alfil, torre, dama, rei* / *peón, caballo, alfil, torre,
 | Missed win | Victòria perduda | Victoria desaprovechada | Missad vinst |
 
 **"Mistakes" in general,** meaning the list of things to fix, which holds both kinds:
-*cagades* in Catalan, so "Mistakes to fix" is *Cagades per corregir*. *Badada* is only the
-evaluation of one move. Spanish uses *errores*, Swedish *misstag*.
+*cagades* in Catalan, so "Mistakes to fix" is *Cagades per corregir*. *Badada* is the evaluation
+of one move, and the softer word for a stranger's first screen: *les obertures que jugues i les
+badades que fas*. Spanish uses *errores*, Swedish *misstag*.
+
+**A move from a past game** is told in the past: *Vas jugar {move} i vas deixar escapar el rival*,
+never *Aquí has fet*.
 
 ### Words that stay one way (Catalan)
 

@@ -20546,6 +20546,11 @@ html:not([lang="en"]) .where-tab {
   gap: 0.45rem;
 }
 
+/* "Blanques" needs more room than "White", or it runs into the bar. */
+html:not([lang="en"]) .recap-record-row {
+  grid-template-columns: auto 4.2rem 1fr 2.4rem;
+}
+
 .recap-record-label {
   font-size: 0.8rem;
   font-weight: 700;

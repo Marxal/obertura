@@ -22,6 +22,7 @@ const PREVIEW_KEY = 'bito-language-preview';
 const LOAD_TIMEOUT_MS = 4000;
 
 const DICTIONARIES: Partial<Record<Language, () => Promise<Dictionary>>> = {
+  ca: () => import('./locales/ca.json').then((m) => m.default as Dictionary),
   xx: () => import('./locales/pseudo').then((m) => m.pseudoDictionary(englishDictionary)),
 };
 

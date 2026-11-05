@@ -3084,3 +3084,12 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - Phone test of Phase 2 passed, apart from three Train tabs and Statistics breaking in the fake language, which is
   longer than the real words. Noted in the glossary to check in each language.
 
+### Translation: Catalan (Phase 4, first round)
+
+- **`src/locales/ca.json`:** all 949 keys, about 60 KB, loaded only for people using Catalan. Not released: only
+  `?lang=ca` shows it.
+- ✅ **A selftest guards every translation:** placeholders match English, plurals stay plurals, no leftover keys.
+- ✅ **The layout check passes in Catalan,** on all 54 screen checks. By eye, "Blanques" ran into its bar on the recap,
+  now fixed for other languages.
+- Waiting for Marçal to read it. His corrections go in the glossary before Spanish and Swedish are generated.
+

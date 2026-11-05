@@ -4,6 +4,7 @@
 import { appLocale, englishDictionary, t, tOrdinal, tParts, useDictionary, type Dictionary } from './i18n';
 import { pickLanguage, RELEASED_LANGUAGES, type Language } from './language-choice';
 import { pseudoDictionary, pseudoText } from './locales/pseudo';
+import ca from './locales/ca.json';
 
 export interface TestResult {
   name: string;
@@ -77,6 +78,32 @@ export function runI18nSelfTest(): TestResult[] {
   ));
   check('no key loses a placeholder in the fake language', lostPlaceholder.length === 0,
     lostPlaceholder.map(([key]) => key).join(', '));
+
+  // ── The real languages ─────────────────────────────────────────────────────
+  // A placeholder a translation lost shows nothing, and one it invented shows {like this}.
+  for (const [lang, dictionary] of Object.entries({ ca }) as [string, Dictionary][]) {
+    const extra = Object.keys(dictionary).filter((key) => !(key in englishDictionary));
+    check(`${lang}: no keys English doesn't have`, extra.length === 0, extra.join(', '));
+    const broken = Object.entries(dictionary).filter(([key, message]) => {
+      const source = englishDictionary[key];
+      if (source === undefined) return false;
+      if (typeof message === 'string' && typeof source === 'string') {
+        return String(placeholders(message)) !== String(placeholders(source));
+      }
+      // A plural's singular may say "one" instead of {n}, so it may use fewer, never others.
+      const allowed = new Set(Object.values(source).flatMap((text) => placeholders(text)));
+      return Object.values(message).some((text) => placeholders(text).some((p) => !allowed.has(p)));
+    });
+    check(`${lang}: placeholders match English`, broken.length === 0, broken.map(([key]) => key).join(', '));
+    const shapes = Object.entries(dictionary).filter(([key, message]) => (
+      englishDictionary[key] !== undefined && typeof message !== typeof englishDictionary[key]
+    ));
+    check(`${lang}: plurals stay plurals`, shapes.length === 0, shapes.map(([key]) => key).join(', '));
+    const noOther = Object.entries(dictionary).filter(([, message]) => typeof message !== 'string' && !message.other);
+    check(`${lang}: every plural has "other"`, noOther.length === 0, noOther.map(([key]) => key).join(', '));
+    const empty2 = Object.entries(dictionary).filter(([, message]) => typeof message === 'string' && !message.trim());
+    check(`${lang}: no empty sentences`, empty2.length === 0, empty2.map(([key]) => key).join(', '));
+  }
 
   // ── Choosing a language ────────────────────────────────────────────────────
   const released: Language[] = ['en', 'ca', 'es'];
