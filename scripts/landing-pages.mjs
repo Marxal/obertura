@@ -194,21 +194,29 @@ function switcher(current, released, page = '') {
 <script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-language-choice]');if(!a)return;try{localStorage.setItem('obertura.language',a.getAttribute('data-language-choice'))}catch(_){}});</script>`;
 }
 
-// Pinned to the left edge of the landing page. Short names, in a fixed order, and only the
-// languages you could change to: the one you're reading isn't a choice.
+// A pill pinned to the bottom-left corner, as on connectart.se (Marçal, 2026-11-05): short
+// names on a phone, full names on a computer, in a fixed order, and only the languages you
+// could change to: the one you're reading isn't a choice. On a phone it rises above the
+// sticky "Try it" bar when that slides in.
 const RAIL_ORDER = ['ca', 'es', 'en', 'sv'];
 const RAIL_STYLE = `<style>
-.lang-rail { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 45; display: flex; flex-direction: column;
-  padding: 2px 0 2px env(safe-area-inset-left, 0px); background: var(--bg-card); border: 1px solid var(--hairline); border-left: 0;
-  border-radius: 0 10px 10px 0; box-shadow: 0 2px 10px rgba(28, 22, 16, .1); }
-/* Narrower than the page's side margin on a phone, so it never covers text. The tap area
-   reaches further than it looks. */
-.lang-rail a { position: relative; display: block; padding: 9px 3px; font: 700 10px/1 var(--font-display, system-ui, sans-serif);
-  color: var(--text-muted, inherit); text-decoration: none; text-align: center; }
-.lang-rail a::after { content: ""; position: absolute; inset: 0 -12px 0 0; }
-.lang-rail a:hover { color: var(--accent); }
-.lang-rail a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
-@media (min-width: 900px) { .lang-rail a { padding: 11px 9px; font-size: 12px; letter-spacing: .03em; } .lang-rail a::after { inset: 0; } }
+.lang-rail { position: fixed; z-index: 45; display: flex; gap: 2px; padding: 4px;
+  left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg-card); border: 1px solid var(--hairline); border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(28, 22, 16, .14); transition: transform 240ms ease-out; }
+.lang-rail a { display: block; min-width: 40px; padding: 9px 10px; border-radius: 999px; text-align: center;
+  font: 700 12px/1 var(--font-display, system-ui, sans-serif); letter-spacing: .03em; color: var(--text-muted, inherit); text-decoration: none; }
+.lang-rail a:hover { color: var(--accent); background: var(--hairline); }
+.lang-rail a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.lang-rail__long { display: none; }
+@media (prefers-reduced-motion: reduce) { .lang-rail { transition: none; } }
+@media (max-width: 899px) { html:has(.cta-bar.show) .lang-rail { transform: translateY(calc(-1 * var(--cta-bar-height, 76px))); } }
+@media (min-width: 900px) {
+  .lang-rail { left: 16px; bottom: 16px; }
+  .lang-rail a { padding: 10px 14px; font-size: 14px; letter-spacing: 0; }
+  .lang-rail__short { display: none; }
+  .lang-rail__long { display: inline; }
+}
 </style>`;
 
 function languageRail(current, languages) {
@@ -216,10 +224,11 @@ function languageRail(current, languages) {
   const names = { en: 'English', ...Object.fromEntries(languages.map((l) => [l, LANDING_LANGUAGES[l].name])) };
   const links = RAIL_ORDER
     .filter((lang) => lang !== current && paths[lang])
-    .map((lang) => `<a href="${paths[lang]}" hreflang="${lang}" lang="${lang}" aria-label="${names[lang]}" title="${names[lang]}" data-language-choice="${lang}">${lang.toUpperCase()}</a>`)
+    .map((lang) => `<a href="${paths[lang]}" hreflang="${lang}" lang="${lang}" aria-label="${names[lang]}" data-language-choice="${lang}"><span class="lang-rail__short">${lang.toUpperCase()}</span><span class="lang-rail__long">${names[lang]}</span></a>`)
     .join('');
+  // The sticky bar's real height, so the pill clears it exactly.
   return `<nav class="lang-rail" aria-label="Language">${links}</nav>
-<script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-language-choice]');if(!a)return;try{localStorage.setItem('obertura.language',a.getAttribute('data-language-choice'))}catch(_){}});</script>`;
+<script>(function(){var b=document.querySelector('.cta-bar');if(!b)return;function h(){document.documentElement.style.setProperty('--cta-bar-height',b.offsetHeight+'px')}h();addEventListener('resize',h)})();document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-language-choice]');if(!a)return;try{localStorage.setItem('obertura.language',a.getAttribute('data-language-choice'))}catch(_){}});</script>`;
 }
 
 // A language page sends people to the app in that language, unless they already chose one.

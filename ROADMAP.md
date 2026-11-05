@@ -3180,4 +3180,8 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   *puntuació*); *Apurs de temps*/*Apuros de tiempo*; fewer *realment*/*de verdad*. Spanish landing follows his Catalan
   edits. *Cagades* is allowed on the landing page now, coloured: `.word-blunder`, `.word-mistake` in `docs/index.html`.
   The copy editor has an EN tab, and accepts those coloured spans.
+- **Catalan, Spanish and Swedish released (2026-11-05).** `RELEASED_LANGUAGES` holds all four, so `/ca/ /es/ /sv/` and their
+  legal pages go live, phones are detected into their language (Spain's Spanish into Catalan), and Settings offers them.
+  The landing's language switcher is a pill in the bottom-left corner, like connectart.se: short names on a phone, full
+  names on a computer, rising above the sticky "Try it" bar.
 

@@ -111,7 +111,7 @@ export function runLandingPagesSelfTest(): TestResult[] {
   const rootWithCa = buildRootPage(html, ['ca'], BROWSER_REDIRECTS);
   check('a released language gets a link from `/`', rootWithCa.includes('hreflang="ca"') && rootWithCa.includes('data-language-choice="ca"'));
 
-  const rail = (html2: string): string[] => [...(html2.match(/<nav class="lang-rail"[\s\S]*?<\/nav>/)?.[0] ?? '').matchAll(/>([A-Z]{2})<\/a>/g)].map((m) => m[1]);
+  const rail = (html2: string): string[] => [...(html2.match(/<nav class="lang-rail"[\s\S]*?<\/nav>/)?.[0] ?? '').matchAll(/<span class="lang-rail__short">([A-Z]{2})<\/span>/g)].map((m) => m[1]);
   const all = ['ca', 'es', 'sv'];
   check('the switcher on `/` leaves out English, in order', rail(buildRootPage(html, all, BROWSER_REDIRECTS)).join(' ') === 'CA ES SV');
   check('the switcher on /ca/ leaves out Catalan, in order', rail(buildLanguagePage(html, 'ca', words('ca'), all)).join(' ') === 'ES EN SV');

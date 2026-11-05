@@ -8,7 +8,7 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
 };
 
 /** What people can pick or be detected into. A language joins this list once reviewed. */
-export const RELEASED_LANGUAGES: readonly Language[] = ['en'];
+export const RELEASED_LANGUAGES: readonly Language[] = ['en', 'ca', 'es', 'sv'];
 
 /**
  * A phone in one language that starts the app in another, while we go after one
