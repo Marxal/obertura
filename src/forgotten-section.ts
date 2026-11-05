@@ -159,7 +159,7 @@ function moveRow(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): HTMLE
   meta.className = 'stats-sheet-meta';
   // A move can live in more than one line (a duplicate, or two that transpose
   // into each other) — name all of them, not just the one with the best record.
-  meta.textContent = `${m.lineNames.join(', ')} · missed ${m.lapses} of ${m.attempts}`;
+  meta.textContent = `${m.lineNames.join(', ')} · ${t('last.missedOf', { lapses: m.lapses, attempts: m.attempts })}`;
   text.appendChild(meta);
 
   card.appendChild(text);

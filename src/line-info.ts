@@ -157,9 +157,9 @@ export function addedLabel(createdAt: number | undefined): string {
   if (days <= 0) return t('builder.addedToday');
   if (days === 1) return t('builder.addedYesterday');
   if (days < 7) return t('builder.addedDaysAgo', { days: days });
-  return `Added ${then.toLocaleDateString(appLocale(), {
+  return t('last.addedOn', { date: then.toLocaleDateString(appLocale(), {
     day: 'numeric', month: 'short', year: 'numeric',
-  })}`;
+  }) });
 }
 
 /** The full date, for the title attribute behind the relative label. */
@@ -246,7 +246,7 @@ export function renderLineStats(host: HTMLElement, opts: LineStatsOpts): void {
     rowEl.appendChild(spanEl('lineinfo-fail-move', `${m.moveNumber}. ${m.san}`));
     const rate = m.attempts > 0 ? Math.round((100 * m.lapses) / m.attempts) : 0;
     rowEl.appendChild(spanEl('lineinfo-fail-detail',
-      `missed ${m.lapses}× of ${m.attempts}${m.attempts ? ` · ${rate}%` : ''}`));
+      (m.attempts ? t('last.missedTimesRate', { lapses: m.lapses, attempts: m.attempts, rate }) : t('last.missedTimes', { lapses: m.lapses, attempts: m.attempts }))));
     // Is it recovering? A move on a clean streak is a different problem from one
     // that just broke again.
     rowEl.appendChild(spanEl(

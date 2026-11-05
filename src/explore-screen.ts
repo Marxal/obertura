@@ -261,7 +261,7 @@ let exploreTab: ExploreTab | null = null;
 
 // What the desktop page is called, since its sidebar stands in for the tab strip.
 const EXPLORE_TITLES: Record<ExploreTab, string> = {
-  mylines: t('tour.lines.title'), coverage: t('builder.coverage'), openings: t('builder.discover'), packs: t('builder.packs'),
+  mylines: t('open.tab.lines'), coverage: t('builder.coverage'), openings: t('builder.discover'), packs: t('builder.packs'),
 };
 
 // Repaints the tab set by openExploreTab, when the screen is up. False when it
@@ -371,7 +371,7 @@ function exploreTabsSection(
     return btn;
   };
 
-  tabs.appendChild(makeTab('mylines', t('tour.lines.title'), Icons.pawn(16)));
+  tabs.appendChild(makeTab('mylines', t('open.tab.lines'), Icons.pawn(16)));
   tabs.appendChild(makeTab('coverage', t('builder.coverage'), Icons.target(16)));
   // NOT called "Openings": the tab strip already sits under a tab called
   // Openings, and a tab with its parent's name says nothing about itself.
@@ -1222,7 +1222,7 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
   const meta = document.createElement('div');
   meta.className = 'opponent-card-meta';
   meta.textContent =
-    `${summary.games} game${summary.games === 1 ? '' : 's'} · refreshed ${timeAgo(opp.refreshedAt)}`;
+    t('last.oppGames', { n: summary.games, when: timeAgo(opp.refreshedAt) });
   content.appendChild(meta);
 
   return card;
@@ -1341,7 +1341,7 @@ function openDetail(id: string, container: HTMLElement): void {
     // Summary + actions.
     const summary = document.createElement('p');
     summary.className = 'section-desc scout-summary';
-    summary.textContent = `${opp.gamesAnalysed} game${opp.gamesAnalysed === 1 ? '' : 's'} analysed · refreshed ${timeAgo(opp.refreshedAt)}`;
+    summary.textContent = t('last.oppAnalysed', { n: opp.gamesAnalysed, when: timeAgo(opp.refreshedAt) });
     bodyWrap.appendChild(summary);
 
     const actions = document.createElement('div');
@@ -1744,7 +1744,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
       colour,
       () => { /* opponent maps have no "open in builder" */ },
       {
-        title: `${opp.name} — ${colour === 'white' ? 'White' : 'Black'}`,
+        title: `${opp.name} — ${t(colour === 'white' ? 'common.white' : 'common.black')}`,
         subtitle: `${games} game${games === 1 ? '' : 's'}`,
         // Prepare a reply from any node: seed the builder with the path to it.
         nodeAction: { label: t('open.prepareAReply'), onAct: ({ ucis }) => prepare(ucis, colour) },

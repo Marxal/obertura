@@ -25,6 +25,7 @@ import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-a
 import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
 import { Icons } from './icons';
 import { getAllGames } from './storage';
+import { t } from './i18n';
 
 const NOTICE_KEY = 'obertura.analysisNotice';
 type NoticeState = 'armed' | 'ready' | 'done';
@@ -155,33 +156,33 @@ export function buildAnalysisReadyCard(deps: {
   text.className = 'ga-ready-text';
   const title = document.createElement('p');
   title.className = 'ga-ready-title';
-  title.textContent = 'Your game analysis is ready';
+  title.textContent = t('mid.yourGameAnalysisIs');
   text.appendChild(title);
   const sub = document.createElement('p');
   sub.className = 'ga-ready-sub';
-  sub.textContent = 'Fix the mistakes it found in your games.';
+  sub.textContent = t('mid.fixTheMistakesIt');
   text.appendChild(sub);
   card.appendChild(text);
 
   void readAnalysisMistakes().then((refs) => {
     if (refs.length > 0) {
       sub.textContent = refs.length === 1
-        ? '1 mistake from your games to fix.'
-        : `${refs.length} mistakes from your games to fix.`;
+        ? t('mid.1MistakeFromYour')
+        : t('mid.mistakesFromYourGames', { length: refs.length });
     }
   }).catch(() => { /* the plain sentence stands */ });
 
   const fix = document.createElement('button');
   fix.type = 'button';
   fix.className = 'btn-primary ga-ready-fix';
-  fix.textContent = 'Fix them';
+  fix.textContent = t('analysis.fixThem');
   fix.addEventListener('click', deps.onFix);
   card.appendChild(fix);
 
   const dismiss = document.createElement('button');
   dismiss.type = 'button';
   dismiss.className = 'ga-ready-dismiss';
-  dismiss.setAttribute('aria-label', 'Dismiss');
+  dismiss.setAttribute('aria-label', t('mid.dismiss'));
   dismiss.appendChild(Icons.close(15));
   dismiss.addEventListener('click', deps.onDismiss);
   card.appendChild(dismiss);

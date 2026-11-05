@@ -86,7 +86,7 @@ function buildResultBar(games: ImportedGame[], deps: MyGamesDeps): HTMLElement {
   // SCORE, not win rate: a draw is half a point, and a player reading a chess
   // screen expects the chess convention. Called "score" for the same reason.
   score.textContent = total > 0
-    ? `score ${Math.round((1000 * (won + drew / 2)) / total) / 10}%`
+    ? t('last.scorePct', { pct: Math.round((1000 * (won + drew / 2)) / total) / 10 })
     : '';
   foot.appendChild(score);
   wrap.appendChild(foot);

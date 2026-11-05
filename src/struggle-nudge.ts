@@ -14,6 +14,7 @@
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { formatMove } from './notation';
+import { t } from './i18n';
 
 export interface StruggleNudgeOptions {
   node: MoveNode;
@@ -57,25 +58,25 @@ export function createStruggleNudge(opts: StruggleNudgeOptions): StruggleNudge {
   text.className = 'pt-nudge-text';
   const head = document.createElement('div');
   head.className = 'pt-nudge-head';
-  head.textContent = `${formatMove(node.san)} keeps going — ${opts.count} misses`;
+  head.textContent = t('mid.keepsGoing', { move: formatMove(node.san), count: opts.count });
   text.appendChild(head);
   const sub = document.createElement('div');
   sub.className = 'pt-nudge-sub';
-  sub.textContent = 'Leave yourself a reminder.';
+  sub.textContent = t('mid.leaveYourselfAReminder');
   text.appendChild(sub);
   row.appendChild(text);
 
   const writeBtn = document.createElement('button');
   writeBtn.type = 'button';
   writeBtn.className = 'pt-nudge-write';
-  writeBtn.textContent = 'Note';
+  writeBtn.textContent = t('mid.note');
   writeBtn.addEventListener('click', () => expand());
   row.appendChild(writeBtn);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'pt-nudge-close';
-  closeBtn.setAttribute('aria-label', 'Dismiss');
+  closeBtn.setAttribute('aria-label', t('mid.dismiss'));
   closeBtn.appendChild(Icons.close(15));
   closeBtn.addEventListener('click', () => exit('left'));
   row.appendChild(closeBtn);
@@ -96,13 +97,13 @@ export function createStruggleNudge(opts: StruggleNudgeOptions): StruggleNudge {
 
     const label = document.createElement('div');
     label.className = 'pt-nudge-label';
-    label.textContent = `Why ${formatMove(node.san)}?`;
+    label.textContent = t('last.why', { move: formatMove(node.san) });
     pane.appendChild(label);
 
     const ta = document.createElement('textarea');
     ta.className = 'pt-nudge-input';
     ta.rows = 2;
-    ta.placeholder = 'Knight before bishop — the pin is coming';
+    ta.placeholder = t('mid.knightBeforeBishopThe');
     ta.value = node.note ?? '';
     // Write straight to the node as you type and persist on pause, so nothing is
     // lost if the line ends (or you close the app) mid-sentence.
@@ -113,7 +114,7 @@ export function createStruggleNudge(opts: StruggleNudgeOptions): StruggleNudge {
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
     doneBtn.className = 'btn-primary pt-nudge-done';
-    doneBtn.textContent = 'Done';
+    doneBtn.textContent = t('common.done');
     doneBtn.addEventListener('click', () => {
       node.note = ta.value.trim() || undefined;
       opts.onNoteChanged();

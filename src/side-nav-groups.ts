@@ -11,6 +11,7 @@
 // Nothing is stored: there is no setting to get wrong, and no key to sync.
 
 import { Icons } from './icons';
+import { t } from './i18n';
 
 export interface SideSub {
   id: string;
@@ -54,7 +55,7 @@ export function createSideGroups(defs: SideGroupDef[]): SideGroups {
     g.list.hidden = !open;
     g.group.classList.toggle('side-group--open', open);
     g.caret.setAttribute('aria-expanded', String(open));
-    g.caret.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} ${g.def.label} sections`);
+    g.caret.setAttribute('aria-label', t(open ? 'last.hideSections' : 'last.showSections', { label: g.def.label }));
     g.caret.title = g.caret.getAttribute('aria-label')!;
   };
 

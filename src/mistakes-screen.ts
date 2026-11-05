@@ -57,6 +57,7 @@ import { dealRound, getTimePressureBest, recentRoundIds } from './time-pressure'
 import { fillPool } from './time-pressure-fill';
 import { combinedDueAt, restKey } from './spot-rest';
 import { openFixedSheet } from './fixed-sheet';
+import { t } from './i18n';
 import {
   DETECTIVE_ACCENT, WHICH_MOVE_ACCENT, CATEGORY_ACCENT, TIME_PRESSURE_ACCENT,
 } from './exercise-identity';
@@ -95,10 +96,10 @@ const BRILLIANT_ONLY_FROM = 10;
 // that launched them), and a leaf module is the only place both can reach.
 
 const CATEGORY_SUB: Record<MistakeCategory, string> = {
-  'opening-blunder': 'openings that lost you the game',
-  'punish-opening': 'chances your opponent handed you',
-  'missed-win': 'winning positions you let slip',
-  'blunder': 'game-losing moves from level play',
+  'opening-blunder': t('mid.openingsThatLostYou'),
+  'punish-opening': t('mid.chancesYourOpponentHanded'),
+  'missed-win': t('mid.winningPositionsYouLet'),
+  'blunder': t('last.gameLosing'),
 };
 
 // Sized by the caller: 20 on the cards, 18 in an exercise's run header. Exported
@@ -123,89 +124,56 @@ const MIDDLEGAME_ACCENT = DOMAIN_ACCENT.middlegame;
 // different cards. That answer lives one tap away rather than on every card.
 function openMistakeInfo(): void {
   openInfoSheet({
-    title: 'From your games',
-    intro: 'Every position here is one you actually played. The engine reads your imported '
-      + 'games, marks the moves where the evaluation swung, and hands the position back to '
-      + 'you as it was — before you played the move.',
+    title: t('analysis.contextLabel'),
+    intro: t('mid.everyPositionHereIs'),
     entries: [
       {
         icon: Icons.sparkles(18), accent: CATEGORY_ACCENT['punish-opening'],
-        label: 'Your games mix',
-        detail: 'The button at the top, and the one to press if you do not want to choose. '
-          + 'It runs every exercise on this screen back to back — two-move questions, then '
-          + 'mistake positions from all four cards in turn, then a detective case or two, '
-          + 'and it finishes on your own best moves. Each leg is short; whatever has nothing '
-          + 'to deal is simply skipped.',
+        label: t('mid.yourGamesMix'),
+        detail: t('mid.theButtonAtThe'),
       },
       {
         icon: Icons.scout(18), accent: DETECTIVE_ACCENT,
-        label: 'Blunder detective',
-        detail: 'A run of four to six moves from one of your games with exactly one blunder '
-          + 'in it — yours or your opponent’s, and nothing says which. Step through, name it, '
-          + 'then play what should have been played. One run per game at most.',
+        label: t('showcase.detective.title'),
+        detail: t('mid.aRunOfFour'),
       },
       {
         icon: Icons.merge(18), accent: WHICH_MOVE_ACCENT,
-        label: 'Which move',
-        detail: 'The quick one. Two moves drawn on the board — the one you played and the '
-          + 'one the engine wanted — and you pick. Ten seconds each, and it ends by telling '
-          + 'you which game it was and what the move cost.',
+        label: t('showcase.which.title'),
+        detail: t('mid.theQuickOneTwo'),
       },
       {
         icon: Icons.clock(18), accent: TIME_PRESSURE_ACCENT,
-        label: 'Time pressure',
-        detail: 'The speed round. Two minutes, twenty seconds a position, and any of the '
-          + 'engine’s top three counts — under that clock the skill is seeing a move that '
-          + 'does not lose, not finding the single best one. Nothing is drawn on the board: '
-          + 'you read the position cold, exactly as you had it, and the only answer during '
-          + 'the round is a tick or a cross. What was actually there is on the results '
-          + 'screen, where there is time to look. It opens on the moves you had least time '
-          + 'for and works outwards, so it always has something to deal, and finding one '
-          + 'inside three seconds is worth double. It is not part of the mix above: two '
-          + 'timed minutes does not belong in the middle of a run of untimed ones.',
+        label: t('showcase.pressure.title'),
+        detail: t('mid.theSpeedRoundTwo'),
       },
       {
         icon: Icons.zap(18), accent: CATEGORY_ACCENT['opening-blunder'],
         label: CATEGORY_LABEL['opening-blunder'],
-        detail: 'Mistakes inside the first dozen moves — the ones a line in your repertoire '
-          + 'would have prevented. The most useful card here, because these repeat.',
+        detail: t('mid.mistakesInsideTheFirst'),
       },
       {
         icon: Icons.target(18), accent: CATEGORY_ACCENT['punish-opening'],
         label: CATEGORY_LABEL['punish-opening'],
-        detail: 'Your OPPONENT went wrong in the opening and you let it go. Same positions, '
-          + 'other side of the board: find the move that punishes it.',
+        detail: t('mid.yourOpponentWentWrong'),
       },
       {
         icon: Icons.star(18), accent: CATEGORY_ACCENT['missed-win'],
         label: CATEGORY_LABEL['missed-win'],
-        detail: 'Positions where you were winning and the win slipped. Anywhere in the game, '
-          + 'not just the opening.',
+        detail: t('mid.positionsWhereYouWere'),
       },
       {
         icon: Icons.alert(18), accent: CATEGORY_ACCENT['blunder'],
         label: CATEGORY_LABEL['blunder'],
-        detail: 'Game-losing moves from a level position — the plain ??, wherever it landed.',
+        detail: t('mid.gameLosingMovesFrom'),
       },
       {
         icon: classIcon('brilliant', 18), accent: CLASS_COLOR.brilliant,
-        label: 'Your brilliant moves',
-        detail: 'The opposite exercise: moves the engine graded brilliant (!!) or great (!) '
-          + 'when you played them. Find them again. The scan looks for these too — a real '
-          + 'sacrifice that works — so they turn up on their own, and any you have graded by '
-          + 'reviewing a game in the analyser are added to them. Once you have ten '
-          + 'brilliancies the card narrows to those alone. Solved ones rest, then come back.',
+        label: t('home.games.brilliant'),
+        detail: t('mid.theOppositeExerciseMoves'),
       },
     ],
-    footnote: 'Time pressure is the exception to the marking below — it never marks a spot '
-      + 'fixed and never rests one, because finding a move in four seconds under a clock is '
-      + 'not the same as working it out. Reset, under the mix button, starts all of this again: the spots go, every game '
-      + 'is read from scratch, and every brilliant move you have re-found becomes available '
-      + 'again. A card stays greyed out until the scan has found something for it. A spot you '
-      + 'get right is marked fixed and goes to the back of its queue — it only comes round '
-      + 'again once the unfixed ones have run out, and the "to fix" count never counts it. '
-      + 'A brilliant move you re-find rests for a few days and then returns, longer each '
-      + 'time you find it again.',
+    footnote: t('mid.timePressureIsThe'),
   });
 }
 
@@ -241,21 +209,21 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     host.appendChild(buildDoor({
       domain: 'middlegame',
       icon: Icons.swords(26),
-      name: 'Middlegame',
-      sub: 'Fix mistakes from your games',
+      name: t('train.domain.middlegame'),
+      sub: t('mid.fixMistakesFromYour'),
       disabled: true,
-      disabledReason: 'Import your games to unlock',
+      disabledReason: t('mid.importYourGamesTo'),
     }));
-    const box = buildBox('middlegame', 'From your games');
+    const box = buildBox('middlegame', t('analysis.contextLabel'));
     const empty = document.createElement('div');
     empty.className = 'mistakes-empty';
     const line = document.createElement('p');
     line.className = 'empty-state-line';
-    line.textContent = 'Train the exact positions where your games went wrong.';
+    line.textContent = t('mid.trainTheExactPositions');
     empty.appendChild(line);
     empty.appendChild(buildInlineImport({
-      title: 'Import your games',
-      body: 'The scan then finds your blunders, your missed wins and the chances your opponents handed you.',
+      title: t('firstRun.importTitle'),
+      body: t('mid.theScanThenFinds'),
       onImported: () => { void renderMistakesScreen(host, deps); },
     }));
     boxBody(box).appendChild(empty);
@@ -327,17 +295,17 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   host.appendChild(buildDoor({
     domain: 'middlegame',
     icon: Icons.swords(26),
-    name: 'Middlegame',
-    sub: 'Fix mistakes from your games',
-    heroTitle: 'Today\u2019s mix',
+    name: t('train.domain.middlegame'),
+    sub: t('mid.fixMistakesFromYour'),
+    heroTitle: t('mid.todaySMix'),
     stat: mixReady && unfixed > 0 ? unfixed : undefined,
-    statLabel: mixReady && unfixed > 0 ? 'to fix' : undefined,
+    statLabel: mixReady && unfixed > 0 ? t('mid.toFix') : undefined,
     disabled: !mixReady,
     disabledReason: counts.scanned === 0
-      ? 'Your games are still being read'
-      : 'All fixed for now',
+      ? t('mid.yourGamesAreStill')
+      : t('mid.allFixedForNow'),
     progress: counts.spots > 0
-      ? { value: counts.fixed, max: counts.spots, label: `${counts.fixed} of ${counts.spots} fixed` }
+      ? { value: counts.fixed, max: counts.spots, label: t('mid.ofFixed', { fixed: counts.fixed, spots: counts.spots }) }
       : undefined,
     onClick: () => startMix(),
   }));
@@ -391,7 +359,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
   function mixLegs(): MixLeg[] {
     const legs: MixLeg[] = [];
-    const ctx = 'Your games mix';
+    const ctx = t('mid.yourGamesMix');
 
     // One blunder, one appearance. A mix deals all of its legs up front, so the
     // rest logs are still describing yesterday when the last leg is chosen —
@@ -408,7 +376,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     const pairs = claim(pickWhichMove(pairRefs, MIX_WHICH_MOVE, whichMoveDueAt()));
     if (pairs.length) {
       legs.push({
-        label: 'Two moves, one choice',
+        label: t('mid.twoMovesOneChoice'),
         start: (next) => startWhichMoveSession({
           refs: pairs,
           contextLabel: ctx,
@@ -423,7 +391,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     const spots = claim(mixSpots(claimed));
     if (spots.length) {
       legs.push({
-        label: 'Now your mistakes',
+        label: t('mid.nowYourMistakes'),
         start: (next) => startMistakeSession({
           refs: spots,
           contextLabel: ctx,
@@ -440,7 +408,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       MIX_DETECTIVE, detectiveDueAt()));
     if (cases.length) {
       legs.push({
-        label: 'Now find the blunder',
+        label: t('mid.nowFindTheBlunder'),
         start: (next) => startDetectiveSession({
           refs: cases,
           contextLabel: ctx,
@@ -456,7 +424,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     const gems = brilliantRefs.slice(0, MIX_BRILLIANT);
     if (gems.length) {
       legs.push({
-        label: 'Now your best moves',
+        label: t('mid.nowYourBestMoves'),
         start: (next) => startBrilliantSession({
           refs: gems,
           contextLabel: ctx,
@@ -484,19 +452,19 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       : undefined);
   }
   function renderCategoryBox(): HTMLElement {
-    const box = buildBox('middlegame', 'From your games',
-      buildInfoButton('About these exercises', openMistakeInfo));
+    const box = buildBox('middlegame', t('analysis.contextLabel'),
+      buildInfoButton(t('mid.aboutTheseExercises'), openMistakeInfo));
     // Three headed groups (v0.14). Your own mistakes lead — they are what this
     // domain is for — then the exercises that ask you to judge a position, then
     // the timed one. They replaced one flat list of seven cards.
-    const fixList = boxSection(box, 'Fix your mistakes');
-    const judgeList = boxSection(box, 'Find the right move');
-    const clockList = boxSection(box, 'Against the clock');
+    const fixList = boxSection(box, t('showcase.mistakes.title'));
+    const judgeList = boxSection(box, t('mid.findTheRightMove'));
+    const clockList = boxSection(box, t('train.section.clock'));
 
     // Why anything here is dead, said the same way on every card.
     const noneReason = counts.scanned === 0
-      ? 'Analyse your games first'
-      : 'None found in your analysed games';
+      ? t('mid.analyseYourGamesFirst')
+      : t('mid.noneFoundInYour');
 
     // The judging exercises. They ask a smaller question than the category
     // cards ("which of these two moves is better", "which of these moves is the
@@ -504,12 +472,12 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     judgeList.appendChild(buildModeCard({
       accent: WHICH_MOVE_ACCENT,
       icon: Icons.merge(20),
-      name: 'Which move',
+      name: t('showcase.which.title'),
       sub: pairRefs.length > 0 && whichMoveReady === 0
-        ? 'all answered, back in a few days'
-        : 'two moves, one of them yours',
+        ? t('mid.allAnsweredBackIn')
+        : t('mid.twoMovesOneOf'),
       stat: whichMoveReady > 0 ? whichMoveReady : undefined,
-      statLabel: whichMoveReady > 0 ? 'to answer' : undefined,
+      statLabel: whichMoveReady > 0 ? t('mid.toAnswer') : undefined,
       disabled: pairRefs.length === 0,
       disabledReason: noneReason,
       onClick: () => startWhichMove(),
@@ -518,10 +486,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     judgeList.appendChild(buildModeCard({
       accent: DETECTIVE_ACCENT,
       icon: Icons.scout(20),
-      name: 'Blunder detective',
+      name: t('showcase.detective.title'),
       sub: detectiveRefs.length > 0 && detectiveReady === 0
-        ? 'all cracked, back in a few days'
-        : 'find the blunder, yours or theirs',
+        ? t('mid.allCrackedBackIn')
+        : t('mid.findTheBlunderYours'),
       stat: detectiveReady > 0 ? detectiveReady : undefined,
       statLabel: detectiveReady > 0 ? 'cases' : undefined,
       disabled: detectiveRefs.length === 0,
@@ -535,9 +503,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     clockList.appendChild(buildModeCard({
       accent: TIME_PRESSURE_ACCENT,
       icon: Icons.clock(20),
-      name: 'Time pressure',
+      name: t('showcase.pressure.title'),
       // The subtitle carries the rules, because they ARE the exercise.
-      sub: '20 seconds a position, 2 minutes',
+      sub: t('showcase.pressure.sub'),
       stat: tpBest > 0 ? tpBest : undefined,
       statLabel: tpBest > 0 ? 'best' : undefined,
       disabled: refs.length === 0,
@@ -553,7 +521,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
         name: CATEGORY_LABEL[cat],
         sub: CATEGORY_SUB[cat],
         stat: pool.length > 0 ? counts.unfixedByCategory[cat] : undefined,
-        statLabel: pool.length > 0 ? 'to fix' : undefined,
+        statLabel: pool.length > 0 ? t('mid.toFix') : undefined,
         disabled: pool.length === 0,
         disabledReason: noneReason,
         onClick: () => startSession(pool, cat),
@@ -566,12 +534,12 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     judgeList.appendChild(buildModeCard({
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
-      name: 'Your brilliant moves',
+      name: t('home.games.brilliant'),
       sub: brilliantRefs.length > 0 && gemsReady === 0
-        ? 'all found, back in a few days'
-        : gemsOnly ? 'find your brilliancies again' : 'find your best moves again',
+        ? t('mid.allFoundBackIn')
+        : gemsOnly ? t('mid.findYourBrillianciesAgain') : t('mid.findYourBestMoves'),
       stat: gemsReady > 0 ? gemsReady : undefined,
-      statLabel: gemsReady > 0 ? 'to find' : undefined,
+      statLabel: gemsReady > 0 ? t('mid.toFind') : undefined,
       disabled: brilliantRefs.length === 0,
       disabledReason: noneReason,
       onClick: () => startBrilliant(brilliantRefs),
@@ -583,10 +551,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       fixList.appendChild(buildModeCard({
         accent: MIDDLEGAME_ACCENT,
         icon: Icons.checkCircle(20),
-        name: 'Fixed',
-        sub: 'the ones you’ve put right',
+        name: t('mid.fixed'),
+        sub: t('mid.theOnesYouVe'),
         stat: counts.fixed,
-        statLabel: 'fixed',
+        statLabel: t('mid.fixed13'),
         onClick: () => openFixed(),
       }));
     }
@@ -603,8 +571,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
         if (deal.length === 0) return;
         startMistakeSession({
           refs: deal,
-          modeLabel: 'Mistakes to fix',
-          contextLabel: 'Fixed again',
+          modeLabel: t('daily.pref.mistakes'),
+          contextLabel: t('mid.fixedAgain'),
           modeAccent: CATEGORY_ACCENT.blunder,
           onExit: rerender,
           onOpenGame: deps.onOpenGame,

@@ -843,7 +843,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     // For a library row the headline already IS the popularity — don't say it
     // twice; for a move of yours or the engine's, it's news.
     if (c.dbSharePct !== undefined && c.source !== 'library') {
-      row.appendChild(fact(t('builder.playedBy'), `${c.dbSharePct}% of ${c.dbLabel ?? 'them'}`));
+      row.appendChild(fact(t('builder.playedBy'), (c.dbLabel ? t('last.shareOf', { pct: c.dbSharePct, who: c.dbLabel }) : t('last.shareThem', { pct: c.dbSharePct }))));
     }
     return row.childElementCount ? row : null;
   }

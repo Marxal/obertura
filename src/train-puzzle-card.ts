@@ -19,6 +19,7 @@ import { buildUnderCard } from './next-reply-card';
 import { attachCardSwipe } from './reply-card-swipe';
 import { guardBoardTouches } from './reply-board-touch';
 import { playFeedback } from './sound';
+import { t } from './i18n';
 
 const REPLY_MS = 350;
 
@@ -67,7 +68,7 @@ export async function buildPuzzleBlock(o: PuzzleCardOptions): Promise<HTMLElemen
   const title = document.createElement('h2');
   title.className = 'fmove-block-title';
   title.textContent = o.title;
-  head.append(title, action('Another puzzle', Icons.shuffle(16), 'btn-quiet nr-another', () => void another()));
+  head.append(title, action(t('mid.anotherPuzzle'), Icons.shuffle(16), 'btn-quiet nr-another', () => void another()));
   const host = document.createElement('div');
   section.append(head, host);
 
@@ -98,7 +99,7 @@ function drawPuzzle(
   boardEl.className = 'forgotten-board cg-wrap nr-board';
   const intro = document.createElement('div');
   intro.className = 'mr-intro mrc-intro';
-  intro.textContent = `${setup.solverColour === 'white' ? 'White' : 'Black'} to play · Rated ${puzzle.rating}`;
+  intro.textContent = t(setup.solverColour === 'white' ? 'mid.whiteRated' : 'mid.blackRated', { rating: puzzle.rating });
   const status = document.createElement('p');
   status.className = 'nr-note';
   status.hidden = true;
@@ -150,9 +151,9 @@ function drawPuzzle(
       ? [{ orig: uci.slice(0, 2) as Key, brush: 'accent' }]
       : [{ orig: uci.slice(0, 2) as Key, dest: uci.slice(2, 4) as Key, brush: 'accent' }]);
   };
-  const hintBtn = action('Hint', Icons.bulb(16), 'btn-secondary nr-action', () => {
+  const hintBtn = action(t('common.hint'), Icons.bulb(16), 'btn-secondary nr-action', () => {
     hintStage = Math.min(2, hintStage + 1);
-    hintBtn.replaceChildren(Icons.bulb(16), hintStage === 2 ? 'Showing the move' : 'Show the move');
+    hintBtn.replaceChildren(Icons.bulb(16), hintStage === 2 ? t('mid.showingTheMove') : t('home.forgotten.show'));
     hintBtn.disabled = hintStage === 2;
     paintHint();
   });
@@ -166,9 +167,9 @@ function drawPuzzle(
     onSolved();
     playFeedback('correct');
     burstConfetti(boardEl);
-    say('Solved ✓', 'good');
+    say(t('mid.solved13'), 'good');
     cg.set({ movable: { color: undefined, dests: new Map() } });
-    row.replaceChildren(action('Next puzzle', Icons.chevronRight(16), 'btn-primary nr-action', next));
+    row.replaceChildren(action(t('mid.nextPuzzle'), Icons.chevronRight(16), 'btn-primary nr-action', next));
   }
 
   function onMove(from: Key, to: Key): void {
@@ -179,7 +180,7 @@ function drawPuzzle(
       flash.className = 'pt-error-flash';
       boardEl.appendChild(flash);
       flash.addEventListener('animationend', () => flash.remove(), { once: true });
-      say('Not quite, try again', 'bad');
+      say(t('common.notQuite'), 'bad');
       cg.set({ fen: chess.fen(), turnColor: setup!.solverColour, movable: { color: setup!.solverColour, dests: dests() } });
       paintHint();
       return;
@@ -189,7 +190,7 @@ function drawPuzzle(
     cg.set({ fen: chess.fen(), lastMove: [from, to] });
     step++;
     hintStage = 0;
-    hintBtn.replaceChildren(Icons.bulb(16), 'Hint');
+    hintBtn.replaceChildren(Icons.bulb(16), t('common.hint'));
     hintBtn.disabled = false;
     cg.setAutoShapes([]);
     const reply = setup!.solution[step];

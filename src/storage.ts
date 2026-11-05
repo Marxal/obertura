@@ -928,7 +928,7 @@ function validateLine(raw: unknown, index: number): Line {
   }
   return {
     id: l.id,
-    name: typeof l.name === 'string' ? l.name : 'Untitled line',
+    name: typeof l.name === 'string' ? l.name : t('drill.untitledLine'),
     tags: Array.isArray(l.tags) ? l.tags.filter((t): t is string => typeof t === 'string') : [],
     colour: l.colour,
     openingName: typeof l.openingName === 'string' ? l.openingName : null,

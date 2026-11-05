@@ -16,6 +16,7 @@ import type { MoveNode } from './tree';
 import { Chess } from 'chess.js';
 import { buildMiniBoard } from './board-mini';
 import { getShowLineMiniatures } from './prefs';
+import { t } from './i18n';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -95,7 +96,7 @@ export function buildPositionCard(opts: PositionCardOpts = {}): PositionCardPart
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'pcard-mini pcard-mini--btn';
-      btn.setAttribute('aria-label', opts.miniLabel ?? 'Open position');
+      btn.setAttribute('aria-label', opts.miniLabel ?? t('last.openPosition'));
       btn.addEventListener('click', (e) => { e.stopPropagation(); opts.onMiniClick!(); });
       mini = btn;
     } else {

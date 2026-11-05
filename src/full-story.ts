@@ -349,7 +349,7 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
     const slot = whySlot;
     if (!played || !slot || slot.childElementCount > 0) return;
     const fen = fenAfter(o.preFen, played.uci);
-    const heading = `Why ${formatMove(played.san)} doesn’t work`;
+    const heading = t('last.whyNot', { move: formatMove(played.san) });
     const h = document.createElement('div');
     h.className = 'fs-engine-head';
     h.textContent = heading;
@@ -538,7 +538,7 @@ function bookCard(link: RepertoireLink): HTMLElement {
   head.className = 'fs-book-head';
   const name = shortLineName(link.lineName);
   head.textContent = link.kind === 'covered'
-    ? `Your ${name} plays ${formatMove(link.san ?? '')} here`
+    ? t('last.yourPlays', { name, move: formatMove(link.san ?? '') })
     : t('story.movesPast', { n: link.movesPast ?? 0, name });
   text.appendChild(head);
   const sub = document.createElement('span');

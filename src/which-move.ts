@@ -26,6 +26,7 @@ import { cpToWin } from './winprob';
 import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
 import type { MoveEval } from './engine';
 import type { SpotRef } from './mistake-scan';
+import { t } from './i18n';
 
 /**
  * The position after playing a UCI move from `preFen` — used to preview
@@ -201,16 +202,16 @@ function whyPlayed(
   winAfter: number,
   see: number | null,
 ): string {
-  if (spot.evalAfter <= -MATE_CP) return 'allows mate';
+  if (spot.evalAfter <= -MATE_CP) return t('mid.allowsMate');
   // A losing exchange on the square it lands on is the most concrete thing we
   // can say, and the most common answer.
   if (see !== null && see <= -SEE_MATERIAL_MARGIN) {
-    return `hangs material on ${spot.playedUci.slice(2, 4)}`;
+    return t('mid.hangs', { square: spot.playedUci.slice(2, 4) });
   }
-  if (winBefore >= 0.75 && winAfter < 0.55) return 'throws away a won position';
-  if (winAfter <= 0.25) return 'leaves you losing';
-  if (winBefore >= 0.55) return 'gives up the advantage';
-  return 'makes it much worse';
+  if (winBefore >= 0.75 && winAfter < 0.55) return t('mid.throwsAwayAWon');
+  if (winAfter <= 0.25) return t('mid.leavesYouLosing');
+  if (winBefore >= 0.55) return t('mid.givesUpTheAdvantage');
+  return t('mid.makesItMuchWorse');
 }
 
 function whyBest(
@@ -221,16 +222,16 @@ function whyBest(
 ): string {
   const best = spot.best[0];
   if (!best) return '';
-  if (spot.evalBefore >= MATE_CP) return 'forces mate';
+  if (spot.evalBefore >= MATE_CP) return t('mid.forcesMate');
   if (bestSee !== null && bestSee >= SEE_MATERIAL_MARGIN) {
-    return `wins material on ${best.uci.slice(2, 4)}`;
+    return t('mid.winsMaterial', { square: best.uci.slice(2, 4) });
   }
   // Only worth saying "keeps it" when there was something to lose — i.e. when
   // the move actually played was the one that dropped it.
-  if (playedSee !== null && playedSee <= -SEE_MATERIAL_MARGIN) return 'keeps the material';
-  if (winBefore >= 0.75) return 'keeps you winning';
-  if (winBefore >= 0.45) return 'holds the balance';
-  return 'keeps the game alive';
+  if (playedSee !== null && playedSee <= -SEE_MATERIAL_MARGIN) return t('mid.keepsTheMaterial');
+  if (winBefore >= 0.75) return t('mid.keepsYouWinning');
+  if (winBefore >= 0.45) return t('mid.holdsTheBalance');
+  return t('mid.keepsTheGameAlive');
 }
 
 /** How many questions are available right now (not resting) — the card's badge. */

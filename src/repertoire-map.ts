@@ -466,7 +466,7 @@ function drawFoldToggle(g: SVGGElement, n: MapNode, onToggle: (n: MapNode) => vo
   wrap.setAttribute('role', 'button');
   wrap.setAttribute('tabindex', '0');
   wrap.setAttribute('aria-label', folded
-    ? `Unfold ${ends} line${ends === 1 ? '' : 's'} after ${n.san}`
+    ? tr('last.unfold', { n: ends, move: n.san })
     : tr('open.foldAwayEverythingAfter', { san: n.san }));
   wrap.addEventListener('click', e => {
     // The node under it must not select as well — this is its own control.
@@ -1560,7 +1560,7 @@ export function mountRepertoireMap(
     deeperBtn.classList.remove('rmap-deeper-btn--hint');
     const movesLeft = Math.ceil((depth.maxPlies - currentPlies) / 2);
     const step = Math.min(depth.stepPlies / 2, movesLeft);
-    deeperBtn.textContent = `Go ${step} move${step === 1 ? '' : 's'} deeper`;
+    deeperBtn.textContent = tr('last.goDeeper', { n: step });
   }
   if (depth) {
     deeperBtn = document.createElement('button');

@@ -19,6 +19,7 @@ import { cpToWin } from './winprob';
 import { positionIndex } from './position-index';
 import { getAllGames } from './storage';
 import type { ImportedGame, GameResult } from './import-core';
+import { t } from './i18n';
 
 // A drop this big in win probability is a wobble worth counting. It is the
 // scan's own "failed to punish" boundary (mistake-scan.ts's WIN_DROP_PUNISH),
@@ -56,8 +57,8 @@ export interface SpotFacts {
 // ── When ──────────────────────────────────────────────────────────────────────
 
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  t('month.in.jan'), t('month.in.feb'), t('month.in.mar'), t('month.in.apr'), t('month.in.may'), t('month.in.jun'),
+  t('month.in.jul'), t('month.in.aug'), t('month.in.sep'), t('month.in.oct'), t('month.in.nov'), t('month.in.dec'),
 ];
 
 /**
@@ -69,14 +70,14 @@ export function whenLabel(endTimeSec: number, now = Date.now()): string {
   if (!endTimeSec) return '';
   const then = endTimeSec * 1000;
   const days = Math.floor((now - then) / 86_400_000);
-  if (days <= 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  if (days < 14) return 'Last week';
-  if (days < 60) return `${Math.round(days / 7)} weeks ago`;
+  if (days <= 0) return t('date.today');
+  if (days === 1) return t('date.yesterday');
+  if (days < 7) return t('mid.daysAgo', { days: days });
+  if (days < 14) return t('mid.lastWeek');
+  if (days < 60) return t('reply.ago.weeks2', { n: Math.round(days / 7) });
   const d = new Date(then);
   const sameYear = new Date(now).getFullYear() === d.getFullYear();
-  return sameYear ? `In ${MONTHS[d.getMonth()]}` : `In ${d.getFullYear()}`;
+  return sameYear ? MONTHS[d.getMonth()] : t('month.inYear', { year: d.getFullYear() });
 }
 
 /**
@@ -88,11 +89,11 @@ export function whenLabel(endTimeSec: number, now = Date.now()): string {
  * under someone's best move of the month would read as a shrug at it.
  */
 export function costLine(result: GameResult, tone: SpotTone = 'mistake'): string {
-  if (result === 'draw') return 'it ended in a draw';
+  if (result === 'draw') return t('mid.itEndedInA');
   if (tone === 'brilliancy') {
-    return result === 'win' ? 'you won this one' : 'you lost anyway';
+    return result === 'win' ? t('mid.youWonThisOne') : t('mid.youLostAnyway');
   }
-  return result === 'loss' ? 'you lost this one' : 'you won anyway';
+  return result === 'loss' ? t('mid.youLostThisOne') : t('mid.youWonAnyway');
 }
 
 // ── The slide ─────────────────────────────────────────────────────────────────

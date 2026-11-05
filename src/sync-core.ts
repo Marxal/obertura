@@ -13,6 +13,7 @@
 // unchanged data isn't re-uploaded.
 
 import type { BackupFile } from './storage';
+import { t } from './i18n';
 
 export type SyncState =
   | 'off' // not configured, or signed out
@@ -182,7 +183,7 @@ export const SYNC_PART_LIMIT_BYTES = 4 * 1024 * 1024;
 // What the caption says when a part is refused. Local-first is the point: the
 // data is not lost, it simply isn't leaving this phone.
 export const SYNC_TOO_LARGE_MESSAGE =
-  'Too large to sync — everything still works on this phone, and “Export backup” saves it all.';
+  t('last.tooLarge');
 
 // Serialised size in BYTES, not characters: a note full of accented text costs
 // more on the wire than its length suggests, and the wall is a byte limit.

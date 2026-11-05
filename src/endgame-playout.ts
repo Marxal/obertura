@@ -28,6 +28,7 @@ import { burstConfetti, celebratePawn } from './confetti';
 import type { Endgame } from './endgame-catalog';
 import { recordEndgameResult, getEndgameRecord } from './endgame-progress';
 import { track } from './metrics';
+import { t as tr } from './i18n';
 import {
   probeTablebase, bestMove as tbBestMove, outcomeOf, inTablebaseRange,
   type TbOutcome,
@@ -155,7 +156,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   infoBtn.type = 'button';
   infoBtn.className = 'eg-play-info';
   infoBtn.appendChild(Icons.info(16));
-  infoBtn.setAttribute('aria-label', 'Show the idea');
+  infoBtn.setAttribute('aria-label', tr('mid.showTheIdea'));
   infoBtn.setAttribute('aria-expanded', 'false');
   header.extras.appendChild(infoBtn);
 
@@ -165,7 +166,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   // thing that changes per exercise: what you have to achieve.
   const goalChip = document.createElement('span');
   goalChip.className = `eg-goal-chip eg-goal-chip--${endgame.goal}`;
-  goalChip.textContent = endgame.goal === 'win' ? 'You must win' : 'You must draw';
+  goalChip.textContent = endgame.goal === 'win' ? tr('mid.youMustWin') : tr('mid.youMustDraw');
   topEl.appendChild(goalChip);
 
   // The idea, tucked into an absolutely-positioned popover so toggling it never
@@ -265,7 +266,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   function handToUser(): void {
     if (startedAt === 0) { startedAt = Date.now(); startTimer(); } // start the clock on your first move
     cg.set({ turnColor: cgTurn(), movable: { color: you, dests: legalDests() } });
-    setStatus('Your move', 'pt-status--prompt');
+    setStatus(tr('drill.yourMove'), 'pt-status--prompt');
   }
 
   // Mate/stalemate/draw check after any move. Returns true when the game ended (and
@@ -274,14 +275,14 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
     if (chess.isCheckmate()) {
       // The side to move is mated. If that's the opponent, you delivered mate.
       const matedIsOpponent = cgTurn() !== you;
-      if (matedIsOpponent) finish(true, 'Checkmate! 🎉');
-      else finish(false, 'You got mated — try again.');
+      if (matedIsOpponent) finish(true, tr('mid.checkmate'));
+      else finish(false, tr('mid.youGotMatedTry'));
       return true;
     }
     if (chess.isStalemate() || chess.isInsufficientMaterial() ||
         chess.isThreefoldRepetition() || chess.isDraw()) {
-      if (target === 'draw') finish(true, 'Held the draw! 🎉');
-      else finish(false, 'It slipped to a draw — try again.');
+      if (target === 'draw') finish(true, tr('mid.heldTheDraw'));
+      else finish(false, tr('mid.itSlippedToA'));
       return true;
     }
     return false;
@@ -315,7 +316,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
 
     const afterFen = chess.fen();
     lockBoard();
-    setStatus('Checking…');
+    setStatus(tr('settings.checking'));
     void judgeUserMove(afterFen).then((verdict) => {
       if (finished || isCleaned) return;
       if (verdict === 'bad') {
@@ -324,7 +325,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
         mistakes++;
         flashError();
         cg.set({ fen: chess.fen(), turnColor: cgTurn(), lastMove: undefined });
-        setStatus(target === 'win' ? 'That throws the win — try again' : 'That loses — try again', 'pt-status--error');
+        setStatus(target === 'win' ? tr('mid.thatThrowsTheWin') : tr('mid.thatLosesTryAgain'), 'pt-status--error');
         handToUser();
         void showHintArrow(false);
         return;
@@ -335,8 +336,8 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
       playFeedback('correct');
       if (checkTerminal()) return;
       if (userMoves >= MAX_USER_MOVES) {
-        if (target === 'draw') finish(true, 'You held it — draw! 🎉');
-        else finish(false, 'Taking too long — try again for a cleaner win.');
+        if (target === 'draw') finish(true, tr('mid.youHeldItDraw'));
+        else finish(false, tr('mid.takingTooLongTry'));
         return;
       }
       engineReply();
@@ -350,7 +351,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   // The opponent's reply: tablebase-optimal when reachable, else local Stockfish.
   async function engineReply(): Promise<void> {
     lockBoard();
-    setStatus('Engine is thinking…');
+    setStatus(tr('mid.engineIsThinking'));
     const fen = chess.fen();
     let uci: string | null = null;
     if (inTablebaseRange(fen)) {
@@ -400,7 +401,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   function renderHintButton(): void {
     actionsEl.innerHTML = '';
     // Same look as the other training modes' hint (Fix 3): the shared .pz-hint-btn.
-    actionsEl.appendChild(mkButton('Hint', 'pz-hint-btn', () => {
+    actionsEl.appendChild(mkButton(tr('common.hint'), 'pz-hint-btn', () => {
       cg.setAutoShapes([]);
       void showHintArrow(true);
     }, Icons.bulb(16)));
@@ -462,14 +463,14 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
       const bestLine = document.createElement('div');
       bestLine.className = 'timed-best' + (r.isBest ? ' timed-best--new' : '');
       bestLine.textContent = r.isBest
-        ? (r.prevBest === undefined ? 'Your first time — the mark to beat!' : 'New best time! 🔥')
-        : `Your best: ${formatTime(r.prevBest ?? r.elapsedMs)}`;
+        ? (r.prevBest === undefined ? tr('mid.yourFirstTimeThe') : tr('mid.newBestTime'))
+        : tr('mid.yourBest', { time: formatTime(r.prevBest ?? r.elapsedMs) });
       wrap.appendChild(bestLine);
 
       if (r.clean) {
         const flaw = document.createElement('div');
         flaw.className = 'eg-complete-flawless';
-        flaw.textContent = 'Flawless — no hints, no slips.';
+        flaw.textContent = tr('mid.flawlessNoHintsNo');
         wrap.appendChild(flaw);
       }
     }
@@ -483,13 +484,13 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
       mkButton(label, primary ? 'btn-primary train-next-btn' : 'btn-secondary train-done-btn', onClick);
 
     if (r.success && hasNext) {
-      actions.appendChild(btn('Next endgame', true, () => { cleanup(); opts.onNext!(); }));
-      actions.appendChild(btn('Try again', false, () => { cleanup(); startEndgamePlayout(endgame, opts); }));
+      actions.appendChild(btn(tr('mid.nextEndgame'), true, () => { cleanup(); opts.onNext!(); }));
+      actions.appendChild(btn(tr('mid.tryAgain'), false, () => { cleanup(); startEndgamePlayout(endgame, opts); }));
     } else {
-      actions.appendChild(btn('Try again', true, () => { cleanup(); startEndgamePlayout(endgame, opts); }));
-      if (hasNext) actions.appendChild(btn('Next endgame', false, () => { cleanup(); opts.onNext!(); }));
+      actions.appendChild(btn(tr('mid.tryAgain'), true, () => { cleanup(); startEndgamePlayout(endgame, opts); }));
+      if (hasNext) actions.appendChild(btn(tr('mid.nextEndgame'), false, () => { cleanup(); opts.onNext!(); }));
     }
-    actions.appendChild(btn('End session', false, () => doExit()));
+    actions.appendChild(btn(tr('drill.endSession'), false, () => doExit()));
 
     wrap.appendChild(actions);
     overlay.appendChild(wrap);
@@ -513,7 +514,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
 
   // ── Kick off ──────────────────────────────────────────────────────────────
   renderHintButton();
-  setStatus('Reading the position…');
+  setStatus(tr('mid.readingThePosition'));
   // Probe the true result up front so the target is ground-truth, then start.
   void (async () => {
     if (inTablebaseRange(endgame.fen)) {

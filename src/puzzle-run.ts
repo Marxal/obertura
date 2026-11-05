@@ -38,6 +38,7 @@ import {
 } from './puzzle-rating';
 import { getShowPuzzleClock, setShowPuzzleClock } from './prefs';
 import { countUp } from './count-up';
+import { t } from './i18n';
 
 // One puzzle plus the opening it was drawn for (so stats and retry know its
 // angle even in a Mixed session). `family` is a friendly display name for the
@@ -190,7 +191,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   const header = buildRunHeader({
     icon: timed ? Icons.clock(18) : Icons.puzzlePiece(18),
-    title: opts.modeLabel ?? (timed ? 'Time attack' : 'Puzzles'),
+    title: opts.modeLabel ?? (timed ? t('train.mode.timed') : t('stats.puzzles')),
     kicker: opts.contextLabel,
     onEnd: () => exitViaButton(),
   });
@@ -208,7 +209,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   if (timed && opts.mode.kind === 'timed') {
     timerEl.className = 'pt-timer';
     mistakesEl.className = 'pt-mistakes';
-    mistakesEl.setAttribute('aria-label', 'Mistakes');
+    mistakesEl.setAttribute('aria-label', t('mid.mistakes'));
     for (let i = 0; i < opts.mode.maxMistakes; i++) {
       const dot = document.createElement('span');
       dot.className = 'pt-mistake-dot';
@@ -286,7 +287,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     ratingGroup.className = 'pz-hud-group';
     const ratingLabel = document.createElement('span');
     ratingLabel.className = 'pz-hud-label';
-    ratingLabel.textContent = 'Your rating';
+    ratingLabel.textContent = t('stats.yourRating');
     hudRatingEl.className = 'pz-hud-rating';
     hudRatingEl.textContent = String(ratingBefore);
     ratingGroup.append(ratingLabel, hudRatingEl);
@@ -298,7 +299,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     pointsGroup.hidden = true;
     const pointsLabel = document.createElement('span');
     pointsLabel.className = 'pz-hud-label';
-    pointsLabel.textContent = 'Points';
+    pointsLabel.textContent = t('mid.points');
     hudPointsEl.className = 'pz-hud-points';
     pointsGroup.append(pointsLabel, hudPointsEl);
     resultRow.appendChild(pointsGroup);
@@ -355,14 +356,14 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   hintBtn.type = 'button';
   hintBtn.className = 'pz-hint-btn';
   hintBtn.appendChild(Icons.bulb(16));
-  hintBtn.appendChild(document.createTextNode('Hint'));
+  hintBtn.appendChild(document.createTextNode(t('common.hint')));
   hintBtn.hidden = true;
   hintBtn.addEventListener('click', () => useHint());
 
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn';
-  nextBtn.textContent = 'Next puzzle';
+  nextBtn.textContent = t('mid.nextPuzzle');
   nextBtn.hidden = true;
   nextBtn.addEventListener('click', () => onNextTap());
 
@@ -372,7 +373,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   analyseBtn.type = 'button';
   analyseBtn.className = 'pz-analyse-btn';
   analyseBtn.appendChild(Icons.review(15));
-  analyseBtn.appendChild(document.createTextNode('Analyse position'));
+  analyseBtn.appendChild(document.createTextNode(t('mid.analysePosition')));
   analyseBtn.hidden = true;
   analyseBtn.addEventListener('click', () => suspendForAnalysis());
 
@@ -404,11 +405,11 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // re-arming the back-nav layer when the user decides to stay after a back gesture.
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
-      title: 'End this session?',
-      body: 'Your progress so far is kept.',
+      title: t('drill.end.title'),
+      body: t('mid.yourProgressSoFar'),
       buttons: [
-        { label: 'End session', variant: 'danger', onClick: doExit },
-        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+        { label: t('drill.endSession'), variant: 'danger', onClick: doExit },
+        { label: t('signup.keepGoing'), variant: 'secondary', onClick: onStay },
       ],
       onDismiss: onStay,
     });
@@ -509,9 +510,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     const on = getShowPuzzleClock();
     hudEl.classList.toggle('pz-hud--clockless', !on);
     hudClockToggleEl.replaceChildren(on ? Icons.clock(14) : Icons.clockOff(14));
-    const label = on ? 'Hide the clock' : 'Show the clock';
+    const label = on ? t('mid.hideTheClock') : t('mid.showTheClock');
     hudClockToggleEl.setAttribute('aria-label', label);
-    hudClockToggleEl.title = `${label} — the speed bonus is earned either way`;
+    hudClockToggleEl.title = t('mid.theSpeedBonusIs', { label: label });
   }
 
   // ── The award ──────────────────────────────────────────────────────────────
@@ -572,7 +573,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     plus.className = 'pz-award-plus';
     plus.textContent = '+';
     sum.appendChild(plus);
-    sum.appendChild(awardChip(`+${bonus} fast`, 'bonus'));
+    sum.appendChild(awardChip(t('mid.fast', { bonus: bonus }), 'bonus'));
     awardEl.appendChild(sum);
 
     hudPointsEl.textContent = sign(base);
@@ -657,7 +658,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     if (!sessionFillEl || !sessionLabelEl || opts.mode.kind !== 'count') return;
     const total = opts.mode.count;
     sessionFillEl.style.width = `${Math.min(1, completed / total) * 100}%`;
-    sessionLabelEl.textContent = `Puzzle ${Math.min(completed + 1, total)} of ${total}`;
+    sessionLabelEl.textContent = t('last.puzzleOf', { at: Math.min(completed + 1, total), total });
   }
 
   // ── Timed countdown ─────────────────────────────────────────────────────────
@@ -685,7 +686,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // ── Puzzle lifecycle ──────────────────────────────────────────────────────
   async function loadNext(): Promise<void> {
     lockBoard();
-    setStatus('Loading puzzle…', 'pt-status--prompt');
+    setStatus(t('mid.loadingPuzzle'), 'pt-status--prompt');
     themesEl.hidden = true;
     nextBtn.hidden = true;
     analyseBtn.hidden = true;
@@ -708,7 +709,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       // Ran dry. If we already solved some, treat it as the end; otherwise it's a
       // connection/availability problem.
       if (completed > 0) { showResults(); return; }
-      setStatus('No more puzzles right now. Check your connection and try again.', 'pt-status--error');
+      setStatus(t('mid.noMorePuzzlesRight'), 'pt-status--error');
       return;
     }
 
@@ -745,7 +746,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     checkingAlt = false;
     altSolve = false;
     altOfficialSan = null;
-    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode(t('common.hint')));
 
     chess.load(setup.fen);
     cg.set({
@@ -760,7 +761,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // the puzzle is solved (see finish()), since the reveal is part of the payoff.
     if (timed) {
       ratingEl.className = 'pt-line-name pt-rating--solved';
-      ratingEl.textContent = `Rating ${draw.puzzle.rating}`;
+      ratingEl.textContent = t('train.door.rating', { rating: draw.puzzle.rating });
     } else {
       ratingEl.textContent = '';
       ratingEl.className = 'pt-line-name';
@@ -770,7 +771,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // move; the pgn already ended with it).
     autoTimer = setTimeout(() => {
       if (isCleaned) return;
-      setStatus(`${solverColour === 'white' ? 'White' : 'Black'} to play — find the best move`, 'pt-status--prompt');
+      setStatus(t(solverColour === 'white' ? 'mid.whiteFind' : 'mid.blackFind'), 'pt-status--prompt');
       handToSolver();
       flashYourPieces();
       // Refresh chessground's cached bounds after the layout has settled, so drags
@@ -825,13 +826,13 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     if (hintStage === 0) {
       hintStage = 1;
       showPieceHighlight();
-      hintBtn.replaceChildren(Icons.eye(16), document.createTextNode('Show solution'));
-      setStatus('Hint — move the highlighted piece', 'pt-status--reveal');
+      hintBtn.replaceChildren(Icons.eye(16), document.createTextNode(t('mid.showSolution')));
+      setStatus(t('mid.hintMoveTheHighlighted'), 'pt-status--reveal');
     } else {
       hintStage = 2;
       hintBtn.hidden = true;
       showArrow();
-      setStatus('Hint — play the highlighted move', 'pt-status--reveal');
+      setStatus(t('mid.hintPlayTheHighlighted'), 'pt-status--reveal');
     }
   }
 
@@ -878,7 +879,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     }
     // Count mode: snap the piece back and let them try again (the Hint button is
     // there if they're stuck). If a hint is already showing, keep the arrow up.
-    setStatus('Not quite — try again', 'pt-status--error');
+    setStatus(t('drill.tryAgain'), 'pt-status--error');
     cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: solverColour, dests: legalDests() } });
     if (hintStage < 2) hintBtn.hidden = false;
     if (hintStage === 1) showPieceHighlight();
@@ -894,7 +895,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     checkingAlt = true;
     const startedAt = Date.now();
     lockBoard();
-    setStatus('Checking that move…', 'pt-status--alt');
+    setStatus(t('mid.checkingThatMove'), 'pt-status--alt');
 
     let ok = false;
     try {
@@ -948,11 +949,11 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   // "Good move ✓ — a different way!", with the puzzle's own move underneath.
   function setAlternateStatus(): void {
-    setStatus('Good move ✓ — a different way!', 'pt-status--success');
+    setStatus(t('mid.goodMoveADifferent'), 'pt-status--success');
     if (!altOfficialSan) return;
     const line = document.createElement('span');
     line.className = 'pz-alt-official';
-    line.textContent = `The puzzle played ${formatMove(altOfficialSan)}`;
+    line.textContent = t('mid.puzzlePlayed', { move: formatMove(altOfficialSan) });
     statusEl.appendChild(line);
   }
 
@@ -967,7 +968,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       playMove(solution[solIndex]);
       solIndex++;
       if (solIndex >= solution.length) { finish(); return; }
-      setStatus('Your move', 'pt-status--prompt');
+      setStatus(t('drill.yourMove'), 'pt-status--prompt');
       handToSolver();
     }, 360);
   }
@@ -1031,22 +1032,22 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       // The PUZZLE's rating, quietly — the number that matters is yours, and it
       // is in the HUD above, about to move.
       ratingEl.className = 'pt-line-name pt-rating--solved';
-      ratingEl.textContent = `Puzzle ${cur.puzzle.rating}`;
+      ratingEl.textContent = t('mid.puzzle', { rating: cur.puzzle.rating });
       if (timing) hudEl.classList.add('pz-hud--done');
       if (points !== undefined) renderAward(liveRating - points, points, speedBonus);
     } else {
       ratingEl.className = 'pt-line-name pt-rating--solved';
-      ratingEl.textContent = `Rating ${cur.puzzle.rating}`;
+      ratingEl.textContent = t('train.door.rating', { rating: cur.puzzle.rating });
     }
     if (clean) {
       // An alternate solve has already said its piece ("a different way!") — don't
       // overwrite it with the plain "Solved!".
-      if (!altSolve) setStatus('Solved!', 'pt-status--success');
+      if (!altSolve) setStatus(t('mid.solved'), 'pt-status--success');
       burstConfetti(boardWrap);
     } else {
-      setStatus('Got it — no points this time', 'pt-status--reveal');
+      setStatus(t('mid.gotItNoPoints'), 'pt-status--reveal');
     }
-    nextBtn.textContent = completed >= total ? 'See results' : 'Next puzzle';
+    nextBtn.textContent = completed >= total ? t('mid.seeResults') : t('mid.nextPuzzle');
     nextBtn.hidden = false;
     analyseBtn.hidden = !opts.onAnalysePosition;
   }
@@ -1064,7 +1065,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     overlay.hidden = true;
     opts.onAnalysePosition({
       ...moves,
-      label: `Puzzle · rating ${draw.puzzle.rating}`,
+      label: t('mid.puzzleRating', { rating: draw.puzzle.rating }),
       onReturn: () => {
         if (isCleaned) return;
         overlay.hidden = false;
@@ -1118,12 +1119,12 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
     const done = document.createElement('div');
     done.className = 'train-completion-done';
-    done.textContent = 'Session complete ✓';
+    done.textContent = t('train.sessionComplete');
     head.appendChild(done);
 
     const sub = document.createElement('div');
     sub.className = 'train-completion-name';
-    sub.textContent = `${solvedCount}/${completed} solved clean${timed ? ' against the clock' : ''}`;
+    sub.textContent = t(timed ? 'mid.cleanClock' : 'mid.clean', { solved: solvedCount, total: completed });
     head.appendChild(sub);
 
     // Rated: the rating delta + the new total, animated up from the old rating.
@@ -1141,7 +1142,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       card.appendChild(totalEl);
       const lbl = document.createElement('div');
       lbl.className = 'pz-rating-label';
-      lbl.textContent = 'puzzle rating';
+      lbl.textContent = t('mid.puzzleRating13');
       card.appendChild(lbl);
       head.appendChild(card);
       // Let the panel settle, then tick the total up to its new value.
@@ -1153,7 +1154,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     if (newBestStreak !== null) {
       const best = document.createElement('div');
       best.className = 'pz-best-streak';
-      best.textContent = `New best run — ${newBestStreak} in a row! 🔥`;
+      best.textContent = t('mid.newBestRunIn', { newBestStreak: newBestStreak });
       head.appendChild(best);
     }
 
@@ -1192,7 +1193,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-      again.textContent = 'Play again';
+      again.textContent = t('train.playAgain');
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
@@ -1201,7 +1202,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       const retry = document.createElement('button');
       retry.type = 'button';
       retry.className = 'btn-secondary train-done-btn';
-      retry.textContent = `Retry mistakes (${missed.length})`;
+      retry.textContent = t('mid.retryMistakes', { length: missed.length });
       retry.addEventListener('click', () => retryMistakes(missed.slice()));
       actions.appendChild(retry);
     }
@@ -1210,7 +1211,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     doneBtn.type = 'button';
     // Without any other green action, promote the close.
     doneBtn.className = (opts.onPlayAgain || opts.nextAction) ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-    doneBtn.textContent = 'End session';
+    doneBtn.textContent = t('drill.endSession');
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
 
@@ -1238,7 +1239,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
         const bolt = Icons.zap(10);
         bolt.classList.add('pz-result-bolt');
         pts.appendChild(bolt);
-        pts.title = `${e.points - e.bonus} for the solve, +${e.bonus} for the speed`;
+        pts.title = t('mid.pointsSplit', { solve: e.points - e.bonus, bonus: e.bonus });
       }
       row.appendChild(pts);
     }
@@ -1251,8 +1252,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     main.appendChild(name);
     const meta = document.createElement('div');
     meta.className = 'pz-result-meta';
-    const theme = e.draw.puzzle.themes.length ? prettyTheme(e.draw.puzzle.themes[0]) : 'Tactic';
-    meta.textContent = e.alt ? `${theme} · your own way` : theme;
+    const theme = e.draw.puzzle.themes.length ? prettyTheme(e.draw.puzzle.themes[0]) : t('mid.tactic');
+    meta.textContent = e.alt ? t('mid.yourOwnWay', { theme: theme }) : theme;
     main.appendChild(meta);
     row.appendChild(main);
 
@@ -1274,7 +1275,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       mode: { kind: 'count', count: queue.length },
       onResult: opts.onResult,
       onExit: opts.onExit,
-      modeLabel: 'Retry mistakes',
+      modeLabel: t('mid.retryMistakes13'),
       dedup: false,
       onAnalysePosition: opts.onAnalysePosition,
     });
@@ -1341,6 +1342,6 @@ function prettyTheme(theme: string): string {
 
 // "Sicilian_Defense" → "Sicilian Defense"; null → "Mixed".
 function prettyAngle(angle: string | null): string {
-  if (!angle) return 'Mixed';
+  if (!angle) return t('mid.mixed');
   return angle.replace(/_/g, ' ');
 }

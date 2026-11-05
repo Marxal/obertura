@@ -47,6 +47,7 @@ import { WHICH_MOVE_ACCENT } from './exercise-identity';
 import type { SpotRef } from './mistake-scan';
 import type { OpenGameCtx } from './mistake-run';
 import type { ImportedGame } from './import-core';
+import { t } from './i18n';
 
 // One colour per CANDIDATE SLOT, shared by that slot's arrow and its button:
 // the left pick is the app's hint blue, the right one purple. They used to
@@ -75,34 +76,26 @@ export interface WhichMoveSessionOptions {
 /** What this exercise is, one tap from the run itself. */
 export function openWhichMoveInfo(): void {
   openInfoSheet({
-    title: 'Which move',
-    intro: 'A position from one of your games with two moves on it: the one you played and '
-      + 'the one the engine wanted. Say which is which.',
+    title: t('showcase.which.title'),
+    intro: t('mid.aPositionFromOne'),
     entries: [
       {
         icon: Icons.merge(18), accent: PICK_COLORS[0],
-        label: 'Two moves, one question',
-        detail: 'Tap the move you think is better — or just play it on the board. Each arrow '
-          + 'matches its button, blue or purple, and the two moves swap sides every time, so '
-          + 'nothing but the chess tells you which is which.',
+        label: t('mid.twoMovesOneQuestion'),
+        detail: t('mid.tapTheMoveYou'),
       },
       {
         icon: Icons.alert(18), accent: '#c93636',
-        label: 'One of them cost you',
-        detail: 'The wrong one is the move you actually played, in a game the engine says it '
-          + 'went badly wrong. Once you have answered, it says which game, which move and '
-          + 'what it cost.',
+        label: t('mid.oneOfThemCost'),
+        detail: t('mid.theWrongOneIs'),
       },
       {
         icon: Icons.review(18), accent: '#3f7d8a',
-        label: 'Then look properly',
-        detail: 'Analyse opens the game at exactly this position, with your variations and '
-          + 'notes, so a question you got wrong can turn into ten minutes of real study.',
+        label: t('mid.thenLookProperly'),
+        detail: t('mid.analyseOpensTheGame'),
       },
     ],
-    footnote: 'The questions come from the same engine pass that finds your mistakes, so more '
-      + 'appear as your games are analysed. One you answer right rests a couple of days and '
-      + 'then comes back.',
+    footnote: t('mid.theQuestionsComeFrom'),
   });
 }
 
@@ -145,7 +138,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
 
   const header = buildRunHeader({
     icon: Icons.merge(18),
-    title: opts.modeLabel ?? 'Which move',
+    title: opts.modeLabel ?? t('showcase.which.title'),
     kicker: opts.contextLabel,
     accent: WHICH_MOVE_ACCENT,
     onEnd: () => exitViaButton(),
@@ -171,9 +164,9 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   const briefEl = document.createElement('div');
   briefEl.className = 'mr-intro dt-brief';
   const briefText = document.createElement('span');
-  briefText.textContent = 'One of these two moves went wrong.';
+  briefText.textContent = t('mid.oneOfTheseTwo');
   briefEl.appendChild(briefText);
-  const briefInfoBtn = buildInfoButton('About Which move', openWhichMoveInfo);
+  const briefInfoBtn = buildInfoButton(t('mid.aboutWhichMove'), openWhichMoveInfo);
   briefEl.appendChild(briefInfoBtn);
   topEl.appendChild(briefEl);
 
@@ -217,7 +210,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   analyseBtn.type = 'button';
   analyseBtn.className = 'btn-secondary mr-after-btn';
   analyseBtn.appendChild(Icons.review(16));
-  analyseBtn.appendChild(document.createTextNode('Analyse game'));
+  analyseBtn.appendChild(document.createTextNode(t('html.analyseGame')));
   analyseBtn.hidden = !opts.onOpenGame;
   analyseBtn.addEventListener('click', () => {
     const { game, spot } = current;
@@ -227,7 +220,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
-  nextBtn.textContent = 'Next position';
+  nextBtn.textContent = t('common.nextPosition');
   nextBtn.addEventListener('click', () => onNextTap());
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
@@ -283,11 +276,11 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   let sessionOver = false;
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
-      title: 'End this session?',
-      body: 'Questions you already answered are kept.',
+      title: t('drill.end.title'),
+      body: t('mid.questionsYouAlreadyAnswered'),
       buttons: [
-        { label: 'End session', variant: 'danger', onClick: doExit },
-        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+        { label: t('drill.endSession'), variant: 'danger', onClick: doExit },
+        { label: t('signup.keepGoing'), variant: 'secondary', onClick: onStay },
       ],
       onDismiss: onStay,
     });
@@ -327,7 +320,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   function renderSessionBar(): void {
     const total = opts.refs.length;
     sessionFillEl.style.width = `${Math.min(1, completed / total) * 100}%`;
-    sessionLabelEl.textContent = `Position ${Math.min(completed + 1, total)} of ${total}`;
+    sessionLabelEl.textContent = t('drill.positionOf', { at: Math.min(completed + 1, total), total });
   }
 
   // Only the two candidates are playable. Anything else isn't a wrong answer,
@@ -383,7 +376,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       btn.className = 'wm-pick wm-pick--' + side;
       btn.textContent = formatMove(options[side].san);
     });
-    setStatus('Choose the best move', 'pt-status--prompt');
+    setStatus(t('mid.chooseTheBestMove'), 'pt-status--prompt');
 
     // Hand the board over a beat later, the same pause every other drill uses.
     setTimeout(() => {
@@ -494,7 +487,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       onOpenGame: opts.onOpenGame ? openOpeningGame : undefined,
     }));
     renderSessionBar();
-    nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
+    nextBtn.textContent = completed >= opts.refs.length ? t('mid.seeResults') : t('common.nextPosition');
     afterEl.hidden = false;
   }
 
@@ -578,7 +571,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
 
     const verdict = document.createElement('div');
     verdict.className = 'wm-reveal-verdict ' + (right ? 'wm-reveal-verdict--right' : 'wm-reveal-verdict--wrong');
-    verdict.textContent = right ? 'Correct' : 'Incorrect';
+    verdict.textContent = right ? t('mid.correct') : t('mid.incorrect');
     statusEl.appendChild(verdict);
 
     // Nothing else goes here. The two picks now carry the moves, their evals
@@ -638,7 +631,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
 
     const done = document.createElement('div');
     done.className = 'train-completion-done';
-    done.textContent = 'Session complete ✓';
+    done.textContent = t('train.sessionComplete');
     head.appendChild(done);
 
     const sub = document.createElement('div');
@@ -674,14 +667,14 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-      again.textContent = 'Play again';
+      again.textContent = t('train.playAgain');
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
     doneBtn.className = (opts.nextAction || opts.onPlayAgain) ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-    doneBtn.textContent = 'Close session';
+    doneBtn.textContent = t('mid.closeSession');
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
 
@@ -736,7 +729,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
         ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
       ],
       meta: `${numberedMove(ref.spot.playedSan, ref.spot.ply + 1)} → `
-        + `${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+        + `${formatMove(best?.san ?? '?')} · ${t('mid.vsName', { name: ref.game.opponent })}`,
       story: () => buildStoryContent(ref.game, ref.spot.ply),
       onAnalyse: opts.onOpenGame
         ? () => suspendForAnalysis(ref.game, ref.spot.preFen)

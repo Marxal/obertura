@@ -11,6 +11,7 @@
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import type { Trap, TrapPack } from './traps';
 import { formatSanLine } from './notation';
+import { t } from './i18n';
 
 type Colour = 'white' | 'black';
 
@@ -34,7 +35,7 @@ export function trapCard(
   colour: Colour,
   onBuild: (ucis: string[], colour: Colour, description: string) => void,
 ): HTMLElement {
-  const description = `Bait: ${trap.bait}. ${trap.idea}`;
+  const description = t('mid.bait', { bait: trap.bait, idea: trap.idea });
   const build = () => onBuild(trap.ucis, colour, description);
 
   const { card, titleRow, content } = buildPositionCard({
@@ -42,7 +43,7 @@ export function trapCard(
     orientation: colour,
     className: 'games-card',
     onMiniClick: build,
-    miniLabel: 'Build this line',
+    miniLabel: t('open.buildThisLine'),
   });
 
   titleRow.appendChild(colourPip(colour));
@@ -68,7 +69,7 @@ export function trapCard(
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-secondary stat-card-btn';
-  btn.textContent = 'Build line';
+  btn.textContent = t('stats.buildLine');
   btn.addEventListener('click', e => {
     e.stopPropagation();
     build();

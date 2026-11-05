@@ -859,7 +859,7 @@ function handleDuplicateSaveTap(): boolean {
     onOpenLine(stored);
     showToast(
       dup.tags.length === 1
-        ? `Added “${dup.tags[0]}” to “${stored.name}” ✓`
+        ? t('last.addedTag', { tag: dup.tags[0], name: stored.name })
         : t('builder.addedTagsTo', { length: dup.tags.length, name: stored.name }),
       { variant: 'success' },
     );
@@ -3138,7 +3138,7 @@ function applyLineTrainingToggleState(): void {
   // which is where a screen reader and a long-press both look for it.
   const saved = !!loadedLineId;
   lbl.textContent = saved
-    ? `Training ${loadedLineInTraining ? 'ON' : 'OFF'}`
+    ? t(loadedLineInTraining ? 'last.trainingOn' : 'html.trainingOff')
     : (loadedLineInTraining ? t('builder.trainIt') : t('builder.justSave'));
   const full = saved
     ? (loadedLineInTraining ? t('builder.inTrainingTapTo') : t('builder.pausedTapToPut'))

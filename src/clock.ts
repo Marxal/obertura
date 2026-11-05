@@ -25,6 +25,7 @@
 // exercised offline by clock.selftest.ts.
 
 import type { ImportedGame } from './import-core';
+import { t } from './i18n';
 
 // ── The time control ──────────────────────────────────────────────────────────
 
@@ -209,11 +210,11 @@ export function timeFactsAt(game: ImportedGame, ply: number): TimeFacts | null {
 // ── Reading them out ──────────────────────────────────────────────────────────
 
 export const TIME_TAG_LABEL: Record<TimeTag, string> = {
-  scramble: 'Time scramble',
-  low: 'Low on time',
-  long: 'Long think',
-  rushed: 'Rushed it',
-  good: 'Good on time',
+  scramble: t('mid.timeScramble'),
+  low: t('mid.lowOnTime'),
+  long: t('mid.longThink'),
+  rushed: t('mid.rushedIt'),
+  good: t('mid.goodOnTime'),
   steady: '',
 };
 
@@ -229,5 +230,5 @@ export function formatClock(sec: number): string {
 export function formatTimeFacts(facts: TimeFacts): string {
   const left = `${formatClock(facts.leftSec)} left`;
   if (facts.spentSec === null) return left;
-  return `${left} · ${formatClock(facts.spentSec)} spent`;
+  return t('last.spent', { left, spent: formatClock(facts.spentSec) });
 }

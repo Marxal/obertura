@@ -95,7 +95,7 @@ export function renderChapterList(body: HTMLElement, deps: ChapterListDeps): voi
     const sub = document.createElement('span');
     sub.className = 'bimport-game-sub';
     const noteCount = Object.keys(c.notes).length;
-    sub.textContent = `${c.ucis.length} moves${noteCount ? ` · ${noteCount} note${noteCount === 1 ? '' : 's'}` : ''}`;
+    sub.textContent = `${t('builder.moves', { moves: c.ucis.length })}${noteCount ? ` · ${t('last.notes', { n: noteCount })}` : ''}`;
     text.appendChild(sub);
     // A multi-chapter study shows each chapter's intro with its row (a single
     // chapter's intro already leads the sheet).

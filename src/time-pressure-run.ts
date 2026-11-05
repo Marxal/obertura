@@ -57,6 +57,7 @@ import type { SpotRef } from './mistake-scan';
 import { isPuzzleRef } from './time-pressure-fill';
 import type { ImportedGame } from './import-core';
 import type { OpenGameCtx } from './mistake-run';
+import { t } from './i18n';
 
 // How long the mark holds before the next position. Both are short now that
 // there is nothing to read on the board — long enough to register a tick or a
@@ -132,10 +133,10 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
 
   const header = buildRunHeader({
     icon: Icons.clock(18),
-    title: 'Time pressure',
+    title: t('showcase.pressure.title'),
     kicker: opts.contextLabel,
     accent: TIME_PRESSURE_ACCENT,
-    endLabel: 'End round',
+    endLabel: t('mid.endRound'),
     // No abandon dialog: a confirmation box with a clock running behind it is
     // the one thing worse than ending early. The round simply stops and shows
     // what it was worth — nothing you found is lost.
@@ -280,9 +281,9 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     const { game, spot } = current;
 
     chess.load(spot.preFen);
-    opponentEl.textContent = isPuzzleRef(current) ? game.opponent : `vs ${game.opponent}`;
-    metaEl.textContent = `${cgTurn() === 'white' ? 'White' : 'Black'} to play`;
-    barLabelEl.textContent = `Position ${index + 1}`;
+    opponentEl.textContent = isPuzzleRef(current) ? game.opponent : t('mid.vsName', { name: game.opponent });
+    metaEl.textContent = t(cgTurn() === 'white' ? 'mid.whiteToPlay' : 'mid.blackToPlay');
+    barLabelEl.textContent = t('mid.positionN', { n: index + 1 });
 
     cg.set({
       fen: spot.preFen,
@@ -394,10 +395,10 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     // worth printing when it is HIGHER than what you just scored; printing the
     // number you are already looking at reads as a bug.
     sub.textContent = improved
-      ? 'Best yet'
+      ? t('mid.bestYet')
       : best > totals.score
-        ? `Best so far ${best}`
-        : `${minutes} minute${minutes === 1 ? '' : 's'}, twenty seconds a position`;
+        ? t('mid.bestSoFar', { best: best })
+        : t('mid.minutesTwenty', { n: minutes });
     head.appendChild(sub);
 
     // The three outcomes, side by side. They are the exercise's whole finding:
@@ -406,14 +407,14 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     tiles.className = 'tp-tiles';
     tiles.appendChild(outcomeTile(String(totals.found), 'found', 'tp-tile--found'));
     tiles.appendChild(outcomeTile(String(totals.missed), 'missed', 'tp-tile--missed'));
-    tiles.appendChild(outcomeTile(String(totals.ranOut), 'ran out', 'tp-tile--out'));
+    tiles.appendChild(outcomeTile(String(totals.ranOut), t('mid.ranOut'), 'tp-tile--out'));
     wrap.appendChild(tiles);
 
     const note = document.createElement('div');
     note.className = 'tp-note';
     const parts: string[] = [];
-    if (totals.fast > 0) parts.push(`${totals.fast} inside three seconds`);
-    if (totals.averageMs !== null) parts.push(`${(totals.averageMs / 1000).toFixed(1)}s a position`);
+    if (totals.fast > 0) parts.push(t('mid.insideThreeSeconds', { fast: totals.fast }));
+    if (totals.averageMs !== null) parts.push(t('last.secPosition', { sec: (totals.averageMs / 1000).toFixed(1) }));
     note.textContent = parts.join(' · ');
     if (parts.length) wrap.appendChild(note);
 
@@ -446,7 +447,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
       const again = document.createElement('button');
       again.type = 'button';
       again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-      again.textContent = 'Go again';
+      again.textContent = t('mid.goAgain');
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
@@ -455,7 +456,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     doneBtn.className = (opts.nextAction || opts.onPlayAgain)
       ? 'btn-secondary train-done-btn'
       : 'btn-primary train-next-btn';
-    doneBtn.textContent = 'Close round';
+    doneBtn.textContent = t('mid.closeRound');
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
     wrap.appendChild(actions);
@@ -507,7 +508,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     meta.className = 'pz-result-meta';
     const answer = formatMove(e.ref.spot.best[0]?.san ?? '?');
     meta.textContent = e.outcome === 'ran-out'
-      ? `out of time · ${answer} was there`
+      ? t('mid.outOfTimeWas', { answer: answer })
       : `${(e.ms / 1000).toFixed(1)}s · ${answer}`;
     main.appendChild(meta);
     row.appendChild(main);
@@ -543,7 +544,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
         { uci: spot.playedUci, kind: 'danger' },
         ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
       ],
-      meta: `${formatMove(spot.playedSan)} → ${formatMove(best?.san ?? '?')} · vs ${game.opponent}`,
+      meta: `${formatMove(spot.playedSan)} → ${formatMove(best?.san ?? '?')} · ${t('mid.vsName', { name: game.opponent })}`,
       story: () => buildStoryContent(game, spot.ply),
       onAnalyse: opts.onOpenGame ? () => { cleanup(); opts.onOpenGame!(game); } : undefined,
       onNav: (dir) => peekOptionsFor(idx + dir),

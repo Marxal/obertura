@@ -1,14 +1,10 @@
 # Translating Bito Chess: the plan
 
-Status: **Phases 0 to 3 done, Phase 4 under way (2026-11-04).** First run, Home, opening
-training, the Pro popup and Settings go through `t()`, and English users see no change beyond
-small layout fixes. Marçal's Catalan guide is `catalan-instructions-bito.md`, and
-`src/locales/GLOSSARY.md` holds the approved words. Phase 4 is nearly done: every converted screen is in
-Catalan, Spanish and Swedish (`src/locales/`), reachable with `?lang=ca`, `?lang=es` and `?lang=sv`.
-Marçal has read the Catalan on a phone. None is released yet. Next is reading Spanish, a Swedish
-player reading Swedish, and Phase 6. Pack names and notes
-wait for Phase 7. The builder, Middlegame, Tactics, Endgames and the other screens wait for
-Phase 6. Refresh the counts with `npm run i18n:scan`, because the app changes quickly.
+Status: **Phases 0 to 4 and 6 done (2026-11-05).** Every screen goes through `t()`, in Catalan,
+Spanish and Swedish (`src/locales/`), reachable with `?lang=ca`, `?lang=es` and `?lang=sv`. None is
+released. Marçal has read the first 949 keys of Catalan on a phone. The rest of the Catalan, all the
+Spanish and all the Swedish are unread. Still to do: Phase 5 (reading it), Phase 7 (starter pack notes,
+traps, endgames), Phase 8 (landing, privacy, terms, emails, checkout), then release.
 
 Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
 and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
@@ -223,9 +219,9 @@ Each phase can stop safely, because of the English fallback.
 | 1 ✅ | `t()`, dictionaries, language choice, fake language, layout check | Fake language runs on the core screens with no change for English users. The layout check covers all of first run, starter packs, the builder tour, the import sheet, the Pro popup, a drill, the five tabs and Settings |
 | 2 ✅ | Move the core screens to keys: first-run, Home, training, Pro popup, Settings | Selftests pass, screens look identical in English |
 | 3 ✅ | Marçal approves voice and glossary | Glossary approved |
-| 4 | Translate the core screens into all three, build the review page | Layout check passes in all languages |
+| 4 ✅ | Translate the core screens into all three | Layout check passes in all languages. The review page waits until there is a Swedish reviewer |
 | 5 | Marçal reviews Catalan first, then Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
-| 6 | The remaining screens, one or two rounds at a time | No untranslated text in the fake language |
+| 6 ✅ | The remaining screens, one or two rounds at a time | No untranslated text in the fake language, apart from names, opening names and what Phase 7 covers |
 | 7 | Starter pack notes, traps, endgames | Reviewed by sampling |
 | 8 | Landing, privacy, terms, emails, checkout | Each language's full path works, landing to purchase |
 | 9 | Release Catalan, then Spanish, then Swedish, each once reviewed. Phones in Spain's Spanish get Catalan from the first release. They can only switch to Spanish once it's released, so ideally release the two together | |
@@ -239,7 +235,7 @@ no longer has. The Language row and
 the first-run picker exist but stay hidden until a second language is in
 `RELEASED_LANGUAGES` (`src/language-choice.ts`), or under a `?lang=` preview.
 
-## Rules once it's in (add these to `CLAUDE.md`)
+## Rules once it's in (the first is in `CLAUDE.md`; the checks they mention aren't built yet)
 
 - New visible text goes through `t()`. A selftest fails on a hard-coded string on a
   screen that's been converted.

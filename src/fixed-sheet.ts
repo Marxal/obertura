@@ -15,6 +15,7 @@ import { CATEGORY_LABEL } from './mistake-run';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { formatMove, numberedMove } from './notation';
+import { t } from './i18n';
 
 /** How many the "train these again" button deals. Same as a category session. */
 export const REVISIT_SESSION = 5;
@@ -69,16 +70,15 @@ export function openFixedSheet(opts: FixedSheetOptions): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = 'Mistakes you have fixed';
+  h.textContent = t('mid.mistakesYouHaveFixed');
   sheet.appendChild(h);
 
   const groups = groupByGame(fixed);
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
   blurb.textContent = fixed.length === 0
-    ? 'Nothing yet. A position you get right first time is marked fixed, and it lands here.'
-    : `${fixed.length} ${fixed.length === 1 ? 'position' : 'positions'} you got right first time, `
-      + `from ${groups.length} ${groups.length === 1 ? 'game' : 'games'}.`;
+    ? t('mid.nothingYetAPosition')
+    : `${t('mid.rightFirst', { n: fixed.length })} ${t('mid.fromGames', { n: groups.length })}`;
   sheet.appendChild(blurb);
 
   let closed = false;
@@ -94,7 +94,7 @@ export function openFixedSheet(opts: FixedSheetOptions): void {
     again.type = 'button';
     again.className = 'btn-secondary fixed-sheet-again';
     again.appendChild(Icons.reset(16));
-    again.appendChild(document.createTextNode('Train these again'));
+    again.appendChild(document.createTextNode(t('mid.trainTheseAgain')));
     again.addEventListener('click', () => {
       const deal = revisitOrder(fixed).slice(0, REVISIT_SESSION);
       close();
@@ -116,7 +116,7 @@ export function openFixedSheet(opts: FixedSheetOptions): void {
   const done = document.createElement('button');
   done.type = 'button';
   done.className = 'dialog-btn btn-primary';
-  done.textContent = 'Done';
+  done.textContent = t('common.done');
   done.addEventListener('click', close);
   btnRow.appendChild(done);
   sheet.appendChild(btnRow);
@@ -193,9 +193,9 @@ function buildRow(ref: SpotRef, onTrain: (ref: SpotRef) => void): HTMLElement {
 export function agoLabel(at: number | undefined, now: number = Date.now()): string {
   if (!at) return 'fixed';
   const days = Math.floor((now - at) / 86_400_000);
-  if (days <= 0) return 'fixed today';
-  if (days === 1) return 'fixed yesterday';
-  if (days < 30) return `fixed ${days} days ago`;
+  if (days <= 0) return t('mid.fixedToday');
+  if (days === 1) return t('mid.fixedYesterday');
+  if (days < 30) return t('mid.fixedDaysAgo', { days: days });
   const months = Math.round(days / 30);
-  return `fixed ${months} month${months === 1 ? '' : 's'} ago`;
+  return t('last.fixedMonths', { n: months });
 }

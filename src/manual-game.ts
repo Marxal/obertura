@@ -14,6 +14,7 @@ import { showToast } from './toast';
 import { saveGames } from './storage';
 import { connectedAccount } from './import-last';
 import type { ImportedGame, GameResult } from './import-core';
+import { t } from './i18n';
 
 export interface AddGameOptions {
   // Run after a game is saved so the My-games list can re-render.
@@ -66,11 +67,11 @@ export function openAddGameForm(opts: AddGameOptions): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Add a game';
+  title.textContent = t('mid.addAGame');
   sheet.appendChild(title);
 
   // ── Date ──
-  sheet.appendChild(fieldLabel('Date'));
+  sheet.appendChild(fieldLabel(t('mid.date')));
   const date = document.createElement('input');
   date.type = 'date';
   date.className = 'edit-input';
@@ -97,28 +98,28 @@ export function openAddGameForm(opts: AddGameOptions): void {
     }
   };
 
-  sheet.appendChild(fieldLabel('White'));
-  sheet.appendChild(playerRow(whiteInput, 'White player', me, () => {
+  sheet.appendChild(fieldLabel(t('common.white')));
+  sheet.appendChild(playerRow(whiteInput, t('mid.whitePlayer'), me, () => {
     whiteInput.value = me;
     colour = 'white';
     reflectYou();
   }, me !== ''));
 
-  sheet.appendChild(fieldLabel('Black'));
-  sheet.appendChild(playerRow(blackInput, 'Black player', me, () => {
+  sheet.appendChild(fieldLabel(t('common.black')));
+  sheet.appendChild(playerRow(blackInput, t('mid.blackPlayer'), me, () => {
     blackInput.value = me;
     colour = 'black';
     reflectYou();
   }, me !== ''));
 
   // ── You played as ──
-  sheet.appendChild(fieldLabel('You played as'));
+  sheet.appendChild(fieldLabel(t('mid.youPlayedAs')));
   for (const c of ['white', 'black'] as const) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'seg-btn';
     b.dataset.value = c;
-    b.textContent = c === 'white' ? 'White' : 'Black';
+    b.textContent = c === 'white' ? t('common.white') : t('common.black');
     b.addEventListener('click', () => { colour = c; reflectYou(); });
     youButtons.push(b);
     youSeg.appendChild(b);
@@ -128,7 +129,7 @@ export function openAddGameForm(opts: AddGameOptions): void {
 
   // ── Result (your perspective) ──
   let result: GameResult = 'win';
-  sheet.appendChild(fieldLabel('Result'));
+  sheet.appendChild(fieldLabel(t('mid.result')));
   const resultSeg = document.createElement('div');
   resultSeg.className = 'seg-control';
   resultSeg.setAttribute('role', 'group');
@@ -140,7 +141,7 @@ export function openAddGameForm(opts: AddGameOptions): void {
       b.setAttribute('aria-pressed', String(on));
     }
   };
-  for (const [value, label] of [['win', 'Won'], ['draw', 'Drew'], ['loss', 'Lost']] as const) {
+  for (const [value, label] of [['win', t('showcase.won')], ['draw', t('showcase.drew')], ['loss', t('showcase.lost')]] as const) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'seg-btn';
@@ -154,27 +155,27 @@ export function openAddGameForm(opts: AddGameOptions): void {
   sheet.appendChild(resultSeg);
 
   // ── Tournament (stored as a tag) ──
-  sheet.appendChild(fieldLabel('Tournament (optional)'));
+  sheet.appendChild(fieldLabel(t('mid.tournamentOptional')));
   const tournament = document.createElement('input');
   tournament.type = 'text';
   tournament.className = 'edit-input';
-  tournament.placeholder = 'Shown as a tag';
+  tournament.placeholder = t('mid.shownAsATag');
   sheet.appendChild(tournament);
 
   // ── Extra tags ──
-  sheet.appendChild(fieldLabel('Tags (optional)'));
+  sheet.appendChild(fieldLabel(t('mid.tagsOptional')));
   const tags = document.createElement('input');
   tags.type = 'text';
   tags.className = 'edit-input';
-  tags.placeholder = 'Comma-separated';
+  tags.placeholder = t('mid.commaSeparated');
   sheet.appendChild(tags);
 
   // ── Optional PGN ──
-  sheet.appendChild(fieldLabel('Moves / PGN (optional)'));
+  sheet.appendChild(fieldLabel(t('mid.movesPgnOptional')));
   const pgn = document.createElement('textarea');
   pgn.className = 'edit-input manual-game-pgn';
   pgn.rows = 3;
-  pgn.placeholder = 'Paste the game so it opens in the analyser';
+  pgn.placeholder = t('mid.pasteTheGameSo');
   sheet.appendChild(pgn);
   // A friendly touch: when a PGN with headers is pasted, fill in any empty
   // name/date fields from it.
@@ -199,12 +200,12 @@ export function openAddGameForm(opts: AddGameOptions): void {
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = 'btn-primary';
-  addBtn.textContent = 'Add game';
+  addBtn.textContent = t('mid.addGame');
   addBtn.addEventListener('click', () => {
     const white = whiteInput.value.trim();
     const black = blackInput.value.trim();
     if (!white || !black) {
-      status.textContent = 'Add both players first.';
+      status.textContent = t('mid.addBothPlayersFirst');
       return;
     }
 
@@ -219,12 +220,12 @@ export function openAddGameForm(opts: AddGameOptions): void {
       try {
         ch.loadPgn(pgnText, { strict: false });
       } catch {
-        status.textContent = 'Couldn’t read those moves — check the PGN.';
+        status.textContent = t('mid.couldnTReadThose');
         return;
       }
       const verbose = ch.history({ verbose: true });
       if (verbose.length === 0) {
-        status.textContent = 'Those moves are empty — check the PGN.';
+        status.textContent = t('mid.thoseMovesAreEmpty');
         return;
       }
       sans = verbose.map((m) => m.san);
@@ -257,7 +258,7 @@ export function openAddGameForm(opts: AddGameOptions): void {
     };
 
     void saveGames([game]).then(() => {
-      showToast('Game added ✓', { variant: 'success' });
+      showToast(t('mid.gameAdded'), { variant: 'success' });
       close();
       opts.onAdded();
     });
@@ -266,7 +267,7 @@ export function openAddGameForm(opts: AddGameOptions): void {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('common.cancel');
   cancelBtn.addEventListener('click', close);
 
   const actions = document.createElement('div');
@@ -307,8 +308,8 @@ function playerRow(
     const meBtn = document.createElement('button');
     meBtn.type = 'button';
     meBtn.className = 'manual-game-me';
-    meBtn.textContent = 'Me';
-    meBtn.title = `Use ${me}`;
+    meBtn.textContent = t('mid.me');
+    meBtn.title = t('mid.use', { me: me });
     meBtn.addEventListener('click', onMe);
     row.appendChild(meBtn);
   }

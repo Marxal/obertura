@@ -745,7 +745,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
         renderLineChart(chartHost, pts.map((p) => ({ value: p.rating, label: shortDay(p.day) })), {
           ariaLabel: t('stats.puzzleRatingOverTime'),
           xTicks: sparseTicks(pts.map((p) => shortDay(p.day))),
-          detailFor: (i) => `${formatDay(pts[i].day)} · rated ${pts[i].rating}`,
+          detailFor: (i) => t('last.dayRated', { day: formatDay(pts[i].day), rating: pts[i].rating }),
           onSelect: (i, userTap) => { if (userTap) onSelectDay(pts[i]); },
         });
       } else {
@@ -837,7 +837,7 @@ function renderEndgamesRegion(container: HTMLElement, games: ImportedGame[]): vo
       renderLineChart(chartHost, history.map(p => ({ value: p.rating, label: shortDay(p.day) })), {
         ariaLabel: t('stats.endgamePuzzleRatingOver'),
         xTicks: sparseTicks(history.map(p => shortDay(p.day))),
-        detailFor: i => `${formatDay(history[i].day)} · rated ${history[i].rating}`,
+        detailFor: i => t('last.dayRated', { day: formatDay(history[i].day), rating: history[i].rating }),
       });
       section.appendChild(chartHost);
     }
@@ -1012,7 +1012,7 @@ function openLinesSheet(
       text.appendChild(name);
       const meta = document.createElement('span');
       meta.className = 'stats-sheet-meta';
-      meta.textContent = `Confidence ${confidenceDots(line.confidence)}`;
+      meta.textContent = t('last.confidence', { dots: confidenceDots(line.confidence) });
       text.appendChild(meta);
       card.appendChild(text);
 
@@ -1623,7 +1623,7 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
     train.classList.add('stats-otr-train--none');
     train.textContent = t('stats.notInYourLinesYet');
   } else {
-    train.textContent = `${confidenceDots(row.avgConfidence)}  ${row.masteredCount}/${row.lineCount} mastered`;
+    train.textContent = t('last.dotsMastered', { dots: confidenceDots(row.avgConfidence), done: row.masteredCount, total: row.lineCount });
   }
   foot.appendChild(train);
 

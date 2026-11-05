@@ -36,6 +36,7 @@ import { ratingProgress } from './train-progress';
 import { buildDoor, buildBox, boxBody, boxSection, buildSheetRow, DOMAIN_ACCENT } from './train-doors';
 import { buildModeCard } from './train-screen';
 import { PUZZLE_THEME_GROUPS, type PuzzleTheme, type PuzzleThemeGroup } from './puzzle-themes';
+import { t } from './i18n';
 
 export interface PuzzlesScreenDeps {
   onImportGames: () => void;
@@ -87,7 +88,7 @@ const TA_TIMES: readonly TaMinutes[] = [3, 5, 10];
 // The traps pool: one synthetic entry pointed at the Lichess `opening` theme, so
 // it works with an empty repertoire. It was built inline in the old Time Attack
 // card; the tile needs it too, so it lives up here now.
-const TRAP_ENTRY: OpeningEntry = { angle: TRAP_ANGLE, family: 'Opening trap', weight: 1 };
+const TRAP_ENTRY: OpeningEntry = { angle: TRAP_ANGLE, family: t('mid.openingTrap'), weight: 1 };
 
 // This domain's colour — the door, the tiles and the readouts. Every exercise
 // here wears it, so no tile needs a domainAccent of its own.
@@ -96,45 +97,36 @@ const TACTICS_ACCENT = DOMAIN_ACCENT.tactics;
 // What the five tactics surfaces are, in the words a tile has no room for.
 function openTacticsInfo(): void {
   openInfoSheet({
-    title: 'Tactics',
-    intro: 'Lichess puzzles, drawn from the openings you actually play. Only the first '
-      + 'one is rated.',
+    title: t('train.domain.tactics'),
+    intro: t('mid.lichessPuzzlesDrawnFrom'),
     entries: [
       {
         icon: Icons.puzzlePiece(18), accent: TACTICS_ACCENT,
-        label: 'Tactics (the big button)',
-        detail: `${DAILY_COUNT} puzzles mixed from your repertoire AND your games, and the `
-          + 'only mode that moves your puzzle rating. The set gets harder as you solve.',
+        label: t('mid.tacticsTheBigButton'),
+        detail: t('mid.puzzlesMixedFromYour', { DAILY_COUNT: DAILY_COUNT }),
       },
       {
         icon: Icons.clock(18), accent: TACTICS_ACCENT,
-        label: 'Puzzle rush',
-        detail: `${TA_DEFAULT} minutes against the clock over the openings you play — three `
-          + 'mistakes and the run is over. Casual: it has its own personal best and never '
-          + 'touches your rating.',
+        label: t('mid.puzzleRush'),
+        detail: t('mid.minutesAgainstTheClock', { TA_DEFAULT: TA_DEFAULT }),
       },
       {
         icon: Icons.clock(18), accent: TACTICS_ACCENT,
-        label: 'Traps',
-        detail: 'The same timed run over Lichess\u2019s opening-phase puzzles, which is where '
-          + 'most traps live. It needs no repertoire, so it is the one to play on a fresh '
-          + 'install.',
+        label: t('open.tag.traps'),
+        detail: t('mid.theSameTimedRun'),
       },
       {
         icon: Icons.trending(18), accent: TACTICS_ACCENT,
-        label: 'By opening',
-        detail: 'In the drawer below: one row per opening you play, each showing how well you '
-          + 'have solved its tactics. Tapping a row drills that opening alone.',
+        label: t('mid.byOpening'),
+        detail: t('mid.inTheDrawerBelow'),
       },
       {
         icon: Icons.sparkles(18), accent: TACTICS_ACCENT,
-        label: 'Themes',
-        detail: 'Also in the drawer: rated puzzles on a single motif — forks, pins, back-rank '
-          + 'and the rest — straight from Lichess. These DO move your rating.',
+        label: t('mid.themes'),
+        detail: t('mid.alsoInTheDrawer'),
       },
     ],
-    footnote: 'Puzzles are fetched anonymously, so none of this needs a Lichess account. '
-      + 'Connecting one adds the richer Lichess dashboard on the Statistics page.',
+    footnote: t('mid.puzzlesAreFetchedAnonymously'),
   });
 }
 
@@ -333,8 +325,8 @@ export async function startDailyPuzzles(
     difficultyStep(rating, 1),
   ];
 
-  runMixedPuzzleSession(allEntries, 'Puzzles', { kind: 'count', count, rated: true }, {
-    contextLabel: 'Daily challenge',
+  runMixedPuzzleSession(allEntries, t('stats.puzzles'), { kind: 'count', count, rated: true }, {
+    contextLabel: t('daily.title'),
     onExit: () => { /* the daily card refreshes itself via onComplete */ },
     onComplete: (s) => onComplete({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
     nextAction,
@@ -400,16 +392,16 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       root.appendChild(buildDoor({
         domain: 'tactics',
         icon: Icons.puzzlePiece(26),
-        name: 'Tactics',
-        sub: `${DAILY_COUNT} rated puzzles`,
-        heroTitle: 'Daily rated mix',
+        name: t('train.domain.tactics'),
+        sub: t('mid.ratedPuzzles', { DAILY_COUNT: DAILY_COUNT }),
+        heroTitle: t('mid.dailyRatedMix'),
         disabled: true,
-        disabledReason: 'Needs a line or games',
+        disabledReason: t('mid.needsALineOr'),
       }));
-      const box = buildBox('tactics', 'More puzzles');
+      const box = buildBox('tactics', t('mid.morePuzzles'));
       const body = boxBody(box);
       body.appendChild(emptyState(hasGames, deps));
-      const themes = boxSection(box, 'By theme');
+      const themes = boxSection(box, t('mid.byTheme'));
       for (const group of PUZZLE_THEME_GROUPS) themes.appendChild(renderThemeGroup(group));
       root.appendChild(box);
       return;
@@ -420,15 +412,15 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     root.appendChild(buildDoor({
       domain: 'tactics',
       icon: Icons.puzzlePiece(26),
-      name: 'Tactics',
-      sub: `${DAILY_COUNT} rated puzzles`,
-      heroTitle: 'Daily rated mix',
+      name: t('train.domain.tactics'),
+      sub: t('mid.ratedPuzzles', { DAILY_COUNT: DAILY_COUNT }),
+      heroTitle: t('mid.dailyRatedMix'),
       // No figure until there's a rated result: the starting 1000 reads as a count.
       stat: hasPlayedRated() ? getPuzzleRating() : undefined,
-      statLabel: 'rating',
+      statLabel: t('mid.rating'),
       progress: ratingProgress(getPuzzleRating()),
       onClick: () => startSession(
-        allEntries, 'Puzzle rated mix',
+        allEntries, t('mid.puzzleRatedMix'),
         { kind: 'count', count: DAILY_COUNT, rated: true },
         { repeatAllAngles: true }),
     }));
@@ -439,29 +431,29 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     // an openings group with a segmented source toggle buried inside it), which
     // is three headings and a control to read before you can choose anything.
     // Nine rows in one column is the same content, scannable in one pass.
-    const box = buildBox('tactics', 'More puzzles',
-      buildInfoButton('About the puzzle modes', openTacticsInfo));
+    const box = buildBox('tactics', t('mid.morePuzzles'),
+      buildInfoButton(t('mid.aboutThePuzzleModes'), openTacticsInfo));
     // Three headed groups (v0.14): the timed runs you start outright, then the
     // catalogues — puzzles from your openings, then by theme — each a row that
     // opens its list in a sheet.
-    const timed = boxSection(box, 'Against the clock');
+    const timed = boxSection(box, t('train.section.clock'));
     // "Puzzle rush", not "Time attack": the Openings box has its own Time attack
     // (positions from your lines against the clock), and two different
     // exercises under one name on one screen is a question nobody should have
     // to ask.
-    timed.appendChild(timedCard('openings', 'Puzzle rush',
-      `${TA_DEFAULT} min, 3 lives`));
-    timed.appendChild(timedCard('traps', 'Satisfying traps',
-      'no lines needed'));
+    timed.appendChild(timedCard('openings', t('mid.puzzleRush'),
+      t('mid.min3Lives', { TA_DEFAULT: TA_DEFAULT })));
+    timed.appendChild(timedCard('traps', t('mid.satisfyingTraps'),
+      t('mid.noLinesNeeded')));
 
     // The two sources, split. They were one accordion with a segmented toggle
     // inside it, which hid half of what the app offers behind a control you had
     // to open something else to find.
-    const fromOpenings = boxSection(box, 'From your openings');
+    const fromOpenings = boxSection(box, t('mid.fromYourOpenings'));
     if (hasGames) fromOpenings.appendChild(openingsAccordion('games'));
     fromOpenings.appendChild(openingsAccordion('repertoire'));
 
-    const themes = boxSection(box, 'By theme');
+    const themes = boxSection(box, t('mid.byTheme'));
     for (const group of PUZZLE_THEME_GROUPS) themes.appendChild(renderThemeGroup(group));
     root.appendChild(box);
   };
@@ -484,7 +476,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       statLabel: best > 0 ? 'best' : undefined,
       onClick: () => startSession(
         source === 'traps' ? [TRAP_ENTRY] : allEntries,
-        source === 'traps' ? 'Puzzle rush — Traps' : 'Puzzle rush — Openings',
+        source === 'traps' ? t('mid.puzzleRushTraps') : t('mid.puzzleRushOpenings'),
         { kind: 'timed', ms: TA_DEFAULT * 60_000, maxMistakes: 3 },
         { taSource: source }),
     });
@@ -502,8 +494,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       const msg = document.createElement('p');
       msg.className = 'pz-ta-desc';
       msg.textContent = source === 'games'
-        ? 'None of your games’ openings have a Lichess puzzle set yet.'
-        : 'Save some opening lines first to practise their puzzles.';
+        ? t('mid.noneOfYourGames')
+        : t('mid.saveSomeOpeningLines');
       list.appendChild(msg);
     } else {
       // Accuracy per opening (from past app puzzle results), for the pill.
@@ -529,7 +521,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         if (attempts > 0) {
           const count = document.createElement('span');
           count.className = 'pz-opening-count';
-          count.textContent = `${attempts} done`;
+          count.textContent = t('mid.done', { attempts: attempts });
           row.appendChild(count);
         }
         row.appendChild(perfPill(perf.get(e.angle)));
@@ -542,10 +534,10 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
 
     return buildSheetRow({
       icon: source === 'games' ? Icons.scout(20) : Icons.pawn(20),
-      label: source === 'games' ? 'Based on my games' : 'Based on my repertoire',
+      label: source === 'games' ? t('mid.basedOnMyGames') : t('mid.basedOnMyRepertoire'),
       sub: entries.length > 0
-        ? `puzzles from the openings you ${source === 'games' ? 'play' : 'saved'}`
-        : 'nothing here yet',
+        ? t(source === 'games' ? 'mid.fromPlay' : 'mid.fromSaved')
+        : t('mid.nothingHereYet'),
       count: entries.length || undefined,
       accent: TACTICS_ACCENT,
       body: list,
@@ -600,7 +592,7 @@ function perfPill(p: { pct: number; attempts: number } | undefined): HTMLElement
   wrap.className = 'pz-perf';
   if (!p || p.attempts === 0) {
     wrap.classList.add('pz-perf--empty');
-    wrap.textContent = 'Play';
+    wrap.textContent = t('mid.play');
     return wrap;
   }
   const tier = p.pct >= 80 ? 'good' : p.pct >= 50 ? 'ok' : 'weak';
@@ -621,11 +613,11 @@ function perfPill(p: { pct: number; attempts: number } | undefined): HTMLElement
 
 function emptyState(hasGames: boolean, deps: PuzzlesScreenDeps): HTMLElement {
   const line = hasGames
-    ? 'None of your openings have a Lichess puzzle set yet. Try saving more lines or importing more games.'
-    : 'Save some opening lines or import your games — then practise puzzles from the openings you actually play.';
+    ? t('mid.noneOfYourOpenings')
+    : t('mid.saveSomeOpeningLinesOr');
   const buildOrImport: EmptyStateAction = hasGames
-    ? { label: 'Import more games', onClick: deps.onImportGames }
-    : { label: 'Build a line', onClick: deps.onBuildLine };
+    ? { label: t('open.importMoreGames'), onClick: deps.onImportGames }
+    : { label: t('open.buildALine'), onClick: deps.onBuildLine };
 
   // Not connected: Connecting is the headline action (it powers the puzzle
   // dashboard), with the same pitch the wizard uses; build/import fall to second.
@@ -634,7 +626,7 @@ function emptyState(hasGames: boolean, deps: PuzzlesScreenDeps): HTMLElement {
       icon: Icons.puzzlePiece(28),
       line,
       body: LICHESS_CONNECT_BLURB,
-      cta: { label: 'Connect to Lichess', onClick: deps.onConnectLichess },
+      cta: { label: t('settings.connectToLichess'), onClick: deps.onConnectLichess },
       secondaryActions: [buildOrImport],
     });
   }

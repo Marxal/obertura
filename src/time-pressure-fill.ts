@@ -12,6 +12,7 @@ import { fetchNextPuzzle, puzzleSetup, type Puzzle } from './puzzles';
 import type { ImportedGame } from './import-core';
 import type { SpotRef } from './mistake-scan';
 import { isPuzzleRef, PUZZLE_ID_PREFIX } from './time-pressure';
+import { t } from './i18n';
 
 export { isPuzzleRef };
 
@@ -41,7 +42,7 @@ export function puzzleRef(puzzle: Puzzle): SpotRef | null {
     rated: false,
     colour: setup.solverColour,
     result: 'draw',
-    opponent: 'Puzzle',
+    opponent: t('mid.puzzle13'),
     eco: null,
     opening: null,
     sans: [],

@@ -577,7 +577,7 @@ function buildDetailCard(
   sw.appendChild(knob);
   const toggleLabel = document.createElement('span');
   toggleLabel.className = 'dline-toggle-label';
-  toggleLabel.textContent = `Training ${line.inTraining ? 'ON' : 'OFF'}`;
+  toggleLabel.textContent = tr(line.inTraining ? 'last.trainingOn' : 'html.trainingOff');
   toggleBtn.appendChild(sw);
   toggleBtn.appendChild(toggleLabel);
   // Only switching ON meets the free-tier cap; switching off is always allowed

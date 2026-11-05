@@ -7,6 +7,7 @@
 import { isSupabaseConfigured } from './supabase';
 import { isEntitled, buildCapNotice, showGoProDialog } from './entitlement';
 import { getTrainingDays } from './streak';
+import { t } from './i18n';
 
 const KEY = 'obertura.supportNoteDone';
 export const SUPPORT_NOTE_DAYS = 14;
@@ -30,9 +31,9 @@ export function buildSupportNote(): HTMLElement | null {
     return null;
   }
 
-  const note = buildCapNotice(`${trainingDays} days of training`, {
-    detail: 'Bito Chess is made by one person. No ads, no investors.',
-    label: 'Become a founding member',
+  const note = buildCapNotice(t('mid.daysOfTraining', { trainingDays: trainingDays }), {
+    detail: t('mid.bitoChessIsMade'),
+    label: t('mid.becomeAFoundingMember'),
     onOpen: () => {
       markDone();
       note.remove();
@@ -44,7 +45,7 @@ export function buildSupportNote(): HTMLElement | null {
   const later = document.createElement('button');
   later.type = 'button';
   later.className = 'support-note-later';
-  later.textContent = 'Not now';
+  later.textContent = t('pro.notNow');
   later.addEventListener('click', () => {
     markDone();
     note.remove();

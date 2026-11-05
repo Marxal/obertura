@@ -70,6 +70,13 @@ again — cut a tag and bump the version *before* starting each risky round, per
    committing), or `git reset --hard v0.6` throws away everything after it —
    ask Claude Code to do this rather than typing raw git.
 
+## Translations
+All visible text goes through `t('key')` from `src/i18n.ts`, with the English in
+`src/locales/en.json`. Write whole sentences with `{name}` placeholders; never join
+fragments. A chip inside a sentence uses `tParts()`. Words come from
+`src/locales/GLOSSARY.md`. New features ship in English and fall back to it per key.
+Layout check: `npm run i18n:layout`. The plan is `TRANSLATION-PLAN.md`.
+
 ## The documentation
 Keep this map in mind before reading anything large.
 

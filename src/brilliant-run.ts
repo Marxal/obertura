@@ -28,6 +28,7 @@ import { buildRunHeader } from './run-header';
 import type { OpenGameCtx } from './mistake-run';
 import { buildStoryContent } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
+import { t, tParts } from './i18n';
 
 export interface BrilliantSessionOptions {
   refs: BrilliantRef[];            // the finds to drill, in order
@@ -85,7 +86,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
 
   const header = buildRunHeader({
     icon: classIcon('brilliant', 18),
-    title: opts.modeLabel ?? 'Your brilliant moves',
+    title: opts.modeLabel ?? t('home.games.brilliant'),
     kicker: opts.contextLabel,
     accent: CLASS_COLOR.brilliant,
     onEnd: () => exitViaButton(),
@@ -133,7 +134,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   hintBtn.type = 'button';
   hintBtn.className = 'pz-hint-btn';
   hintBtn.appendChild(Icons.bulb(16));
-  hintBtn.appendChild(document.createTextNode('Hint'));
+  hintBtn.appendChild(document.createTextNode(t('common.hint')));
   hintBtn.hidden = true;
   hintBtn.addEventListener('click', () => useHint());
 
@@ -148,7 +149,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   analyseBtn.type = 'button';
   analyseBtn.className = 'btn-secondary mr-after-btn';
   analyseBtn.appendChild(Icons.review(16));
-  analyseBtn.appendChild(document.createTextNode('Analyse game'));
+  analyseBtn.appendChild(document.createTextNode(t('html.analyseGame')));
   analyseBtn.hidden = !opts.onOpenGame;
   analyseBtn.addEventListener('click', () => {
     const { game, spot } = current;
@@ -158,7 +159,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
-  nextBtn.textContent = 'Next position';
+  nextBtn.textContent = t('common.nextPosition');
   nextBtn.addEventListener('click', () => onNextTap());
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
@@ -211,11 +212,11 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   // ── Exit guards (mirror mistake-run) ────────────────────────────────────────
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
-      title: 'End this session?',
-      body: 'The moves you already found stay found.',
+      title: t('drill.end.title'),
+      body: t('mid.theMovesYouAlready'),
       buttons: [
-        { label: 'End session', variant: 'danger', onClick: doExit },
-        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+        { label: t('drill.endSession'), variant: 'danger', onClick: doExit },
+        { label: t('signup.keepGoing'), variant: 'secondary', onClick: onStay },
       ],
       onDismiss: onStay,
     });
@@ -273,7 +274,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   function renderSessionBar(): void {
     const total = opts.refs.length;
     sessionFillEl.style.width = `${Math.min(1, completed / total) * 100}%`;
-    sessionLabelEl.textContent = `Position ${Math.min(completed + 1, total)} of ${total}`;
+    sessionLabelEl.textContent = t('drill.positionOf', { at: Math.min(completed + 1, total), total });
   }
 
   // One setAutoShapes call — a hint (piece / arrow) before the answer, the class
@@ -298,7 +299,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     answered = false;
     failedThisSpot = false;
     hintStage = 0;
-    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode(t('common.hint')));
     hintBtn.hidden = true;
     afterEl.hidden = true;
     contextEl.replaceChildren();
@@ -308,7 +309,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     const { game, spot } = current;
     nameEl.textContent = `vs ${game.opponent}`;
     renderIntro();
-    setStatus(spot.cls === 'brilliant' ? 'Find your brilliant move' : 'Find your best move',
+    setStatus(spot.cls === 'brilliant' ? t('mid.findYourBrilliantMove') : t('mid.findYourBestMove'),
       'pt-status--prompt');
 
     chess.load(spot.preFen);
@@ -332,12 +333,10 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   function renderIntro(): void {
     const { spot } = current;
     introEl.replaceChildren();
-    introEl.appendChild(document.createTextNode('You played a '));
     const chip = document.createElement('span');
     chip.className = `mr-played mr-played--${spot.cls}`;
     chip.textContent = CLASS_LABEL[spot.cls];
-    introEl.appendChild(chip);
-    introEl.appendChild(document.createTextNode(' move here — can you find it again?'));
+    introEl.append(...tParts('mid.playedAgain', { move: chip }));
   }
 
   function useHint(): void {
@@ -346,13 +345,13 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     if (hintStage === 0) {
       hintStage = 1;
       paintShapes({ hint: 'piece' });
-      hintBtn.replaceChildren(Icons.eye(16), document.createTextNode('Show solution'));
-      setStatus('Hint — move the highlighted piece', 'pt-status--reveal');
+      hintBtn.replaceChildren(Icons.eye(16), document.createTextNode(t('mid.showSolution')));
+      setStatus(t('mid.hintMoveTheHighlighted'), 'pt-status--reveal');
     } else {
       hintStage = 2;
       hintBtn.hidden = true;
       paintShapes({ hint: 'arrow' });
-      setStatus('Hint — play the highlighted move', 'pt-status--reveal');
+      setStatus(t('mid.hintPlayTheHighlighted'), 'pt-status--reveal');
     }
   }
 
@@ -366,7 +365,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     // Not the move you found — wrong, instantly. Snap back and keep looking.
     failedThisSpot = true;
     flashError();
-    setStatus('Not that one — try again', 'pt-status--error');
+    setStatus(t('fix.notThat'), 'pt-status--error');
     cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: current.game.colour, dests: legalDests() } });
     if (hintStage !== 2) hintBtn.hidden = false;
     paintShapes(hintStage === 1 ? { hint: 'piece' } : {});
@@ -403,7 +402,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     playFeedback('correct');
     const label = CLASS_LABEL[current.spot.cls];
     setStatus(
-      clean ? `Found it again ✓ ${label}` : `That’s it ✓ ${label}`,
+      clean ? t('mid.foundItAgain', { label: label }) : t('mid.thatSIt', { label: label }),
       clean ? 'pt-status--success' : 'pt-status--reveal');
     if (clean) burstConfetti(boardWrap);
     contextEl.replaceChildren(buildContextStrip(current.game, current.spot.ply));
@@ -415,7 +414,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     const line = buildContextLine(current.game, current.spot.ply, { tone: 'brilliancy' });
     if (line) introEl.replaceChildren(line);
     renderSessionBar();
-    nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
+    nextBtn.textContent = completed >= opts.refs.length ? t('mid.seeResults') : t('common.nextPosition');
     afterEl.hidden = false;
   }
 
@@ -470,7 +469,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
 
     const done = document.createElement('div');
     done.className = 'train-completion-done';
-    done.textContent = 'Session complete ✓';
+    done.textContent = t('train.sessionComplete');
     head.appendChild(done);
 
     const sub = document.createElement('div');
@@ -509,7 +508,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-      again.textContent = 'Play again';
+      again.textContent = t('train.playAgain');
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
@@ -517,7 +516,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     doneBtn.type = 'button';
     doneBtn.className = (opts.nextAction || opts.onPlayAgain)
       ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-    doneBtn.textContent = 'Close session';
+    doneBtn.textContent = t('mid.closeSession');
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
 

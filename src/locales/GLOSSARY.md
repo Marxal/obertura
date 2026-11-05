@@ -165,6 +165,22 @@ sections 5 to 9.
 | Continue as a guest | Continua sense compte | Continuar sin cuenta | Fortsätt utan konto |
 | Founding member | Membre d’honor | Acceso fundacional | Grundarmedlem |
 
+## Tactical themes (mine, to check with club players)
+
+| English | Catalan | Spanish | Swedish |
+|---|---|---|---|
+| fork | forquilla | horquilla | gaffel |
+| pin | clavada | clavada | bindning |
+| skewer | enfilada | enfilada | spett |
+| discovered attack | atac a la descoberta | ataque a la descubierta | avtäckt angrepp |
+| deflection | desviació | desviación | avledning |
+| attraction | atracció | atracción | inlockning |
+| interference | interferència | interferencia | avspärrning |
+| back-rank mate | mat a la darrera fila | mate del pasillo | baklinjematt |
+| smothered mate | mat de la coça | mate de la coz | kvävmatt |
+| time scramble | apurs de temps | apuros de tiempo | tidsnöd |
+| traps | paranys | trampas | fällor |
+
 ## Tight spots
 
 Marçal's phone test with the fake language, which runs about 40% longer than English:

@@ -42,6 +42,7 @@ import {
 import { pushBack } from './back-nav';
 import { Chessground } from 'chessground';
 import { showToast } from './toast';
+import { t as tr } from './i18n';
 
 export interface EndgameScreenDeps {
   // Open a finished puzzle in the full analyser (engine on) — wired from main.ts.
@@ -52,7 +53,7 @@ export interface EndgameScreenDeps {
 // both minor-piece flavours show up. See the confirmed angles in puzzles.ts.
 type PuzzleTheme = 'all' | 'rook' | 'pawn' | 'queen' | 'minor';
 const THEME_LABEL: Record<PuzzleTheme, string> = {
-  all: 'All endgames', rook: 'Rook', pawn: 'Pawn', queen: 'Queen', minor: 'Minor piece',
+  all: tr('mid.allEndgames'), rook: tr('mid.rook'), pawn: tr('mid.pawn'), queen: tr('mid.queen'), minor: tr('mid.minorPiece'),
 };
 // The specific themes, as piece-symbol shortcuts under the wide "all" button. A
 // trailing U+FE0E asks for the text (not emoji) glyph — same trick as board-mini.
@@ -86,7 +87,7 @@ function angleFor(theme: PuzzleTheme): string {
 // scored on the 'endgame' ladder. Mirrors the openings runner but single-angle.
 function runEndgamePuzzles(theme: PuzzleTheme, deps: EndgameScreenDeps, onExit: () => void): void {
   startPuzzleSession({
-    modeLabel: 'Endgame puzzles',
+    modeLabel: tr('daily.pref.endgames'),
     contextLabel: THEME_LABEL[theme],
     mode: { kind: 'count', count: PUZZLE_COUNT, rated: true },
     ratingScope: 'endgame',
@@ -113,8 +114,8 @@ export function startDailyEndgamePuzzles(
   onAnalysePosition?: (req: AnalyseRequest) => void,
 ): void {
   startPuzzleSession({
-    modeLabel: 'Endgame puzzles',
-    contextLabel: 'Daily challenge',
+    modeLabel: tr('daily.pref.endgames'),
+    contextLabel: tr('daily.title'),
     mode: { kind: 'count', count, rated: true },
     ratingScope: 'endgame',
     onAnalysePosition,
@@ -142,9 +143,9 @@ function bestTimeChip(ms: number): HTMLElement {
   chip.className = 'eg-best';
   chip.appendChild(Icons.clock(13));
   const t = document.createElement('span');
-  t.textContent = `Best ${formatTime(ms)}`;
+  t.textContent = tr('mid.best', { time: formatTime(ms) });
   chip.appendChild(t);
-  chip.setAttribute('aria-label', `Best time ${formatTime(ms)}`);
+  chip.setAttribute('aria-label', tr('mid.bestTime', { time: formatTime(ms) }));
   return chip;
 }
 
@@ -154,7 +155,7 @@ function placeholderBest(): HTMLElement {
   chip.className = 'eg-best eg-best--none';
   chip.appendChild(Icons.clock(13));
   const t = document.createElement('span');
-  t.textContent = 'Not timed';
+  t.textContent = tr('mid.notTimed');
   chip.appendChild(t);
   return chip;
 }
@@ -174,28 +175,27 @@ function guessCategory(fen: string): EndgameCategory {
 // "what is this?" like the other three.
 function openEndgameInfo(): void {
   openInfoSheet({
-    title: 'The endgame modes',
+    title: tr('mid.theEndgameModes'),
     entries: [
       {
         icon: Icons.flag(18), accent: ENDGAME_ACCENT,
-        label: 'Rated ladder',
-        detail: 'Rated endgame puzzles across every theme. Your endgame rating goes up and down with them.',
+        label: tr('mid.ratedLadder'),
+        detail: tr('mid.ratedEndgamePuzzlesAcross'),
       },
       {
         icon: Icons.scout(18), accent: ENDGAME_ACCENT,
-        label: 'Your endgames',
-        detail: 'Endgames you actually reached in your imported games. Play them out against the engine.',
+        label: tr('mid.yourEndgames'),
+        detail: tr('mid.endgamesYouActuallyReached'),
       },
       {
         icon: Icons.flag(18), accent: ENDGAME_ACCENT,
-        label: 'Rated, by piece',
-        detail: `${PUZZLE_COUNT} rated puzzles of one kind of ending: rook, pawn, queen or minor piece.`,
+        label: tr('mid.ratedByPiece'),
+        detail: tr('mid.ratedPuzzlesOfOne', { PUZZLE_COUNT: PUZZLE_COUNT }),
       },
       {
         icon: Icons.book(18), accent: ENDGAME_ACCENT,
-        label: 'Classic endgames',
-        detail: 'The fundamentals every player should know. Load one and play it out against the '
-          + 'engine, then race your own best time.',
+        label: tr('stats.classicEndgames'),
+        detail: tr('mid.theFundamentalsEveryPlayer'),
       },
     ],
   });
@@ -233,11 +233,11 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     root.appendChild(buildDoor({
       domain: 'endgames',
       icon: Icons.flag(26),
-      name: 'Endgames',
-      sub: 'Rated ladder',
+      name: tr('train.domain.endgames'),
+      sub: tr('mid.ratedLadder'),
       // No figure until there's a rated result: the starting 1000 reads as a count.
       stat: hasPlayedRated('endgame') ? getPuzzleRating('endgame') : undefined,
-      statLabel: 'rating',
+      statLabel: tr('mid.rating'),
       progress: ratingProgress(getPuzzleRating('endgame')),
       onClick: () => runEndgamePuzzles('all', deps, rebuild),
     }));
@@ -252,29 +252,29 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     // then the classics. "From your games" and each classic group are rows that
     // open their list in a sheet — the games one is a scan with a board per
     // row, so open in place it buried everything under it.
-    const box = buildBox('endgames', 'More endgames',
-      buildInfoButton('About the endgame modes', openEndgameInfo));
+    const box = buildBox('endgames', tr('mid.moreEndgames'),
+      buildInfoButton(tr('mid.aboutTheEndgameModes'), openEndgameInfo));
 
-    boxSection(box, 'From your games').appendChild(buildSheetRow({
+    boxSection(box, tr('analysis.contextLabel')).appendChild(buildSheetRow({
       icon: Icons.scout(20),
-      label: 'Your endgames',
-      sub: 'endgames you reached, vs the engine',
+      label: tr('mid.yourEndgames'),
+      sub: tr('mid.endgamesYouReachedVs'),
       accent: ENDGAME_ACCENT,
       body: renderFromGames(),
     }));
 
-    const pieces = boxSection(box, 'Rated, by piece');
+    const pieces = boxSection(box, tr('mid.ratedByPiece'));
     for (const { theme } of SPECIFIC_THEMES) {
       pieces.appendChild(buildModeCard({
         accent: ENDGAME_ACCENT,
         icon: Icons.flag(20),
-        name: `${THEME_LABEL[theme]} endgames`,
-        sub: `${PUZZLE_COUNT} rated puzzles, ${THEME_LABEL[theme].toLowerCase()} only`,
+        name: tr('mid.themeEndgames', { theme: THEME_LABEL[theme] }),
+        sub: tr('mid.themeOnly', { count: PUZZLE_COUNT, theme: THEME_LABEL[theme].toLowerCase() }),
         onClick: () => runEndgamePuzzles(theme, deps, rebuild),
       }));
     }
 
-    const classics = boxSection(box, 'Classic endgames');
+    const classics = boxSection(box, tr('stats.classicEndgames'));
     const progress = getEndgameProgress();
     for (const group of endgamesByCategory()) classics.appendChild(renderGroup(group, progress));
     root.appendChild(box);
@@ -316,7 +316,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       orientation: eg.youPlay,
       className: 'eg-card',
       onMiniClick: onPlay,
-      miniLabel: `Play ${eg.name}`,
+      miniLabel: tr('mid.play13', { name: eg.name }),
     });
 
     // Row 1 is the title on its own: pip + name, nothing crowding it.
@@ -333,7 +333,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     metaRow.className = 'eg-card-row eg-card-meta';
     const goal = document.createElement('span');
     goal.className = `eg-goal-chip eg-goal-chip--${eg.goal}`;
-    goal.textContent = eg.goal === 'win' ? 'Win' : 'Draw';
+    goal.textContent = eg.goal === 'win' ? tr('mid.win') : tr('eval.draw');
     metaRow.appendChild(goal);
     const level = document.createElement('span');
     level.className = `eg-level eg-level--${eg.level}`;
@@ -351,7 +351,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     play.type = 'button';
     play.className = 'btn-primary eg-card-play';
     play.appendChild(Icons.play(16));
-    play.appendChild(document.createTextNode('Play'));
+    play.appendChild(document.createTextNode(tr('mid.play')));
     play.addEventListener('click', onPlay);
     content.appendChild(play);
 
@@ -374,7 +374,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     if (gsAll === null) {
       const loading = document.createElement('p');
       loading.className = 'pz-ta-desc';
-      loading.textContent = 'Loading your games…';
+      loading.textContent = tr('mid.loadingYourGames');
       section.appendChild(loading);
       return section;
     }
@@ -383,8 +383,8 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       // The form itself, not a button that opens one — this section can't do
       // anything at all until games are in.
       section.appendChild(buildInlineImport({
-        title: 'Import your games',
-        body: 'This then finds the endgames you actually reached, and you play them out against the engine.',
+        title: tr('firstRun.importTitle'),
+        body: tr('mid.thisThenFindsThe'),
         onImported: () => { games = null; rebuild(); },
       }));
       return section;
@@ -408,7 +408,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       scan.type = 'button';
       scan.className = 'btn-primary eg-scan-btn';
       scan.appendChild(Icons.sparkles(16));
-      scan.appendChild(document.createTextNode(`Scan my games (${unscanned})`));
+      scan.appendChild(document.createTextNode(tr('mid.scanMyGames', { unscanned: unscanned })));
       scan.addEventListener('click', () => { void runScan(); });
 
       const paintScanState = (st: EndgameAutoScanState): void => {
@@ -432,8 +432,8 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
             ? ` · ${st.found} ${st.found === 1 ? 'endgame' : 'endgames'} found`
             : '';
           label.textContent = st.opponent
-            ? `Looking for endgames — game ${st.done} of ${st.total}, vs ${st.opponent}${found}`
-            : `Looking for endgames — game ${st.done} of ${st.total}${found}`;
+            ? tr('mid.lookingForEndgamesGame', { done: st.done, total: st.total, opponent: st.opponent, found: found })
+            : tr('mid.lookingForEndgamesGameOf', { done: st.done, total: st.total, found: found });
           live.appendChild(label);
           return;
         }
@@ -460,7 +460,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     if (lastScanUnreachable || endgameAutoScanState().unreachable) {
       const warn = document.createElement('p');
       warn.className = 'eg-scan-warn';
-      warn.textContent = 'Couldn’t reach the endgame tablebase — connect to the internet and scan again.';
+      warn.textContent = tr('mid.couldnTReachThe');
       section.appendChild(warn);
     }
 
@@ -485,7 +485,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       if (unscanned === 0 && !lastScanUnreachable) {
         const none = document.createElement('p');
         none.className = 'pz-ta-desc eg-fromgames-none';
-        none.textContent = 'No playable endgames found in your games yet.';
+        none.textContent = tr('mid.noPlayableEndgamesFound');
         section.appendChild(none);
       }
       return section;
@@ -527,7 +527,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     if (spots.length > shown.length) {
       const more = document.createElement('p');
       more.className = 'eg-fg-more';
-      more.textContent = `Showing ${shown.length} of ${spots.length} — the most instructive first.`;
+      more.textContent = tr('mid.showingOf', { shown: shown.length, total: spots.length });
       section.appendChild(more);
     }
     return section;
@@ -548,8 +548,8 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       youPlay: spot.youPlay,
       goal: spot.outcome,
       idea: spot.outcome === 'win'
-        ? 'You had a winning endgame here — can you convert it against best defence?'
-        : 'This was holdable — draw it against best play.',
+        ? tr('mid.youHadAWinning')
+        : tr('mid.thisWasHoldableDraw'),
     };
   }
 
@@ -596,12 +596,12 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     meta.className = 'eg-fg-meta';
     const goal = document.createElement('span');
     goal.className = `eg-goal-chip eg-goal-chip--${spot.outcome}`;
-    goal.textContent = spot.outcome === 'win' ? 'Win was there' : 'Draw was there';
+    goal.textContent = spot.outcome === 'win' ? tr('mid.winWasThere') : tr('mid.drawWasThere');
     meta.appendChild(goal);
     if (!spot.converted) {
       const slip = document.createElement('span');
       slip.className = 'eg-slip';
-      slip.textContent = 'Let slip';
+      slip.textContent = tr('mid.letSlip');
       meta.appendChild(slip);
     }
     const best = progress[spotId(ref)]?.bestMs;
@@ -611,7 +611,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     const play = document.createElement('button');
     play.type = 'button';
     play.className = 'btn-primary forgotten-fix-btn';
-    play.textContent = spot.outcome === 'win' ? 'Convert it' : 'Hold the draw';
+    play.textContent = spot.outcome === 'win' ? tr('mid.convertIt') : tr('mid.holdTheDraw');
     play.addEventListener('click', onPlay);
     body.appendChild(play);
 
@@ -634,7 +634,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
     const title = document.createElement('div');
     title.className = 'mr-scan-title';
-    title.textContent = 'Finding your endgames';
+    title.textContent = tr('mid.findingYourEndgames');
     card.appendChild(title);
 
     const pawn = createPawnProgress();
@@ -642,7 +642,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
     const status = document.createElement('div');
     status.className = 'mr-scan-status';
-    status.textContent = 'Reading your games…';
+    status.textContent = tr('firstRun.reading');
     card.appendChild(status);
 
     const opp = document.createElement('div');
@@ -651,7 +651,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
     const note = document.createElement('p');
     note.className = 'mr-scan-note';
-    note.textContent = 'Each endgame is judged by the Lichess tablebase, or by the engine when it has more than 7 pieces. Stop anytime — every game finished is saved.';
+    note.textContent = tr('mid.eachEndgameIsJudged');
     card.appendChild(note);
 
     const facts = createFactsTicker();
@@ -660,7 +660,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     const stop = document.createElement('button');
     stop.type = 'button';
     stop.className = 'btn-secondary mr-scan-stop';
-    stop.textContent = 'Stop & keep progress';
+    stop.textContent = tr('mid.stopKeepProgress');
     stop.addEventListener('click', () => ctrl.abort());
     card.appendChild(stop);
 
@@ -671,7 +671,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     const onProgress = (p: EndgameScanProgress): void => {
       pawn.set(p.gamesDone / Math.max(1, p.gamesTotal));
       status.textContent =
-        `Game ${p.gamesDone} of ${p.gamesTotal} · ${p.found} ${p.found === 1 ? 'endgame' : 'endgames'} found`;
+        tr('last.scanProgress', { done: p.gamesDone, total: p.gamesTotal, n: p.found });
       opp.textContent = `vs ${p.opponent}`;
     };
 

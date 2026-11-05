@@ -266,7 +266,7 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     chips.className = 'stat-card-chips';
     chips.appendChild(chipEl(gap.family && gap.family !== 'Unrecognised opening'
       ? gap.family
-      : `Move ${Math.floor(gap.ply / 2) + 1}`));
+      : t('last.moveN', { n: Math.floor(gap.ply / 2) + 1 })));
     chips.appendChild(chipEl(gap.lineCount === 1 ? t('open.1LineHere') : t('open.linesHere', { lineCount: gap.lineCount })));
     content.appendChild(chips);
 

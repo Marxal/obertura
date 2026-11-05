@@ -26,12 +26,13 @@ import { Icons } from './icons';
 import { TIME_TAG_LABEL, formatTimeFacts, type TimeFacts, type TimeTag } from './clock';
 import { spotFacts, type SpotTone } from './spot-facts';
 import type { ImportedGame } from './import-core';
+import { t, tParts } from './i18n';
 
 // Which move's steel blue, darkened: its own #5c8bb0 measures about 3:1 as
 // text on the app's cream, and this row is 11px text that has to clear 4.5:1.
 const RUSHED_BLUE = '#3f6f92';
 
-const RESULT_PILL: Record<ImportedGame['result'], string> = { win: 'Won', loss: 'Lost', draw: 'Drawn' };
+const RESULT_PILL: Record<ImportedGame['result'], string> = { win: t('showcase.won'), loss: t('showcase.lost'), draw: t('story.drawn') };
 
 // The tag's tint. These are the app's own status colours, used for what they
 // already mean everywhere else: red is trouble, amber is a warning, sage is
@@ -75,7 +76,7 @@ export function buildContextLine(
   // Which move hides who you were playing until the answer is in — the
   // opponent is part of the answer there, so the line carries it. The other
   // exercises name the opponent above the board throughout and don't.
-  const lead = opts.withOpponent ? `vs ${game.opponent} · ${facts.when} · ` : `${facts.when} · `;
+  const lead = opts.withOpponent ? `${t('mid.vsName', { name: game.opponent })} · ${facts.when} · ` : `${facts.when} · `;
   line.appendChild(document.createTextNode(lead));
 
   const cost = document.createElement('span');
@@ -92,7 +93,7 @@ export function buildResultLine(game: ImportedGame): HTMLElement {
   const pill = document.createElement('span');
   pill.className = `sc-cost sc-cost--${game.result}`;
   pill.textContent = RESULT_PILL[game.result];
-  line.append('This game ', pill);
+  line.append(...tParts('mid.thisGame', { result: pill }));
   return line;
 }
 

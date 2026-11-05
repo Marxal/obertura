@@ -3100,3 +3100,14 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - ✅ **The selftest now guards all three,** and the layout check passes in both on all 54 screen checks. By eye,
   a long Swedish word broke mid-word in the drill's header, so it now says *Hela repertoaren*.
 
+### Translation: the rest of the app (Phase 6)
+
+- **Every screen now goes through `t()`:** 2,209 keys, in Catalan, Spanish and Swedish, about 140 KB each. Not released:
+  only `?lang=ca`, `?lang=es` and `?lang=sv` show them. Only the first 949 keys of Catalan have been read by Marçal.
+- ✅ **Statistics, My games, the builder, Openings, Middlegame, Tactics, Endgames** and the exercises in them.
+- ✅ **Filter values stay stored in English,** so a saved filter survives changing language; only the chips are translated.
+- ✅ **The layout check passes in all three languages.** English looks the same on its 54 screen checks: 50 are pixel-identical, and the other 4 differ only in confetti or faint rendering.
+- Left in English on purpose: opening names, starter pack names and notes (Phase 7), players' tags and book names, piece set
+  names, developer-only sync errors, feedback email subjects.
+- The automatic check doesn't reach most exercises or their end screens, so those need reading on a phone.
+

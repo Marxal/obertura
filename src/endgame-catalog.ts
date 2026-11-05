@@ -5,6 +5,7 @@
 // the trainer plays it out (see endgame-playout.ts).
 
 import RAW from './endgames.json';
+import { t } from './i18n';
 
 export type EndgameCategory = 'mates' | 'pawn' | 'rook' | 'queen' | 'minor';
 export type EndgameLevel = 'essential' | 'intermediate' | 'advanced';
@@ -29,17 +30,17 @@ export const CATEGORY_ORDER: EndgameCategory[] = ['mates', 'pawn', 'rook', 'quee
 // honours our colour — same trick as the board miniatures (board-mini.ts).
 const VS = String.fromCharCode(0xfe0e);
 export const CATEGORY_META: Record<EndgameCategory, { label: string; blurb: string; symbol: string }> = {
-  mates: { label: 'Basic checkmates', blurb: 'Force mate with the pieces up.', symbol: '♚' + VS },
-  pawn: { label: 'Pawn endings', blurb: 'Opposition, key squares and the rook-pawn draw.', symbol: '♟' + VS },
-  rook: { label: 'Rook endings', blurb: 'The two you must know: Lucena and Philidor.', symbol: '♜' + VS },
-  queen: { label: 'Queen endings', blurb: 'Convert the queen against a lone pawn.', symbol: '♛' + VS },
-  minor: { label: 'Minor-piece endings', blurb: 'Bishops, knights and the wrong-bishop draw.', symbol: '♞' + VS },
+  mates: { label: t('mid.basicCheckmates'), blurb: t('mid.forceMateWithThe'), symbol: '♚' + VS },
+  pawn: { label: t('mid.pawnEndings'), blurb: t('mid.oppositionKeySquaresAnd'), symbol: '♟' + VS },
+  rook: { label: t('mid.rookEndings'), blurb: t('mid.theTwoYouMust'), symbol: '♜' + VS },
+  queen: { label: t('mid.queenEndings'), blurb: t('mid.convertTheQueenAgainst'), symbol: '♛' + VS },
+  minor: { label: t('mid.minorPieceEndings'), blurb: t('mid.bishopsKnightsAndThe'), symbol: '♞' + VS },
 };
 
 export const LEVEL_META: Record<EndgameLevel, { label: string; rank: number }> = {
-  essential: { label: 'Essential', rank: 0 },
-  intermediate: { label: 'Intermediate', rank: 1 },
-  advanced: { label: 'Advanced', rank: 2 },
+  essential: { label: t('mid.essential'), rank: 0 },
+  intermediate: { label: t('open.tag.intermediate'), rank: 1 },
+  advanced: { label: t('open.tag.advanced'), rank: 2 },
 };
 
 const ENDGAMES: Endgame[] = RAW as Endgame[];

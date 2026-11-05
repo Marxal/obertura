@@ -22,6 +22,7 @@
 // actually has.
 
 import { openInfoSheet, type InfoEntry } from './info-sheet';
+import { t } from './i18n';
 
 interface Shortcut {
   /** KeyboardEvent.key values, lower-cased. */
@@ -37,18 +38,18 @@ interface Shortcut {
 export const SHORTCUTS: Shortcut[] = [
   {
     keys: [' ', 'enter'],
-    label: 'Space or Enter',
-    action: 'Next',
+    label: t('mid.spaceOrEnter'),
+    action: t('common.next'),
     selector: '.pz-next-btn, .pz-results-actions .btn-primary, .train-completion .btn-primary',
   },
-  { keys: ['h'], label: 'H', action: 'Hint', selector: '.pz-hint-btn, .pt-control--hint' },
-  { keys: ['s'], label: 'S', action: 'Show solution', selector: '.dt-reveal' },
-  { keys: ['n'], label: 'N', action: 'Note', selector: '.pt-control--note' },
-  { keys: ['a'], label: 'A', action: 'Analyse', selector: '.pz-analyse-btn, .mr-after-btn.btn-secondary' },
+  { keys: ['h'], label: 'H', action: t('common.hint'), selector: '.pz-hint-btn, .pt-control--hint' },
+  { keys: ['s'], label: 'S', action: t('mid.showSolution'), selector: '.dt-reveal' },
+  { keys: ['n'], label: 'N', action: t('mid.note'), selector: '.pt-control--note' },
+  { keys: ['a'], label: 'A', action: t('mid.analyse'), selector: '.pz-analyse-btn, .mr-after-btn.btn-secondary' },
   {
     keys: ['escape'],
-    label: 'Esc',
-    action: 'End or close',
+    label: t('mid.esc'),
+    action: t('mid.endOrClose'),
     selector: '.pt-header-end, .pz-results-actions .train-done-btn, .train-completion .train-done-btn',
   },
 ];
@@ -84,10 +85,10 @@ function openHelp(layer: HTMLElement): void {
   const entries: InfoEntry[] = SHORTCUTS
     .filter((s) => find(layer, s.selector))
     .map((s) => ({ label: s.label, detail: s.action }));
-  entries.push({ label: '?', detail: 'This list' });
+  entries.push({ label: '?', detail: t('mid.thisList') });
   openInfoSheet({
-    title: 'Keyboard shortcuts',
-    intro: 'The keys this screen has right now. Each one presses the button it names.',
+    title: t('mid.keyboardShortcuts'),
+    intro: t('mid.theKeysThisScreen'),
     entries,
   });
 }

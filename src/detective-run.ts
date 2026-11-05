@@ -45,6 +45,7 @@ import { DETECTIVE_ACCENT } from './exercise-identity';
 import type { DetectiveRef } from './detective';
 import type { OpenGameCtx } from './mistake-run';
 import type { ImportedGame } from './import-core';
+import { t } from './i18n';
 
 // How many wrong tries at the answer before the drill offers to show it. Two,
 // because by then the user is guessing and the point has been made.
@@ -69,47 +70,36 @@ export interface DetectiveSessionOptions {
 /** What this exercise is, one tap from the run itself. */
 export function openDetectiveInfo(): void {
   openInfoSheet({
-    title: 'Blunder detective',
-    intro: 'A short run of moves from one of your own games, with exactly one blunder in it. '
-      + 'Step through them and say which one it is — then play what should have been played.',
+    title: t('showcase.detective.title'),
+    intro: t('mid.aShortRunOf'),
     entries: [
       {
         icon: Icons.moveArrow(18), accent: HINT_COLOR,
-        label: 'Either side',
-        detail: 'The blunder can be yours or your opponent’s, and nothing on the board says '
-          + 'which. That is the point: in a game nobody tells you whose move to look at.',
+        label: t('mid.eitherSide'),
+        detail: t('mid.theBlunderCanBe'),
       },
       {
         icon: Icons.alert(18), accent: '#c93636',
-        label: 'Exactly one',
-        detail: 'A run is only offered when the engine found one move over the blunder line '
-          + 'in it and nothing else in it even close — so there is always one answer, and it '
-          + 'is never arguable.',
+        label: t('mid.exactlyOne'),
+        detail: t('mid.aRunIsOnly'),
       },
       {
         icon: Icons.target(18), accent: '#3f7d8a',
-        label: 'Then the move',
-        detail: 'Spotting it is half. The board goes back to the position before the blunder '
-          + 'and asks for the move that should have been played. Any of the engine’s top '
-          + 'three counts.',
+        label: t('mid.thenTheMove'),
+        detail: t('mid.spottingItIsHalf'),
       },
       {
         icon: Icons.reset(18), accent: '#c79a2a',
-        label: 'Wrong guesses are free',
-        detail: 'An accusation that misses crosses that move off and the run carries on. You '
-          + 'only lose the clean solve — and a case you crack rests a few days before it '
-          + 'comes back. One you miss rests a day, so it is back tomorrow rather than next.',
+        label: t('mid.wrongGuessesAreFree'),
+        detail: t('mid.anAccusationThatMisses'),
       },
       {
         icon: Icons.bulb(18), accent: '#c79a2a',
-        label: 'Stuck on the answer',
-        detail: 'Hint highlights the piece that should move and leaves the rest to you. Only '
-          + 'once you have used it does Show solution appear, and once the case is closed so '
-          + 'does Analyse, which opens the whole game at that position.',
+        label: t('mid.stuckOnTheAnswer'),
+        detail: t('mid.hintHighlightsThePiece'),
       },
     ],
-    footnote: 'The runs come from the same engine pass that finds your mistakes, so they '
-      + 'appear as your games are analysed. One run per game at most.',
+    footnote: t('mid.theRunsComeFrom'),
   });
 }
 
@@ -169,7 +159,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
 
   const header = buildRunHeader({
     icon: Icons.scout(18),
-    title: opts.modeLabel ?? 'Blunder detective',
+    title: opts.modeLabel ?? t('showcase.detective.title'),
     kicker: opts.contextLabel,
     accent: DETECTIVE_ACCENT,
     onEnd: () => exitViaButton(),
@@ -198,9 +188,9 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   const briefEl = document.createElement('div');
   briefEl.className = 'mr-intro dt-brief';
   const briefText = document.createElement('span');
-  briefText.textContent = 'Find the blunder — it can be yours or theirs.';
+  briefText.textContent = t('mid.findTheBlunderIt');
   briefEl.appendChild(briefText);
-  const briefInfoBtn = buildInfoButton('About Blunder detective', openDetectiveInfo);
+  const briefInfoBtn = buildInfoButton(t('mid.aboutBlunderDetective'), openDetectiveInfo);
   briefEl.appendChild(briefInfoBtn);
   topEl.appendChild(briefEl);
 
@@ -219,7 +209,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   const prevBtn = document.createElement('button');
   prevBtn.type = 'button';
   prevBtn.className = 'dt-nav-btn';
-  prevBtn.setAttribute('aria-label', 'Previous move');
+  prevBtn.setAttribute('aria-label', t('builder.previousMove'));
   prevBtn.appendChild(Icons.back(20));
   prevBtn.addEventListener('click', () => step(-1));
   const moveLabelEl = document.createElement('div');
@@ -228,7 +218,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   const nextMoveBtn = document.createElement('button');
   nextMoveBtn.type = 'button';
   nextMoveBtn.className = 'dt-nav-btn';
-  nextMoveBtn.setAttribute('aria-label', 'Next move');
+  nextMoveBtn.setAttribute('aria-label', t('builder.nextMove'));
   nextMoveBtn.appendChild(Icons.chevronRight(20));
   nextMoveBtn.addEventListener('click', () => step(1));
   navEl.appendChild(prevBtn);
@@ -257,7 +247,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   hintBtn.type = 'button';
   hintBtn.className = 'pz-hint-btn dt-hint';
   hintBtn.appendChild(Icons.bulb(16));
-  hintBtn.appendChild(document.createTextNode('Hint'));
+  hintBtn.appendChild(document.createTextNode(t('common.hint')));
   hintBtn.hidden = true;
   hintBtn.addEventListener('click', () => useHint());
 
@@ -266,7 +256,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   const revealBtn = document.createElement('button');
   revealBtn.type = 'button';
   revealBtn.className = 'dt-reveal';
-  revealBtn.textContent = 'Show solution';
+  revealBtn.textContent = t('mid.showSolution');
   revealBtn.addEventListener('click', () => reveal());
 
   // The reveal, once the case is closed: the blunder and the move that should
@@ -287,7 +277,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   analyseBtn.type = 'button';
   analyseBtn.className = 'btn-secondary mr-after-btn';
   analyseBtn.appendChild(Icons.review(16));
-  analyseBtn.appendChild(document.createTextNode('Analyse game'));
+  analyseBtn.appendChild(document.createTextNode(t('html.analyseGame')));
   analyseBtn.hidden = !opts.onOpenGame;
   analyseBtn.addEventListener('click', () => {
     const { game, spot } = current;
@@ -297,7 +287,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
-  nextBtn.textContent = 'Next case';
+  nextBtn.textContent = t('mid.nextCase');
   nextBtn.addEventListener('click', () => onNextTap());
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
@@ -364,11 +354,11 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   // ── Abandon guard (mirrors the mistake drill) ──────────────────────────────
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
-      title: 'End this session?',
-      body: 'Cases you already cracked are kept.',
+      title: t('drill.end.title'),
+      body: t('mid.casesYouAlreadyCracked'),
       buttons: [
-        { label: 'End session', variant: 'danger', onClick: doExit },
-        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+        { label: t('drill.endSession'), variant: 'danger', onClick: doExit },
+        { label: t('signup.keepGoing'), variant: 'secondary', onClick: onStay },
       ],
       onDismiss: onStay,
     });
@@ -426,7 +416,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   function renderSessionBar(): void {
     const total = opts.refs.length;
     sessionFillEl.style.width = `${Math.min(1, completed / total) * 100}%`;
-    sessionLabelEl.textContent = `Case ${Math.min(completed + 1, total)} of ${total}`;
+    sessionLabelEl.textContent = t('last.caseOf', { at: Math.min(completed + 1, total), total });
   }
 
   // ── Loading a case ─────────────────────────────────────────────────────────
@@ -449,9 +439,9 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     clearEngineLine(statusRow);
     briefEl.replaceChildren(briefText, briefInfoBtn);
     revealBtn.hidden = false;
-    revealBtn.textContent = 'Show solution';
+    revealBtn.textContent = t('mid.showSolution');
     hintBtn.hidden = true;
-    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode(t('common.hint')));
     navEl.hidden = false;
     pipsEl.hidden = false;
     accuseBtn.hidden = false;
@@ -564,11 +554,11 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       // Before the first move there is no move to name, so the slot carries the
       // instruction instead of the words "Before the run" — which said where
       // the board was, which the disabled arrow already said.
-      moveLabelEl.textContent = 'Step through moves to name the blunder, yours or theirs';
+      moveLabelEl.textContent = t('mid.stepThroughMovesTo');
       moveLabelEl.classList.add('dt-move-label--hint');
       moveLabelEl.classList.remove('dt-move-label--cleared');
       accuseBtn.disabled = true;
-      accuseBtn.textContent = 'Step forward to a move';
+      accuseBtn.textContent = t('mid.stepForwardToA');
       return;
     }
     moveLabelEl.textContent = moveName(i);
@@ -577,8 +567,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     moveLabelEl.classList.toggle('dt-move-label--cleared', cleared);
     accuseBtn.disabled = cleared || phase !== 'browse';
     accuseBtn.textContent = cleared
-      ? `${formatMove(sans[i])} — ruled out`
-      : `${formatMove(sans[i])} is the blunder`;
+      ? t('mid.ruledOut', { move: formatMove(sans[i]) })
+      : t('mid.isBlunder', { move: formatMove(sans[i]) });
   }
 
   function renderPips(): void {
@@ -616,8 +606,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     const left = sans.length - accused.size - 1;
     setStatus(
       left <= 1
-        ? `${formatMove(sans[i])} is fine — one of the others, then.`
-        : `${formatMove(sans[i])} is fine — keep looking.`,
+        ? t('mid.fineOther', { move: formatMove(sans[i]) })
+        : t('mid.fineLook', { move: formatMove(sans[i]) }),
       'pt-status--error',
     );
     renderNav();
@@ -634,7 +624,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     const best = current.spot.best[0];
     if (best) {
       paintAnswerShapes({ blunder: true, suggestUci: best.uci });
-      setStatus(`Play ${formatMove(best.san)}`, 'pt-status--reveal');
+      setStatus(t('last.play', { move: formatMove(best.san) }), 'pt-status--reveal');
     }
     hintBtn.hidden = true;
     revealBtn.hidden = true;
@@ -653,11 +643,11 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     const best = current.spot.best[0];
     if (!best) { reveal(); return; }
     paintAnswerShapes({ blunder: true, hintFrom: uciParts(best.uci).from });
-    setStatus('Move the highlighted piece', 'pt-status--reveal');
+    setStatus(t('mid.moveTheHighlightedPiece'), 'pt-status--reveal');
     hintBtn.hidden = true;
     // Only now does the full answer become available — one rung at a time.
     revealBtn.hidden = false;
-    revealBtn.textContent = 'Show solution';
+    revealBtn.textContent = t('mid.showSolution');
   }
 
   /**
@@ -688,12 +678,11 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     });
     paintAnswerShapes({ blunder: true, badgeAt: uciParts(spot.playedUci).to });
 
-    const who = spot.byUser ? 'You played' : 'They played';
     const move = `${formatMove(spot.playedSan)} ??`;
     setStatus(
       shown
-        ? `${who} ${move} — now play the better move.`
-        : `Caught it ✓ — ${who.toLowerCase()} ${move}. Now play the better move.`,
+        ? t(spot.byUser ? 'mid.shownYou' : 'mid.shownThem', { move })
+        : t(spot.byUser ? 'mid.caughtYou' : 'mid.caughtThem', { move }),
       shown ? 'pt-status--reveal' : 'pt-status--success',
     );
     if (!shown) burstConfetti(boardWrap);
@@ -703,7 +692,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     // tries (onUserMove).
     hintStage = 0;
     hintBtn.hidden = false;
-    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode(t('common.hint')));
     revealBtn.hidden = true;
 
     // Hand the board over to whoever blundered.
@@ -753,7 +742,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     wrongTries++;
     cleanSoFar = false;
     flashError();
-    setStatus('Not that one — try again', 'pt-status--error');
+    setStatus(t('fix.notThat'), 'pt-status--error');
     chess.load(spot.preFen);
     cg.set({
       fen: spot.preFen,
@@ -768,7 +757,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     if (wrongTries >= TRIES_BEFORE_HINT && !revealedMove) {
       hintBtn.hidden = true;
       revealBtn.hidden = false;
-      revealBtn.textContent = 'Show solution';
+      revealBtn.textContent = t('mid.showSolution');
     } else if (hintStage === 0) {
       hintBtn.hidden = false;
     }
@@ -803,8 +792,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     const best = spot.best[0];
     setStatus(
       isBest
-        ? (clean ? 'Case closed ✓' : 'That’s the move ✓')
-        : `Good move ✓ — even stronger: ${formatMove(best.san)}`,
+        ? (clean ? t('mid.caseClosed') : t('mid.thatSTheMove'))
+        : t('mid.evenStronger', { move: formatMove(best.san) }),
       clean ? 'pt-status--success' : 'pt-status--reveal',
     );
     if (clean) burstConfetti(boardWrap);
@@ -813,7 +802,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     revealBtn.hidden = true;
     renderFacts();
     renderSessionBar();
-    nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next case';
+    nextBtn.textContent = completed >= opts.refs.length ? t('mid.seeResults') : t('mid.nextCase');
     // Analyse rides in here (afterEl) — the full game is worth opening once the
     // case is closed, and not a moment before.
     afterEl.hidden = false;
@@ -968,7 +957,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
 
     const done = document.createElement('div');
     done.className = 'train-completion-done';
-    done.textContent = 'Session complete ✓';
+    done.textContent = t('train.sessionComplete');
     head.appendChild(done);
 
     const sub = document.createElement('div');
@@ -1004,14 +993,14 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-      again.textContent = 'Another case';
+      again.textContent = t('mid.anotherCase');
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
     doneBtn.className = (opts.nextAction || opts.onPlayAgain) ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-    doneBtn.textContent = 'Close session';
+    doneBtn.textContent = t('mid.closeSession');
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
 
@@ -1047,7 +1036,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     main.appendChild(name);
     const meta = document.createElement('div');
     meta.className = 'pz-result-meta';
-    meta.textContent = `${e.ref.spot.byUser ? 'Your' : 'Their'} ${numberedMove(e.ref.spot.playedSan, e.ref.spot.blunderPly + 1)} ?? → ${formatMove(e.ref.spot.best[0]?.san ?? '?')}`;
+    meta.textContent = `${t(e.ref.spot.byUser ? 'reply.fact.yourMove' : 'reply.fact.theirMove', { move: numberedMove(e.ref.spot.playedSan, e.ref.spot.blunderPly + 1) })} ?? → ${formatMove(e.ref.spot.best[0]?.san ?? '?')}`;
     main.appendChild(meta);
     row.appendChild(main);
     return row;
@@ -1065,9 +1054,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
         { uci: ref.spot.playedUci, kind: 'danger' },
         ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
       ],
-      meta: `${ref.spot.byUser ? 'Your' : 'Their'} `
-        + `${numberedMove(ref.spot.playedSan, ref.spot.blunderPly + 1)} ?? → `
-        + `${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      meta: `${t(ref.spot.byUser ? 'reply.fact.yourMove' : 'reply.fact.theirMove', { move: numberedMove(ref.spot.playedSan, ref.spot.blunderPly + 1) })} ?? → `
+        + `${formatMove(best?.san ?? '?')} · ${t('mid.vsName', { name: ref.game.opponent })}`,
       story: () => buildStoryContent(ref.game, ref.spot.blunderPly),
       // The results screen sits over the run, so the hand-off is the same one
       // the Analyse button under the board uses — it comes back here.

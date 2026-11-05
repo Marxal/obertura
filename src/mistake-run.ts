@@ -143,7 +143,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   const header = buildRunHeader({
     icon: (opts.modeIcon ?? (() => Icons.reset(18)))(),
-    title: opts.modeLabel ?? 'Mistakes to fix',
+    title: opts.modeLabel ?? t('daily.pref.mistakes'),
     kicker: opts.contextLabel,
     accent: opts.modeAccent,
     onEnd: () => exitViaButton(),
@@ -193,13 +193,13 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   const arrowBtn = document.createElement('button');
   arrowBtn.type = 'button';
   arrowBtn.className = 'mr-arrow-toggle';
-  arrowBtn.title = 'Hide the played-move arrow';
-  arrowBtn.setAttribute('aria-label', 'Hide the played-move arrow');
+  arrowBtn.title = t('mid.hideThePlayedMove');
+  arrowBtn.setAttribute('aria-label', t('mid.hideThePlayedMove'));
   arrowBtn.appendChild(eyeOffIcon(15));
   arrowBtn.addEventListener('click', () => {
     arrowHidden = !arrowHidden;
     arrowBtn.classList.toggle('mr-arrow-toggle--off', arrowHidden);
-    arrowBtn.title = arrowHidden ? 'Show the played-move arrow' : 'Hide the played-move arrow';
+    arrowBtn.title = arrowHidden ? t('mid.showThePlayedMove') : t('mid.hideThePlayedMove');
     repaintPrompt();
   });
   statusRow.appendChild(arrowBtn);
@@ -208,7 +208,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   hintBtn.type = 'button';
   hintBtn.className = 'pz-hint-btn';
   hintBtn.appendChild(Icons.bulb(16));
-  hintBtn.appendChild(document.createTextNode('Hint'));
+  hintBtn.appendChild(document.createTextNode(t('common.hint')));
   hintBtn.hidden = true;
   hintBtn.addEventListener('click', () => useHint());
 
@@ -232,7 +232,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   analyseBtn.type = 'button';
   analyseBtn.className = 'btn-secondary mr-after-btn';
   analyseBtn.appendChild(Icons.review(16));
-  analyseBtn.appendChild(document.createTextNode('Analyse game'));
+  analyseBtn.appendChild(document.createTextNode(t('html.analyseGame')));
   analyseBtn.hidden = !opts.onOpenGame;
   analyseBtn.addEventListener('click', () => {
     const { game, spot } = current;
@@ -243,7 +243,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
-  nextBtn.textContent = 'Next position';
+  nextBtn.textContent = t('common.nextPosition');
   nextBtn.addEventListener('click', () => onNextTap());
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
@@ -292,11 +292,11 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   // Abandon guard — mirrors puzzle-run (results screen exits without asking).
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
-      title: 'End this session?',
-      body: 'Positions you already solved stay fixed.',
+      title: t('drill.end.title'),
+      body: t('mid.positionsYouAlreadySolved'),
       buttons: [
-        { label: 'End session', variant: 'danger', onClick: doExit },
-        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+        { label: t('drill.endSession'), variant: 'danger', onClick: doExit },
+        { label: t('signup.keepGoing'), variant: 'secondary', onClick: onStay },
       ],
       onDismiss: onStay,
     });
@@ -354,7 +354,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   function renderSessionBar(): void {
     const total = opts.refs.length;
     sessionFillEl.style.width = `${Math.min(1, completed / total) * 100}%`;
-    sessionLabelEl.textContent = `Position ${Math.min(completed + 1, total)} of ${total}`;
+    sessionLabelEl.textContent = t('drill.positionOf', { at: Math.min(completed + 1, total), total });
   }
 
   // All board decorations live in ONE setAutoShapes call — the danger arrow,
@@ -403,9 +403,9 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     hintStage = 0;
     arrowHidden = false;
     arrowBtn.classList.remove('mr-arrow-toggle--off');
-    arrowBtn.title = 'Hide the played-move arrow';
+    arrowBtn.title = t('mid.hideThePlayedMove');
     arrowBtn.hidden = false;
-    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode(t('common.hint')));
     hintBtn.hidden = true;
     afterEl.hidden = true;
     factsEl.hidden = true;
@@ -417,7 +417,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     const { game, spot } = current;
     nameEl.textContent = `vs ${game.opponent}`;
     renderIntro();
-    setStatus('Find a better move', 'pt-status--prompt');
+    setStatus(t('mid.findABetterMove'), 'pt-status--prompt');
 
     chess.load(spot.preFen);
     cg.set({
@@ -453,13 +453,13 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     if (hintStage === 0) {
       hintStage = 1;
       paintShapes({ hint: 'piece' });
-      hintBtn.replaceChildren(Icons.eye(16), document.createTextNode('Show solution'));
-      setStatus('Hint — move the highlighted piece', 'pt-status--reveal');
+      hintBtn.replaceChildren(Icons.eye(16), document.createTextNode(t('mid.showSolution')));
+      setStatus(t('mid.hintMoveTheHighlighted'), 'pt-status--reveal');
     } else {
       hintStage = 2;
       hintBtn.hidden = true;
       paintShapes({ hint: 'arrow' });
-      setStatus('Hint — play the highlighted move', 'pt-status--reveal');
+      setStatus(t('mid.hintPlayTheHighlighted'), 'pt-status--reveal');
     }
   }
 
@@ -493,7 +493,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     // them keep looking (no engine round-trip; the stored picks are the judge).
     failedThisSpot = true;
     flashError();
-    setStatus('Not quite — try again', 'pt-status--error');
+    setStatus(t('drill.tryAgain'), 'pt-status--error');
     cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: current.game.colour, dests: legalDests() } });
     if (hintStage !== 2) hintBtn.hidden = false;
     repaintPrompt();
@@ -538,16 +538,16 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
     playFeedback('correct');
     if (kind === 'best') {
-      setStatus(clean ? 'Found it ✓' : 'Got there ✓',
+      setStatus(clean ? t('mid.foundIt') : t('mid.gotThere'),
         clean ? 'pt-status--success' : 'pt-status--reveal');
     } else {
-      setStatus(`Good ✓ Stronger: ${formatMove(best.san)}`,
+      setStatus(t('last.goodStronger', { move: formatMove(best.san) }),
         clean ? 'pt-status--success' : 'pt-status--reveal');
     }
     if (clean) burstConfetti(boardWrap);
     renderFacts();
     renderSessionBar();
-    nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
+    nextBtn.textContent = completed >= opts.refs.length ? t('mid.seeResults') : t('common.nextPosition');
     afterEl.hidden = false;
   }
 
@@ -706,7 +706,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
     const done = document.createElement('div');
     done.className = 'train-completion-done';
-    done.textContent = 'Session complete ✓';
+    done.textContent = t('train.sessionComplete');
     head.appendChild(done);
 
     const sub = document.createElement('div');
@@ -745,7 +745,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-      again.textContent = 'Play again';
+      again.textContent = t('train.playAgain');
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
@@ -753,7 +753,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
     doneBtn.className = (opts.nextAction || opts.onPlayAgain) ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-    doneBtn.textContent = 'Close session';
+    doneBtn.textContent = t('mid.closeSession');
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
 
@@ -810,7 +810,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
         { uci: ref.spot.playedUci, kind: 'danger' },
         ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
       ],
-      meta: `${formatMove(ref.spot.playedSan)} → ${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      meta: `${formatMove(ref.spot.playedSan)} → ${formatMove(best?.san ?? '?')} · ${t('mid.vsName', { name: ref.game.opponent })}`,
       story: () => buildStoryContent(ref.game, ref.spot.ply),
       onAnalyse: opts.onOpenGame
         ? () => suspendForAnalysis(ref.game, ref.spot.preFen)

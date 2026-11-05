@@ -5,6 +5,7 @@ import { startDrill } from './drill';
 import { newReview } from './scheduler';
 import { watchSpeedMs } from './prefs';
 import { showToast } from './toast';
+import { t } from './i18n';
 
 // Enrol a line into training straight away, with no confirm run. Used when the
 // "Confirm run before training" pref is OFF. Clones so the caller's in-memory
@@ -77,8 +78,8 @@ export function startPretrainingRun(
     // escape from the thing you most wanted them to see. The back gesture still
     // works either way.
     hideExit: !!opts.beforeWatch || !!opts.hideExit,
-    modeLabel: 'Confirm line',
-    completeMessage: opts.completeMessage ?? 'Line confirmed — added to training',
+    modeLabel: t('mid.confirmLine'),
+    completeMessage: opts.completeMessage ?? t('mid.lineConfirmedAddedTo'),
     // Watch the line through once first, at the user's chosen watch speed.
     watchFirstMs: watchSpeedMs(),
     beforeWatch: opts.beforeWatch,
@@ -104,10 +105,10 @@ export function startPretrainingRun(
     // already carries its own quiet "Skip this time" on the coach-mark — two
     // ways past one screen, one of them under an overlay, is worse than one.
     skipRun: opts.beforeWatch ? undefined : {
-      label: 'Add without playing',
+      label: t('mid.addWithoutPlaying'),
       onSkip: () => {
         void enrolLineDirectly(line).then(() => {
-          showToast('Added to training');
+          showToast(t('mid.addedToTraining'));
           onComplete();
         });
       },

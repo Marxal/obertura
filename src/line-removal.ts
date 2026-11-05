@@ -123,9 +123,6 @@ export function removalBody(impact: RemovalImpact, bookName: string): string {
 
 /** "Removed 5 moves" — what the toast says once it has happened. */
 export function removalDone(moves: number): string {
-  return `Removed ${plural(moves, 'move')}`;
+  return t('last.removedMoves', { n: moves });
 }
 
-function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
