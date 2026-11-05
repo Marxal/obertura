@@ -128,12 +128,41 @@ function translateMarkup(markup, dictionary, lang) {
     })
     .replace(ATTRIBUTE, (whole, name, raw) => {
       const translated = lookup[normalise(raw)];
-      return translated === undefined ? whole : ` ${name}="${escapeForAttribute(translated)}"`;
+      return translated === undefined ? whole : ` ${name}="${escapeForAttribute(plain(translated))}"`;
     })
     .replace(META_CONTENT, (whole, _name, raw) => {
       const translated = lookup[normalise(raw)];
-      return translated === undefined ? whole : whole.replace(`content="${raw}"`, `content="${escapeForAttribute(translated)}"`);
+      return translated === undefined ? whole : whole.replace(`content="${raw}"`, `content="${escapeForAttribute(plain(translated))}"`);
     });
+}
+
+// A coloured word (`<span class="word-blunder">`) is for the page, not for a label or a tab title.
+const plain = (text) => text.replace(/<[^>]+>/g, '');
+
+/**
+ * The English page with one sentence changed wherever the page shows it, for the copy
+ * editor's English tab. `part` is where the dictionaries keep it: text, blocks or scripts.
+ */
+export function rewriteEnglish(html, part, before, after) {
+  if (part === 'blocks') return html.replaceAll(`>${before}</`, `>${after}</`);
+  return regions(html).map((region) => {
+    if (part === 'scripts') {
+      if (region.kind !== 'script') return region.text;
+      return region.text.replace(STRING_LITERAL, (whole, single, double) => {
+        if ((single ?? double) !== before) return whole;
+        const quote = whole[0];
+        return `${quote}${after.replace(new RegExp(`(?<!\\\\)${quote}`, 'g'), `\\${quote}`)}${quote}`;
+      });
+    }
+    if (region.kind !== 'markup') return region.text;
+    return region.text
+      .replace(TEXT_NODE, (whole, raw) => {
+        if (normalise(raw) !== before) return whole;
+        return `>${raw.match(/^\s*/)[0]}${after}${raw.match(/\s*$/)[0]}<`;
+      })
+      .replace(ATTRIBUTE, (whole, name, raw) => (normalise(raw) === before ? ` ${name}="${escapeForAttribute(after)}"` : whole))
+      .replace(META_CONTENT, (whole, _name, raw) => (normalise(raw) === before ? whole.replace(`content="${raw}"`, `content="${escapeForAttribute(after)}"`) : whole));
+  }).join('');
 }
 
 function translateData(block, dictionary) {

@@ -3,7 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { buildEnglishLegalPage, buildLanguagePage, buildLegalPage, buildRootPage, buildSitemap, landingText, localiseMoves } from './landing-pages.mjs';
+import { buildEnglishLegalPage, buildLanguagePage, buildLegalPage, buildRootPage, buildSitemap, landingText, localiseMoves, rewriteEnglish } from './landing-pages.mjs';
 import { formatMove } from '../src/notation';
 import { englishDictionary, useDictionary, type Dictionary } from '../src/i18n';
 import { BROWSER_REDIRECTS, pickLanguage, type Language } from '../src/language-choice';
@@ -77,8 +77,13 @@ export function runLandingPagesSelfTest(): TestResult[] {
     }));
   }
 
-  const catalan = JSON.stringify(words('ca'));
-  check('Catalan: "cagada" stays inside the app', !/cagad/i.test(catalan));
+  // Marçal's call (2026-11-05): "cagades" may be on the landing page, in its colour. Never the legal text.
+  check('Catalan: "cagada" stays out of the legal pages', !/cagad/i.test(JSON.stringify(legalWords('ca'))));
+  const coloured = buildLanguagePage(html, 'ca', { text: { 'Become a blunder detective': 'Fes de detectiu de <span class="word-blunder">cagades</span>' } }, []);
+  check('ca: a coloured word reaches the page as markup', coloured.includes('<h3>Fes de detectiu de <span class="word-blunder">cagades</span></h3>'));
+  check('the colours exist on the page', html.includes('.word-blunder {') && html.includes('.word-mistake {'));
+  const labelled = buildLanguagePage('<a aria-label="Mistakes">Mistakes</a>', 'ca', { text: { Mistakes: '<span class="word-mistake">Badades</span>' } }, []);
+  check('a coloured word stays out of a label', labelled.includes('aria-label="Badades"'), labelled);
 
   // ── Privacy and terms ───────────────────────────────────────────────────────
   for (const lang of ['ca', 'es', 'sv']) {
@@ -140,7 +145,20 @@ export function runLandingPagesSelfTest(): TestResult[] {
   check('the editor refuses a lost link', checkEdit(editable('legal', 'See <a href="x">this</a>'), 'Mira això', 'ca') !== null);
   check('the editor refuses a changed move', checkEdit(editable('packs', 'Play Nf3 and d4'), 'Juga Nf3 i d5', 'ca') !== null);
   check('the editor accepts the same moves reworded', checkEdit(editable('packs', 'Play Nf3 and d4'), 'Primer d4, després Nf3', 'ca') === null);
-  check('the editor keeps "cagada" out of the landing page', checkEdit(editable('landing', 'Mistakes'), 'Cagades', 'ca') !== null && checkEdit(editable('app', 'Mistakes'), 'Cagades', 'ca') === null);
+  check('the editor lets "cagades" onto the landing page', checkEdit(editable('landing', 'Mistakes'), 'Cagades', 'ca') === null);
+  check('the editor takes a word in a move colour', checkEdit(editable('landing', 'Try your mistakes again'), 'Torna a provar les teves <span class="word-mistake">badades</span>', 'ca') === null);
+  check('the editor refuses any other new tag', checkEdit(editable('landing', 'Try your mistakes again'), 'Torna a provar les <a href="x">badades</a>', 'ca') !== null);
+  check('the English tab refuses a changed move', checkEdit(editable('packs', 'Play Nf3 and d4'), 'Play Nc3 and d4', 'en') !== null);
+  check('the English tab takes a rewording', checkEdit(editable('app', '{n} lines'), '{n} lines saved', 'en') === null && checkEdit(editable('app', '{n} lines'), 'Some lines', 'en') !== null);
+  const page = '<h3>\n  Become a blunder\n  detective</h3><p title="Become a blunder detective">x</p><script>var a = \'Find it\';</script>';
+  const rewritten = rewriteEnglish(page, 'text', 'Become a blunder detective', 'Turn detective');
+  check('the English tab rewrites a heading and its label, keeping the spacing', rewritten.startsWith('<h3>\n  Turn detective</h3><p title="Turn detective">'), rewritten);
+  check('the English tab rewrites a script sentence', rewriteEnglish(page, 'scripts', 'Find it', "It's here").includes("var a = 'It\\'s here';"));
+  check('the English tab leaves scripts alone for page text', rewriteEnglish(page, 'text', 'Find it', 'x') === page);
+  const englishTab = copySections('en');
+  check('the English tab lists the landing page, the app and the packs', englishTab.map((s: { id: string }) => s.id).join() === 'landing,app,packs');
+  const englishItems = englishTab.flatMap((s: { groups: { items: { en: string; value: string }[] }[] }) => s.groups.flatMap((g) => g.items));
+  check(`the English as written passes the English tab's rules (${englishItems.length})`, englishItems.every((i: { en: string; value: string }) => checkEdit(i, i.value, 'en') === null));
   const dictionary = '{\n  "a.b": "old",\n  "c.d": {"one": "x", "other": "y"},\n  "e.f": "z"\n}\n';
   const edited = replaceDictionaryLine(dictionary, 'a.b', 'new "words"');
   check('a dictionary edit changes one line', edited === '{\n  "a.b": "new \\"words\\"",\n  "c.d": {"one": "x", "other": "y"},\n  "e.f": "z"\n}\n', edited);

@@ -30,8 +30,15 @@ two disagree, this file wins, because it records the decisions made after that g
 **Piece letters:** *R D T A C* in Catalan and Spanish, *K D T L S* in Swedish.
 
 **Catalan only:** *badada* and *cagada* are Bito's one playful touch. Spanish and Swedish stay
-neutral. *Cagada* is used inside the app only: never in the landing page, legal text, app store
-text or emails.
+neutral. *Cagada* is mainly for inside the app, never in legal text or emails. On the landing page
+it appears where Marçal put it himself (2026-11-05): the detective card, *Fes de detectiu de cagades*,
+with *cagades* in the blunder red and *badades* in the mistake orange on the card above
+(`<span class="word-blunder">`, `word-mistake`), in Catalan only.
+
+**Marçal's Catalan voice** (from his landing edits, 2026-11-05): short and spoken, not a sentence-for-sentence
+copy of the English. Drop qualifiers the English leans on (*curta*, *de veritat*, *realment*, an emphatic *tu*).
+*Una jugada millor*, never *més forta*; and colloquially *la bona* (*troba la bona*, *juga la bona*). *Errors*
+is fine for mistakes in general on the landing page. Rating is *Elo*. Spanish follows the same lessons.
 
 **Legal pages:** *errors* in Catalan, never *badades*. Same first person as the English.
 
@@ -53,7 +60,8 @@ too: *Jugaste {move}*.
 | position | posició | posición | ställning |
 | move | jugada | jugada | drag |
 | best move | millor jugada | mejor jugada | bästa drag |
-| brilliant move | jugada brillant | jugada brillante | briljant drag |
+| brilliant move | jugada estel·lar | jugada brillante | briljant drag |
+| stronger / better move | jugada millor, la bona | jugada mejor, la buena | bättre drag |
 | training | entrenament | entrenamiento | träning |
 | exercise | exercici | ejercicio | övning |
 | puzzle | problema, problemes | problema, problemas | problem |
@@ -66,7 +74,8 @@ too: *Jugaste {move}*.
 | draw | taules | tablas | remi |
 | win | victòria | victoria | vinst |
 | loss | derrota | derrota | förlust |
-| time pressure | pressió de temps | presión de tiempo | tidsnöd |
+| time pressure (the exercise) | apurs de temps | apuros de tiempo | tidsnöd |
+| time scramble (the tag) | al límit | al límite | tidsnöd |
 | due | pendent | pendiente | att repetera |
 | Full Access | Accés complet | Acceso completo | Full tillgång |
 
@@ -77,7 +86,7 @@ Pieces: *peó, cavall, alfil, torre, dama, rei* / *peón, caballo, alfil, torre,
 
 | English | Catalan | Spanish | Swedish |
 | --- | --- | --- | --- |
-| Brilliant | Brillant | Brillante | Briljant |
+| Brilliant | Estel·lar | Brillante | Briljant |
 | Great | Brutal | Muy buena | Mycket bra |
 | Best | Millor | Mejor | Bästa |
 | Excellent | Excel·lent | Excelente | Utmärkt |
@@ -116,7 +125,7 @@ never *Aquí has fet*.
 
 | English | Catalan |
 |---|---|
-| Improve your next move | Millora la teva pròxima jugada |
+| Improve your next move | Millora a cada jugada |
 | Play your first move | Juga la teva primera jugada |
 | Show the move | Mostra la jugada |
 | Next position | Posició següent |
@@ -171,7 +180,8 @@ sections 5 to 9.
 | Engine | Màquina | Máquina | Motor |
 | Auto-reply | Auto-resposta | Respuesta automática | Autosvar |
 | Recall (the % figure) | Encert | Acierto | Minne |
-| Rating | Puntuació | Puntuación | Rating |
+| Rating | Elo | Elo | Rating |
+| Score (the %) | puntuació | puntuación | poäng |
 | Continue as a guest | Continua sense compte | Continuar sin cuenta | Fortsätt utan konto |
 | Founding member | Membre d’honor | Acceso fundacional | Grundarmedlem |
 

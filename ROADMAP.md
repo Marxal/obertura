@@ -3174,4 +3174,10 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - **`bitotext`** in the terminal starts everything and opens the editor (a function in `~/.zshrc`, not in this repo).
 - **The protocol for changes** is in `CLAUDE.md`: build in English, then `npm run i18n:status` lists what's waiting (missing, or English
   changed since translating) and Marçal decides when to translate. Selftests no longer fail on text that's merely untranslated.
+- **Marçal's Catalan pass, and the English in the editor (2026-11-05).** His landing edits set the Catalan voice
+  (short, spoken, *la bona*, *errors*, Elo), written down in `src/locales/GLOSSARY.md`. *Jugades estel·lars* for brilliant
+  moves; *millor*/*mejor* instead of *més forta*/*más fuerte*; rating is *Elo* in Catalan and Spanish (score stays
+  *puntuació*); *Apurs de temps*/*Apuros de tiempo*; fewer *realment*/*de verdad*. Spanish landing follows his Catalan
+  edits. *Cagades* is allowed on the landing page now, coloured: `.word-blunder`, `.word-mistake` in `docs/index.html`.
+  The copy editor has an EN tab, and accepts those coloured spans.
 

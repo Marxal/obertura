@@ -8,63 +8,63 @@
           "name": "Italiana (Giuoco Piano)",
           "plan": "Construcció lenta: mantén el centre amb c3/d3, porta el cavall de b1 per d2–f1 fins a g3 i després tria la ruptura: d4 al centre o joc al flanc de rei amb idees com Nf5/Ng5. Sense pressa: millora una peça a cada jugada.",
           "notes": {
-            "4": "L'alfil italià apunta directament a f7, la casella més feble del camp negre (només la defensa el rei).",
-            "6": "Prepara d4: després de c3, l'avanç d4 arriba amb el suport d'un peó i l'alfil negre ha de cedir terreny.",
-            "8": "L'opció moderna i pacient. El centre és sòlid i la lluita passa a les maniobres lentes, més fàcils de jugar.",
+            "4": "L’alfil italià apunta directament a f7, la casella més feble del camp negre (només la defensa el rei).",
+            "6": "Prepara d4: després de c3, l’avanç d4 arriba amb el suport d’un peó i l’alfil negre ha de cedir terreny.",
+            "8": "L’opció moderna i pacient. El centre és sòlid i la lluita passa a les maniobres lentes, més fàcils de jugar.",
             "10": "En posicions obertes, enroca aviat: la tàctica a la columna e castiga el rei que es queda al centre.",
-            "12": "La torre defensa e4 i espera, sense fer soroll, darrere d'una futura ruptura d4.",
-            "14": "Respon a l'expansió negra al flanc de dama: impedeix que ...b5 guanyi espai i dona a l'alfil de c4 una retirada a a2.",
+            "12": "La torre defensa e4 i espera, sense fer soroll, darrere d’una futura ruptura d4.",
+            "14": "Respon a l’expansió negra al flanc de dama: impedeix que ...b5 guanyi espai i dona a l’alfil de c4 una retirada a a2.",
             "16": "Un petit respir per al rei que a més treu g4 a les peces negres: ni clavada amb ...Bg4 ni trucs amb ...Ng4."
           }
         },
         "Italian vs ...Nf6 (Two Knights, quiet)": {
           "name": "Italiana contra ...Nf6 (Dos Cavalls, tranquil·la)",
-          "plan": "Arribes a la mateixa estructura del Giuoco Pianissimo: c3/d3, Re1, a4 i després la ruptura d4 o la ruta del cavall Nbd2–f1–g3. L'ordre de jugades canvia; el pla, no.",
+          "plan": "Arribes a la mateixa estructura del Giuoco Pianissimo: c3/d3, Re1, a4 i després la ruptura d4 o la ruta del cavall Nbd2–f1–g3. L’ordre de jugades canvia; el pla, no.",
           "notes": {
             "5": "Les negres desenvolupen amb una amenaça contra e4: és la defensa dels Dos Cavalls.",
             "6": "Defensa e4 i prou. Existeix la forta 4.Ng5, però d3 et manté en terreny italià conegut, sense cap risc.",
             "10": "Un clàssic: la torre darrere del peó e abans de qualsevol ruptura central.",
-            "12": "Espai al flanc de dama i una casella de retirada (a2) per a l'alfil.",
-            "14": "La parella habitual amb d3: algun dia jugaràs d4 d'una tirada, ben recolzat.",
+            "12": "Espai al flanc de dama i una casella de retirada (a2) per a l’alfil.",
+            "14": "La parella habitual amb d3: algun dia jugaràs d4 d’una tirada, ben recolzat.",
             "16": "Comença la ruta somiada: aquest cavall va cap a d2–f1–g3 (o c4), la maniobra típica de la italiana."
           }
         },
         "Italian move order: 3...Nf6 4.d3 Bc5": {
           "name": "Ordre de jugades italià: 3...Nf6 4.d3 Bc5",
-          "plan": "Si les negres juguen ...Nf6 abans de ...Bc5, simplement transposes: la mateixa estructura de peons (c3+d3), la mateixa torre a e1, la mateixa ruta del cavall. Un sol esquema, sigui quin sigui l'ordre.",
+          "plan": "Si les negres juguen ...Nf6 abans de ...Bc5, simplement transposes: la mateixa estructura de peons (c3+d3), la mateixa torre a e1, la mateixa ruta del cavall. Un sol esquema, sigui quin sigui l’ordre.",
           "notes": {
             "7": "Les negres tornen a les línies del Giuoco: ja ets al pla principal, només has entrat per una altra porta.",
             "10": "La idea de sempre: recolzar un futur d4.",
-            "16": "El toc final de l'esquema: g4 queda prohibida i la darrera fila respira."
+            "16": "El toc final de l’esquema: g4 queda prohibida i la darrera fila respira."
           }
         },
         "vs Sicilian — Alapin (2...d5)": {
           "name": "Contra la Siciliana — Alapin (2...d5)",
-          "plan": "Tens un centre de tipus peó de dama aïllat i un desenvolupament fàcil. Mantén les peces actives, vigila el peó de d4 i aprofita les línies obertes: els canvis afavoreixen les negres, l'activitat t'afavoreix a tu.",
+          "plan": "Tens un centre de tipus peó de dama aïllat i un desenvolupament fàcil. Mantén les peces actives, vigila el peó de d4 i aprofita les línies obertes: els canvis afavoreixen les negres, l’activitat t’afavoreix a tu.",
           "notes": {
-            "2": "L'Alapin: t'estalvies l'enorme teoria de la Siciliana Oberta i construeixes un gran centre amb d4.",
+            "2": "L’Alapin: t’estalvies l’enorme teoria de la Siciliana Oberta i construeixes un gran centre amb d4.",
             "4": "Canvia abans que les negres juguin ...d4: si recaptura la dama, Sa Majestat queda exposada a jugades que et guanyen temps.",
             "6": "La idea de c3: un centre complet de peons mentre la dama negra és al descobert.",
             "10": "Desfés la clavada amb calma. Cap debilitat, i la pròxima és O-O.",
-            "14": "Reforça d4 abans que les negres hi carreguin: tota la partida gira al voltant d'aquest peó.",
+            "14": "Reforça d4 abans que les negres hi carreguin: tota la partida gira al voltant d’aquest peó.",
             "16": "Recaptura cap al centre. Potser acabaràs amb un peó d aïllat: no passa res, a canvi tens línies obertes i bones caselles."
           }
         },
         "vs Sicilian — Alapin (2...Nf6)": {
           "name": "Contra la Siciliana — Alapin (2...Nf6)",
-          "plan": "El cavall negre va d'una banda a l'altra mentre tu construeixes el centre. Desenvolupa guanyant temps (Bc4 ataca les caselles del cavall), mantén d4 sa i gaudeix d'un avantatge d'espai sense risc.",
+          "plan": "El cavall negre va d’una banda a l’altra mentre tu construeixes el centre. Desenvolupa guanyant temps (Bc4 ataca les caselles del cavall), mantén d4 sa i gaudeix d’un avantatge d’espai sense risc.",
           "notes": {
             "3": "La resposta crítica: ataca e4 abans que juguis d4.",
-            "4": "Avança guanyant temps. El cavall s'ha de tornar a moure i tu guanyes temps per al centre.",
+            "4": "Avança guanyant temps. El cavall s’ha de tornar a moure i tu guanyes temps per al centre.",
             "8": "El centre arriba quan toca, protegit per c3.",
             "12": "Desenvolupa fent una pregunta: el cavall de d5 ja no hi està còmode.",
-            "14": "Conserva l'alfil i clava el cavall de c6: de sobte, recuperar e5 costa molt.",
+            "14": "Conserva l’alfil i clava el cavall de c6: de sobte, recuperar e5 costa molt.",
             "16": "Recaptura amb el cavall i mantén la pressió: la clavada a c6 obliga les negres a desembolicar-se amb compte."
           }
         },
         "vs Sicilian — Alapin (2...e6)": {
           "name": "Contra la Siciliana — Alapin (2...e6)",
-          "plan": "Una estructura de tipus francesa on sovint guanyes la tensió sobre el peó de c5. Juga contra el peó aïllat de d5: bloqueja'l amb un cavall a d4, canvia els defensors de les caselles fosques i pressiona.",
+          "plan": "Una estructura de tipus francesa on sovint guanyes la tensió sobre el peó de c5. Juga contra el peó aïllat de d5: bloqueja’l amb un cavall a d4, canvia els defensors de les caselles fosques i pressiona.",
           "notes": {
             "4": "Ocupa tot el centre: amb ...e6, les negres no poden pressionar-lo aviat amb les peces.",
             "6": "Aclareix la posició: les negres tindran un peó d aïllat per vigilar tota la partida.",
@@ -75,10 +75,10 @@
         },
         "vs French — Exchange": {
           "name": "Contra la Francesa — Canvis",
-          "plan": "Una estructura simètrica on guanya qui es desenvolupa millor. Col·loca els alfils a llocs actius (Bd3+Bg5), posa els cavalls a e5/g3 i prepara un atac al flanc de rei mentre les negres t'imiten amb un temps de retard.",
+          "plan": "Una estructura simètrica on guanya qui es desenvolupa millor. Col·loca els alfils a llocs actius (Bd3+Bg5), posa els cavalls a e5/g3 i prepara un atac al flanc de rei mentre les negres t’imiten amb un temps de retard.",
           "notes": {
             "4": "La variant de canvis: sense cadenes de peons franceses ni debats de teoria. Una partida neta i oberta on les blanques surten primer.",
-            "8": "La millor diagonal de l'alfil: mira h7 durant tot el mig joc.",
+            "8": "La millor diagonal de l’alfil: mira h7 durant tot el mig joc.",
             "12": "Una clavada de veritat: el cavall negre de f6 aguanta tot el flanc de rei.",
             "14": "Flexible: el cavall pot anar per f1–g3 o c4–e5. La simetria només és igualtat si les negres també troben totes les bones caselles.",
             "16": "Una jugada modesta amb un objectiu: més endavant, espai amb b4-b5, i el peó de d4 ja no patirà més."
@@ -86,47 +86,47 @@
         },
         "vs Caro-Kann — Exchange": {
           "name": "Contra la Caro-Kann — Canvis",
-          "plan": "El clàssic atac de tipus Carlsbad: Qb3 pressiona b7, els cavalls van a e5/f3 i després vénen les idees d'atac de minories (b4-b5) o una ofensiva al flanc de rei. Caselles simples, pla clar.",
+          "plan": "El clàssic atac de tipus Carlsbad: Qb3 pressiona b7, els cavalls van a e5/f3 i després vénen les idees d’atac de minories (b4-b5) o una ofensiva al flanc de rei. Caselles simples, pla clar.",
           "notes": {
             "4": "Canvia cap a una estructura que TU coneixes millor: és un gambit de dama, variant de canvis, amb els colors invertits i un temps de més.",
-            "6": "Ocupa la diagonal b1-h7 abans que l'alfil negre la disputi amb ...Bf5.",
+            "6": "Ocupa la diagonal b1-h7 abans que l’alfil negre la disputi amb ...Bf5.",
             "8": "Consolida d4 i obre c2 per a la dama.",
-            "10": "L'alfil pren la millor diagonal fora de la cadena de peons abans que ...Bg4/...e6 ho tanquin.",
-            "12": "Atac doble: b7 penja i d5 nota la pressió. Les negres s'han de contorsionar per cobrir-ho tot.",
-            "14": "Fixa't en l'ordre de jugades: aquest cavall surt primer perquè f3 quedi lliure per al cavall de g1, i així ...Bxf3 no fa mal.",
+            "10": "L’alfil pren la millor diagonal fora de la cadena de peons abans que ...Bg4/...e6 ho tanquin.",
+            "12": "Atac doble: b7 penja i d5 nota la pressió. Les negres s’han de contorsionar per cobrir-ho tot.",
+            "14": "Fixa’t en l’ordre de jugades: aquest cavall surt primer perquè f3 quedi lliure per al cavall de g1, i així ...Bxf3 no fa mal.",
             "16": "Tot està connectat: ara vénen O-O, Rfe1 o la típica Ne5."
           }
         },
         "vs Scandinavian": {
-          "name": "Contra l'Escandinava",
-          "plan": "Portes dos temps d'avantatge en el desenvolupament. Enroca llarg, llança els peons del flanc de rei o trenca amb d5/Ne5: la pressió clàssica contra l'Escandinava. Vigila els trucs amb ...Bxf3 i ...Qxd4; Bd2 i Qe2 els cobreixen.",
+          "name": "Contra l’Escandinava",
+          "plan": "Portes dos temps d’avantatge en el desenvolupament. Enroca llarg, llança els peons del flanc de rei o trenca amb d5/Ne5: la pressió clàssica contra l’Escandinava. Vigila els trucs amb ...Bxf3 i ...Qxd4; Bd2 i Qe2 els cobreixen.",
           "notes": {
-            "2": "Accepta: tota la gràcia de l'Escandinava és que les negres recapturen amb la dama i tu et desenvolupes guanyant temps.",
-            "4": "Desenvolupa i ataca la dama alhora. Jugades gratis com aquesta expliquen per què 1...d5 és rara a l'elit.",
+            "2": "Accepta: tota la gràcia de l’Escandinava és que les negres recapturen amb la dama i tu et desenvolupes guanyant temps.",
+            "4": "Desenvolupa i ataca la dama alhora. Jugades gratis com aquesta expliquen per què 1...d5 és rara a l’elit.",
             "12": "Una gran jugada tranquil·la: cobreix el cavall de c3 (adéu als trucs amb ...Qxc3) i mira la dama de a5 per la diagonal.",
             "14": "Connecta les torres i prepara O-O-O: la torre arribarà a d1, encarada a la columna de la dama negra.",
-            "16": "Enroca CAP A l'atac: el teu rei està segur darrere dels peons a-b-c i totes les peces blanques apunten a la posició negra."
+            "16": "Enroca CAP A l’atac: el teu rei està segur darrere dels peons a-b-c i totes les peces blanques apunten a la posició negra."
           }
         },
         "vs Pirc / Modern — Classical": {
           "name": "Contra la Pirc / Moderna — Clàssica",
           "plan": "Respon al fianchetto amb calma: centre complet, desenvolupament natural i enroc curt. Quan arribi ...e5, mantén la tensió o canvia si et convé; amb més espai, cada canvi facilita la teva partida, no la seva.",
           "notes": {
-            "6": "L'esquema clàssic: cap allau de peons per memoritzar, només bones caselles i un avantatge d'espai.",
-            "8": "Modesta però ideal: et deixa enrocar i més endavant recolza g4 o f3 si la partida s'esmola.",
-            "12": "Frena l'expansió negra al flanc de dama abans que comenci: ...b5 era la principal font de joc de la Pirc.",
+            "6": "L’esquema clàssic: cap allau de peons per memoritzar, només bones caselles i un avantatge d’espai.",
+            "8": "Modesta però ideal: et deixa enrocar i més endavant recolza g4 o f3 si la partida s’esmola.",
+            "12": "Frena l’expansió negra al flanc de dama abans que comenci: ...b5 era la principal font de joc de la Pirc.",
             "15": "Les negres per fi reclamen el centre: la ruptura típica de la Pirc.",
             "16": "Ho conserves tot: g4 queda vedada a les peces negres i pots triar entre dxe5, d5 o simplement Be3."
           }
         },
         "vs Philidor (2...d6)": {
           "name": "Contra la Philidor (2...d6)",
-          "plan": "Obre el centre i gaudeix de més espai i de peces més lliures. Reagrupa't amb Re1/Bf1 (un truc de la Ruy López) i més endavant expandeix-te amb a4/b4 o f4. Les negres són sòlides però passives; la paciència guanya.",
+          "plan": "Obre el centre i gaudeix de més espai i de peces més lliures. Reagrupa’t amb Re1/Bf1 (un truc de la Ruy López) i més endavant expandeix-te amb a4/b4 o f4. Les negres són sòlides però passives; la paciència guanya.",
           "notes": {
-            "3": "La Philidor: sòlida, però tapa l'alfil de f8. Les negres accepten una posició estreta.",
-            "4": "Colpeja de seguida: si les negres aguanten el centre amb línies de ...Nd7, conserves l'espai; si juguen ...exd4, la posició s'obre per a les teves peces, que són millors.",
+            "3": "La Philidor: sòlida, però tapa l’alfil de f8. Les negres accepten una posició estreta.",
+            "4": "Colpeja de seguida: si les negres aguanten el centre amb línies de ...Nd7, conserves l’espai; si juguen ...exd4, la posició s’obre per a les teves peces, que són millors.",
             "14": "Les torres van a la columna (semi)oberta, i això desanima qualsevol truc amb la ruptura ...d5.",
-            "16": "El mateix reagrupament que acaben de fer les negres: l'alfil es recol·loca, la torre conserva la columna i després vénen g3/Bg2 o b3/Bb2."
+            "16": "El mateix reagrupament que acaben de fer les negres: l’alfil es recol·loca, la torre conserva la columna i després vénen g3/Bg2 o b3/Bb2."
           }
         },
         "vs Petroff (2...Nf6)": {
@@ -137,7 +137,7 @@
             "4": "Captura primer. El parany famós: si les negres capturen de seguida amb 3...Nxe4?, 4.Qe2! guanya material, perquè el cavall queda clavat davant un escac a la descoberta.",
             "8": "Reclama el centre mentre el cavall de e4 decideix on viure.",
             "14": "El cop principal: ataca d5 perquè el cavall de e4 perdi el seu punt de suport.",
-            "16": "Aparta't i mantén la tensió: el cavall de b4 haurà de tornar enrere, i cxd5 penja sobre les negres."
+            "16": "Aparta’t i mantén la tensió: el cavall de b4 haurà de tornar enrere, i cxd5 penja sobre les negres."
           }
         }
       }
@@ -148,81 +148,81 @@
       "lines": {
         "London vs ...d5 (classical)": {
           "name": "Londres contra ...d5 (clàssica)",
-          "plan": "El somni complet de la Londres: cavall a e5, s'hi afegeix el peó f o la dama, i les peces s'amunteguen davant del rei negre. Si les negres canvien a e5, recaptura cap al flanc de rei i ataca per la columna f o amb h4-h5.",
+          "plan": "El somni complet de la Londres: cavall a e5, s’hi afegeix el peó f o la dama, i les peces s’amunteguen davant del rei negre. Si les negres canvien a e5, recaptura cap al flanc de rei i ataca per la columna f o amb h4-h5.",
           "notes": {
-            "2": "La jugada de la Londres: l'alfil SURT abans que e3 tanqui la porta. La resta és el mateix mur: e3, Nf3, Bd3, c3, Nbd2.",
-            "4": "El mur s'aixeca. Fixa't que l'alfil ja és a fora.",
+            "2": "La jugada de la Londres: l’alfil SURT abans que e3 tanqui la porta. La resta és el mateix mur: e3, Nf3, Bd3, c3, Nbd2.",
+            "4": "El mur s’aixeca. Fixa’t que l’alfil ja és a fora.",
             "7": "Les negres ofereixen canviar el teu alfil bo: no capturis mai; fes que decideixin elles.",
-            "8": "Retira'l. Si algun dia les negres capturen a g3, hxg3 obre la columna h directa al seu rei: una columna d'atac gratis.",
+            "8": "Retira’l. Si algun dia les negres capturen a g3, hxg3 obre la columna h directa al seu rei: una columna d’atac gratis.",
             "12": "El segon maó del mur: d4 és ara una roca, facin el que facin les negres.",
-            "14": "Aquest cavall cobreix e4/c4 i allibera l'altre per a la casella estrella...",
-            "16": "La recompensa de la Londres: el cavall s'instal·la a e5 per quedar-s'hi. Si ...Nxe5 dxe5, el peó fa forquilla a d6 i f6 i les teves peces inunden el flanc de rei."
+            "14": "Aquest cavall cobreix e4/c4 i allibera l’altre per a la casella estrella...",
+            "16": "La recompensa de la Londres: el cavall s’instal·la a e5 per quedar-s’hi. Si ...Nxe5 dxe5, el peó fa forquilla a d6 i f6 i les teves peces inunden el flanc de rei."
           }
         },
         "London vs ...c5": {
           "name": "Londres contra ...c5",
           "plan": "El mateix esquema i la mateixa recompensa amb Ne5. Contra la pressió de ...c5+...Qb6, Qb1 o Qc1 defensen b2 amb calma: que el peó b no et distregui mai del pla al flanc de rei.",
           "notes": {
-            "3": "Les negres ataquen d4 de seguida: c3 l'aguantarà sempre.",
-            "8": "Ara d4 està defensat tres vegades. La Londres tampoc tem ...cxd4: exd4 t'obre la columna e.",
+            "3": "Les negres ataquen d4 de seguida: c3 l’aguantarà sempre.",
+            "8": "Ara d4 està defensat tres vegades. La Londres tampoc tem ...cxd4: exd4 t’obre la columna e.",
             "10": "La mateixa rutina a cada partida: primer aquest cavall, perquè Ne5 quedi disponible per a la seva parella.",
             "16": "Aquí el tens una altra vegada. Recolzat per d4 i les idees amb f4, el cavall ofega tota la posició negra."
           }
         },
         "London vs King's Indian setup": {
-          "name": "Londres contra l'esquema de l'Índia de rei",
-          "plan": "Contra el fianchetto, mantén-te compacte: h3 protegeix l'alfil i c3 aguanta el centre. Respon a ...e5 amb dxe5 i aprofita la columna d; respon a ...Nh5 amb Bh2, on l'alfil conserva la diagonal. Juga al flanc de dama amb c4/b4 si el centre segueix tancat.",
+          "name": "Londres contra l’esquema de l’Índia de rei",
+          "plan": "Contra el fianchetto, mantén-te compacte: h3 protegeix l’alfil i c3 aguanta el centre. Respon a ...e5 amb dxe5 i aprofita la columna d; respon a ...Nh5 amb Bh2, on l’alfil conserva la diagonal. Juga al flanc de dama amb c4/b4 si el centre segueix tancat.",
           "notes": {
-            "3": "Un esquema d'Índia de rei: les negres apuntaran al teu centre amb ...e5 o ...d6/...Nbd7.",
-            "8": "Aquí és més tranquil que Bd3: contra un alfil de g6, l'alfil de caselles clares és un actor secundari, no l'estrella.",
-            "10": "Primer el rei. A la Londres no et fan mat a l'obertura.",
-            "12": "Una petita jugada clau: dona a l'alfil de f4 l'amagatall de h2, i així ...Nh5 o ...e5-e4 no el guanyen mai.",
-            "14": "El ciment de sempre. Si ara arriba ...e5: dxe5 dxe5, retira l'alfil i domina la columna d.",
+            "3": "Un esquema d’Índia de rei: les negres apuntaran al teu centre amb ...e5 o ...d6/...Nbd7.",
+            "8": "Aquí és més tranquil que Bd3: contra un alfil de g6, l’alfil de caselles clares és un actor secundari, no l’estrella.",
+            "10": "Primer el rei. A la Londres no et fan mat a l’obertura.",
+            "12": "Una petita jugada clau: dona a l’alfil de f4 l’amagatall de h2, i així ...Nh5 o ...e5-e4 no el guanyen mai.",
+            "14": "El ciment de sempre. Si ara arriba ...e5: dxe5 dxe5, retira l’alfil i domina la columna d.",
             "16": "Esquema completat. Ara: a4 per guanyar espai, o Qb1/Re1 segons on es comprometin les negres."
           }
         },
         "London vs ...e6 (Queen's-side setup)": {
           "name": "Londres contra ...e6 (esquema de flanc de dama)",
-          "plan": "Les negres retarden ...d5, però normalment l'acaben jugant: transposes al pla clàssic. Nbd2, Bd3 i després Ne5 amb una ofensiva al flanc de rei. Un sistema, moltes portes d'entrada.",
+          "plan": "Les negres retarden ...d5, però normalment l’acaben jugant: transposes al pla clàssic. Nbd2, Bd3 i després Ne5 amb una ofensiva al flanc de rei. Un sistema, moltes portes d’entrada.",
           "notes": {
-            "8": "Sempre aquest maó abans de Bd3: si no, ...Nb4 empaita l'alfil.",
+            "8": "Sempre aquest maó abans de Bd3: si no, ...Nb4 empaita l’alfil.",
             "10": "De tornada a terreny conegut: és la Londres clàssica amb una jugada de més per a cada bàndol.",
             "16": "La jugada al voltant de la qual es construeix tot el sistema: consolida-la amb f4 o canvia cap a una allau de peons al flanc de rei."
           }
         },
         "London vs ...c6 + ...Bf5 (Slav-like)": {
           "name": "Londres contra ...c6 + ...Bf5 (estil Eslava)",
-          "plan": "Quan les negres copien la teva idea de l'alfil, canvia'l i reclama el centre: Qxd3 ho deixa tot endreçat i després e4! converteix el teu mur «avorrit» en un autèntic centre de peons. De la simetria en surts amb la partida més lliure.",
+          "plan": "Quan les negres copien la teva idea de l’alfil, canvia’l i reclama el centre: Qxd3 ho deixa tot endreçat i després e4! converteix el teu mur «avorrit» en un autèntic centre de peons. De la simetria en surts amb la partida més lliure.",
           "notes": {
-            "7": "Les negres també desenvolupen l'alfil fora del mur: la jugada de la còpia.",
-            "8": "Ofereix el canvi: les opcions de recaptura amb la columna e fan que la posició simètrica t'afavoreixi discretament.",
+            "7": "Les negres també desenvolupen l’alfil fora del mur: la jugada de la còpia.",
+            "8": "Ofereix el canvi: les opcions de recaptura amb la columna e fan que la posició simètrica t’afavoreixi discretament.",
             "10": "La dama està perfectament col·locada: recolza la ruptura e4 que arriba.",
             "12": "Ara els dos cavalls apunten a e4.",
-            "16": "La ruptura que guanya el centre: el canvi a e4 et deixa més lliure, i si l'ignoren pots avançar e5 amb espai."
+            "16": "La ruptura que guanya el centre: el canvi a e4 et deixa més lliure, i si l’ignoren pots avançar e5 amb espai."
           }
         },
         "London vs ...Qb6 (the b2 poke)": {
           "name": "Londres contra ...Qb6 (la pressió a b2)",
-          "plan": "Qc1 neutralitza del tot la sortida de la dama; la dama negra sol acabar mal col·locada a b6. I tornem a la normalitat: Bd3/Bg3, O-O, Nbd2-e5 i l'ofensiva habitual al flanc de rei.",
+          "plan": "Qc1 neutralitza del tot la sortida de la dama; la dama negra sol acabar mal col·locada a b6. I tornem a la normalitat: Bd3/Bg3, O-O, Nbd2-e5 i l’ofensiva habitual al flanc de rei.",
           "notes": {
-            "9": "La pressió més molesta contra la Londres: la dama ataca b2, que l'alfil ha deixat enrere.",
+            "9": "La pressió més molesta contra la Londres: la dama ataca b2, que l’alfil ha deixat enrere.",
             "10": "La resposta tranquil·la: b2 queda cobert, no crees cap debilitat i, de totes maneres, la teva dama ja anava per aquí (cap a h6).",
             "16": "Una mica més humil que d3 (la dama vigila els afers de la columna c), però el pla no canvia: O-O, Ne5, joc al flanc de rei."
           }
         },
         "London vs Modern (...d6 + ...g6)": {
           "name": "Londres contra la Moderna (...d6 + ...g6)",
-          "plan": "La mateixa recepta antifianchetto que contra l'Índia de rei: h3, c3, centre pacient. Si les negres guanyen espai amb ...e5, canvia a e5 i ataca d6 per la columna. L'expansió al flanc de dama amb a4-a5 és la teva victòria lenta.",
+          "plan": "La mateixa recepta antifianchetto que contra l’Índia de rei: h3, c3, centre pacient. Si les negres guanyen espai amb ...e5, canvia a e5 i ataca d6 per la columna. L’expansió al flanc de dama amb a4-a5 és la teva victòria lenta.",
           "notes": {
-            "12": "L'amagatall de l'alfil a h2, com sempre contra els esquemes amb ...g6.",
-            "16": "Fet. A partir d'aquí: a4, Qb1 o Re1. Tria el flanc on les negres siguin més febles."
+            "12": "L’amagatall de l’alfil a h2, com sempre contra els esquemes amb ...g6.",
+            "16": "Fet. A partir d’aquí: a4, Qb1 o Re1. Tria el flanc on les negres siguin més febles."
           }
         },
         "London vs ...Bg4 (the pin)": {
           "name": "Londres contra ...Bg4 (la clavada)",
-          "plan": "Convida al canvi a f3: la recaptura amb la dama és còmoda i et quedes la parella d'alfils. Després, el centre habitual (Nd2, Bd3, O-O) amb el pla a llarg termini d'e4 i una avançada lenta al flanc de rei.",
+          "plan": "Convida al canvi a f3: la recaptura amb la dama és còmoda i et quedes la parella d’alfils. Després, el centre habitual (Nd2, Bd3, O-O) amb el pla a llarg termini d’e4 i una avançada lenta al flanc de rei.",
           "notes": {
-            "7": "La clavada: l'intent més agut contra l'esquema tranquil de la Londres.",
+            "7": "La clavada: l’intent més agut contra l’esquema tranquil de la Londres.",
             "8": "Fes la pregunta de seguida: retirar-se (perd temps) o canviar (et dona els alfils).",
             "10": "Totalment segura: la dama fins i tot mira b7 i recolza un e4 posterior.",
             "12": "Cap a la feina de recolzar e4. Les negres han donat un alfil per un cavall i la parella és teva: mantén la posició rica i evita més canvis.",
@@ -231,50 +231,50 @@
         },
         "London vs early ...cxd4 (open centre)": {
           "name": "Londres contra ...cxd4 aviat (centre obert)",
-          "plan": "Amb la columna c semioberta, més endavant col·loca la torre de dama a c1 i juga contra el flanc de dama negre. La pregunta h3 a l'alfil de g4 i una Ne5 al moment oportú continuen sent les teves eines habituals.",
+          "plan": "Amb la columna c semioberta, més endavant col·loca la torre de dama a c1 i juga contra el flanc de dama negre. La pregunta h3 a l’alfil de g4 i una Ne5 al moment oportú continuen sent les teves eines habituals.",
           "notes": {
             "5": "Les negres alliberen la tensió aviat: recaptura cap al centre.",
-            "6": "Ara la columna e és semioberta per a la teva torre, i l'alfil fora de la cadena és exactament on vol ser.",
+            "6": "Ara la columna e és semioberta per a la teva torre, i l’alfil fora de la cadena és exactament on vol ser.",
             "14": "Amb la tensió de c resolta, la dama troba feina: b7 és sensible i la columna b et crida.",
-            "16": "La pregunta habitual a l'alfil: cada retirada o canvi millora una mica la teva posició."
+            "16": "La pregunta habitual a l’alfil: cada retirada o canvi millora una mica la teva posició."
           }
         },
         "London vs ...Be7 (flexible QGD style)": {
           "name": "Londres contra ...Be7 (estil GDR flexible)",
-          "plan": "Contra la modesta ...Be7, ocupa aviat el punt fort d'e5 i construeix-hi al darrere: f4 si t'ho permeten, aixecades amb Qf3/Rf3 en el millor dels casos, o simplement un avantatge sòlid amb més espai. Aquí la Londres es juga sola.",
+          "plan": "Contra la modesta ...Be7, ocupa aviat el punt fort d’e5 i construeix-hi al darrere: f4 si t’ho permeten, aixecades amb Qf3/Rf3 en el millor dels casos, o simplement un avantatge sòlid amb més espai. Aquí la Londres es juga sola.",
           "notes": {
-            "7": "Les negres rebutgen l'oferta de canvi amb ...Bd6: un problema menys per al teu alfil de caselles fosques.",
-            "16": "Sense l'alfil de d6 per discutir-lo, el cavall encara és més fort aquí. Amb f4 la jugada següent, serà permanent."
+            "7": "Les negres rebutgen l’oferta de canvi amb ...Bd6: un problema menys per al teu alfil de caselles fosques.",
+            "16": "Sense l’alfil de d6 per discutir-lo, el cavall encara és més fort aquí. Amb f4 la jugada següent, serà permanent."
           }
         }
       }
     },
     "white-e4-attacking": {
-      "title": "1.e4 — D'atac",
+      "title": "1.e4 — D’atac",
       "blurb": "Línies agudes per agafar la iniciativa: gambits amb 1.e4 e5 i esquemes incisius contra la Siciliana, la Francesa i la Caro-Kann.",
       "lines": {
         "Evans Gambit (accepted)": {
           "name": "Gambit Evans (acceptat)",
-          "plan": "Tens un peó menys, un centre monstruós i totes les peces apuntant al rei. Conserva la iniciativa a qualsevol preu: obre columnes, impedeix l'enroc negre (Ba3!) i converteix l'atac abans que les negres es consolidin. A l'Evans s'ataca: les jugades tranquil·les donen futur al peó de més.",
+          "plan": "Tens un peó menys, un centre monstruós i totes les peces apuntant al rei. Conserva la iniciativa a qualsevol preu: obre columnes, impedeix l’enroc negre (Ba3!) i converteix l’atac abans que les negres es consolidin. A l’Evans s’ataca: les jugades tranquil·les donen futur al peó de més.",
           "notes": {
             "6": "El gambit Evans: un peó de flanc compra dos temps i un centre gegant. Fischer en deia «una lliçó de temps».",
-            "8": "Ataca l'alfil i prepara d4: el peó torna per construir el centre que les negres t'acaben d'ajudar a fer.",
+            "8": "Ataca l’alfil i prepara d4: el peó torna per construir el centre que les negres t’acaben d’ajudar a fer.",
             "10": "La idea: un centre complet, línies obertes i les negres ja dues jugades enrere en el desenvolupament.",
             "12": "Primer la seguretat del rei, DESPRÉS la tempesta. El peó de d4 pot esperar: està clavat a la teva iniciativa.",
-            "14": "Centre restablert. Mira les peces negres: l'alfil fora de joc a a5 i els cavalls passius. Això és el que ha comprat el peó.",
+            "14": "Centre restablert. Mira les peces negres: l’alfil fora de joc a a5 i els cavalls passius. Això és el que ha comprat el peó.",
             "16": "Obre-ho tot! Cada línia oberta afavoreix qui està més ben desenvolupat, i aquest ets tu de lluny.",
             "18": "El cop mortal: aquest alfil talla la diagonal f8–a3 i el rei negre queda atrapat al centre. Ara porta les torres a e1/c1."
           }
         },
         "Two Knights — 4.Ng5 (main, 5...Na5)": {
           "name": "Dos Cavalls — 4.Ng5 (principal, 5...Na5)",
-          "plan": "Has guanyat un peó net; les negres tenen activitat. Torna algun temps amb calma (Be2, Nf3, d3), desembolica't i arriba a un mig joc on el peó de més simplement compti. Ara cobdícia, després tècnica.",
+          "plan": "Has guanyat un peó net; les negres tenen activitat. Torna algun temps amb calma (Be2, Nf3, d3), desembolica’t i arriba a un mig joc on el peó de més simplement compti. Ara cobdícia, després tècnica.",
           "notes": {
             "6": "La jugada més exigent de la quarta jugada en tots els escacs: f7 rep dos atacs i les negres no tenen cap defensa neta.",
-            "8": "Captura: cada resposta negra té un cost. La línia principal 5...Na5 dona un peó a canvi d'activitat.",
-            "10": "Fes que el peó de més sigui real: aquest escac força ...c6 i afebleix encara més l'estructura negra.",
+            "8": "Captura: cada resposta negra té un cost. La línia principal 5...Na5 dona un peó a canvi d’activitat.",
+            "10": "Fes que el peó de més sigui real: aquest escac força ...c6 i afebleix encara més l’estructura negra.",
             "12": "Segon peó: en tornaràs un per tenir una partida còmoda, però fes que les negres demostrin la compensació.",
-            "14": "La retirada a sang freda (més forta que les línies amb d3): conserva l'alfil i neutralitza les bateries ...Qc7/...Bd6.",
+            "14": "La retirada a sang freda (més forta que les línies amb d3): conserva l’alfil i neutralitza les bateries ...Qc7/...Bd6.",
             "16": "Retirada amb pla: quan avanci ...e4, Ne5! centralitza i el cavall hi està magnífic. Mira el kit de les negres per veure què volen; aquí simplement segueixes amb un peó de més."
           }
         },
@@ -282,46 +282,46 @@
           "name": "Atac Fegatello (5...Nxd5?!)",
           "plan": "Una peça per dos peons i la caça del rei. Continua fent escacs i desenvolupant amb guany de temps: idees amb d4, Bf4, O-O-O. El rei negre a e6 ha de sobreviure vint jugades de pressió; un error i és mat. Coneix les idees, no només les jugades: ataca les caselles d5 i f7 i mantén la dama a prop.",
           "notes": {
-            "9": "La recaptura natural és l'error famós: ara el sacrifici funciona.",
+            "9": "La recaptura natural és l’error famós: ara el sacrifici funciona.",
             "10": "El Fegatello: tot un cavall per treure el rei al descobert. Incorrecte? Les màquines diuen que per poc; els humans no hi sobreviuen mai.",
             "12": "La dama entra amb escac i ataca d5: el rei negre ha de PUJAR al tauler per aguantar el cavall.",
-            "14": "Carrega sobre d5. Cada jugada de desenvolupament porta una amenaça: per això l'atac s'alimenta sol.",
-            "16": "Centralitza i mantén vives les dues amenaces (d5 i xarxes de mat a f5). El rei a e6 tapa tot l'exèrcit negre.",
-            "18": "Demana amb calma al cavall de b4 que marxi: era l'únic defensor que treballava de veritat.",
-            "20": "Obre el centre sobre el rei atrapat: després Bf4/O-O-O, s'hi sumen totes les peces i el cavall de més de les negres ho mira des de a6."
+            "14": "Carrega sobre d5. Cada jugada de desenvolupament porta una amenaça: per això l’atac s’alimenta sol.",
+            "16": "Centralitza i mantén vives les dues amenaces (d5 i xarxes de mat a f5). El rei a e6 tapa tot l’exèrcit negre.",
+            "18": "Demana amb calma al cavall de b4 que marxi: era l’únic defensor que treballava de veritat.",
+            "20": "Obre el centre sobre el rei atrapat: després Bf4/O-O-O, s’hi sumen totes les peces i el cavall de més de les negres ho mira des de a6."
           }
         },
         "Scotch Gambit (Møller-style)": {
           "name": "Gambit escocès (estil Møller)",
-          "plan": "L'avanç d5 parteix la posició negra en dues. Continua amb Re1 i Rxe4 recupera el material amb una iniciativa que dura; o les negres tornen la peça i surts amb millor estructura. Estudia les idees que hi ha darrere de d5: és una forquilla de conceptes, no només de caselles.",
+          "plan": "L’avanç d5 parteix la posició negra en dues. Continua amb Re1 i Rxe4 recupera el material amb una iniciativa que dura; o les negres tornen la peça i surts amb millor estructura. Estudia les idees que hi ha darrere de d5: és una forquilla de conceptes, no només de caselles.",
           "notes": {
-            "4": "Obre el centre de seguida: l'esperit del gambit, desenvolupament abans que material.",
+            "4": "Obre el centre de seguida: l’esperit del gambit, desenvolupament abans que material.",
             "6": "Ofereix el peó d (una altra vegada): capturar-lo costa dos temps més a les negres mentre tu enroques i ataques f7.",
-            "10": "Centre restablert, l'alfil ha de decidir i comença la diversió.",
+            "10": "Centre restablert, l’alfil ha de decidir i comença la diversió.",
             "13": "Les negres es queden el peó i et reten a demostrar-ho: la prova crítica.",
             "15": "Coherència: les negres eliminen el cavall per conservar el peó de més.",
-            "16": "El cop famós: ignora l'alfil, ataca c6 i obre totes les línies. Després de ...Bf6, Re1 recupera la peça amb interessos."
+            "16": "El cop famós: ignora l’alfil, ataca c6 i obre totes les línies. Després de ...Bf6, Re1 recupera la peça amb interessos."
           }
         },
         "vs Sicilian — Grand Prix Attack": {
           "name": "Contra la Siciliana — Atac Gran Premi",
           "plan": "El clàssic atac per la columna f: Qe1–h4, f5 en el moment just, Bh6 per canviar el defensor i, si cal, aixecar una torre. El contrajoc negre al flanc de dama et fa la cursa: no aixequis el peu, en flancs oposats el temps compta més que el material.",
           "notes": {
-            "2": "L'ordre de jugades intel·ligent: esquiva 2.f4 d5! i f4 arriba igualment la jugada següent.",
+            "2": "L’ordre de jugades intel·ligent: esquiva 2.f4 d5! i f4 arriba igualment la jugada següent.",
             "4": "El Gran Premi: anuncies el pla a la tercera jugada. Peó a f5 i peces cap al rei.",
-            "8": "Apunta a f7 mentre és tou; contra els esquemes amb ...e6, l'alfil es retira a b3 i conserva la diagonal.",
+            "8": "Apunta a f7 mentre és tou; contra els esquemes amb ...e6, l’alfil es retira a b3 i conserva la diagonal.",
             "12": "Un centre modest a propòsit: la feina dels peons és alliberar les peces per al flanc de rei, no guanyar el centre.",
             "14": "La maniobra típica: la dama gira cap a h4, on les idees de mat amb f5/Bh6/Ng5 apareixen soles.",
-            "16": "Mantén viu l'alfil i alta la tensió: exd5 només quan obri línies cap al rei."
+            "16": "Mantén viu l’alfil i alta la tensió: exd5 només quan obri línies cap al rei."
           }
         },
         "vs Sicilian — Open, English Attack": {
           "name": "Contra la Siciliana — Oberta, Atac anglès",
           "plan": "Enrocs oposats vol dir una cursa pura: g4-g5 esquinça el flanc de rei mentre les negres avancen ...b5. Mana la velocitat: cada jugada que no ataca és una jugada perduda. Canvia els defensors negres, mai els teus atacants.",
           "notes": {
-            "4": "La Siciliana Oberta: la resposta més coherent i més temuda. Ocupa el centre i desenvolupa't més de pressa.",
-            "10": "L'esquema de l'Atac anglès: Be3+f3+Qd2+O-O-O, una sola recepta contra tota la Najdorf.",
-            "14": "La columna vertebral: defensa e4, recolza g4 i dona refugi al teu rei després de l'enroc llarg.",
+            "4": "La Siciliana Oberta: la resposta més coherent i més temuda. Ocupa el centre i desenvolupa’t més de pressa.",
+            "10": "L’esquema de l’Atac anglès: Be3+f3+Qd2+O-O-O, una sola recepta contra tota la Najdorf.",
+            "14": "La columna vertebral: defensa e4, recolza g4 i dona refugi al teu rei després de l’enroc llarg.",
             "16": "Bateria de dama i alfil: més endavant idees amb Bh6, i O-O-O ja està a punt.",
             "18": "Reis a flancs oposats: ara és una lluita a ganivetades, i els teus peons g/h són els ganivets.",
             "20": "Comença la tempesta. g5 fa fora el cavall de f6 (el millor defensor del rei) i després h4-h5 arrenca la coberta."
@@ -329,33 +329,33 @@
         },
         "vs French — Advance": {
           "name": "Contra la Francesa — Avanç",
-          "plan": "La clau és l'espai: e5 ofega les negres per sempre. Aguanta d4 (l'objectiu etern de la Francesa) i després expandeix-te al flanc de rei: Bd3, O-O i les idees f4-f5 o Nf3-g5. Si el flanc de dama es posa tens, b4-b5 guanya encara més espai.",
+          "plan": "La clau és l’espai: e5 ofega les negres per sempre. Aguanta d4 (l’objectiu etern de la Francesa) i després expandeix-te al flanc de rei: Bd3, O-O i les idees f4-f5 o Nf3-g5. Si el flanc de dama es posa tens, b4-b5 guanya encara més espai.",
           "notes": {
-            "4": "L'Avanç: guanya espai, tanca el centre i deixa l'alfil de c8 enterrat darrere dels seus propis peons.",
-            "10": "La jugada principal moderna: prepara b4, guanya espai al flanc de dama i neutralitza tot l'esquema de pressió de ...c5.",
-            "12": "Expandeix-te guanyant temps: el peó de c5 s'ha de definir i el flanc de dama es converteix en un segon front.",
-            "16": "L'alfil defensa d4 des de l'emboscada. Les peces negres ataquen d4 tres vegades i tu el defenses tres vegades: l'empat de forces típic de la Francesa, i l'espai és teu."
+            "4": "L’Avanç: guanya espai, tanca el centre i deixa l’alfil de c8 enterrat darrere dels seus propis peons.",
+            "10": "La jugada principal moderna: prepara b4, guanya espai al flanc de dama i neutralitza tot l’esquema de pressió de ...c5.",
+            "12": "Expandeix-te guanyant temps: el peó de c5 s’ha de definir i el flanc de dama es converteix en un segon front.",
+            "16": "L’alfil defensa d4 des de l’emboscada. Les peces negres ataquen d4 tres vegades i tu el defenses tres vegades: l’empat de forces típic de la Francesa, i l’espai és teu."
           }
         },
         "vs Caro-Kann — Panov Attack": {
           "name": "Contra la Caro-Kann — Atac Panov",
           "plan": "El millor del peó de dama aïllat: aprofita que el peó d estreny les negres per tenir peces actives. Bg5, Rc1/Re1, Ne5 i la ruptura clàssica d5 o els patrons del sacrifici grec amb Bxh7. Els canvis porten a la igualtat: mantén el tauler ple i les peces apuntant al rei.",
           "notes": {
-            "6": "La Panov: l'«avorrida» Caro-Kann es converteix de sobte en una batalla oberta i d'iniciativa amb peó de dama aïllat, i amb les teves condicions.",
-            "12": "Arribes a l'estructura clàssica: el teu futur peó passat de d4 contra un esquema negre sòlid però passiu.",
-            "16": "Tot natural: després Re1, idees de bateria amb a3/Bc2-Qd3 o Ne4. Les eines d'atac del peó de dama aïllat."
+            "6": "La Panov: l’«avorrida» Caro-Kann es converteix de sobte en una batalla oberta i d’iniciativa amb peó de dama aïllat, i amb les teves condicions.",
+            "12": "Arribes a l’estructura clàssica: el teu futur peó passat de d4 contra un esquema negre sòlid però passiu.",
+            "16": "Tot natural: després Re1, idees de bateria amb a3/Bc2-Qd3 o Ne4. Les eines d’atac del peó de dama aïllat."
           }
         },
         "Scotch Gambit — 4...Nf6 (declined)": {
           "name": "Gambit escocès — 4...Nf6 (rebutjat)",
-          "plan": "Un duel d'estructures: el teu avantatge de desenvolupament i la pressió a c6/d4 contra el cavall central negre. Juga contra els peons de c6: Nd2 o Qe2 discuteixen el cavall de e4, les idees amb c4 fixen les debilitats i les teves peces continuen més lliures.",
+          "plan": "Un duel d’estructures: el teu avantatge de desenvolupament i la pressió a c6/d4 contra el cavall central negre. Juga contra els peons de c6: Nd2 o Qe2 discuteixen el cavall de e4, les idees amb c4 fixen les debilitats i les teves peces continuen més lliures.",
           "notes": {
-            "7": "Les negres rebutgen el gambit i contraataquen: l'elecció sòlida i moderna.",
-            "8": "Avança guanyant temps: el cavall ha de saltar i la posició s'obre línia a línia, a favor teu.",
-            "10": "Clava, protegeix l'avançada d'e5 i mantén viva la iniciativa.",
-            "12": "Recupera el peó amb un bon cavall central. Material igualat i l'activitat és teva.",
+            "7": "Les negres rebutgen el gambit i contraataquen: l’elecció sòlida i moderna.",
+            "8": "Avança guanyant temps: el cavall ha de saltar i la posició s’obre línia a línia, a favor teu.",
+            "10": "Clava, protegeix l’avançada d’e5 i mantén viva la iniciativa.",
+            "12": "Recupera el peó amb un bon cavall central. Material igualat i l’activitat és teva.",
             "14": "Canvia en el moment just: els peons negres queden doblats i c6 esdevé un objectiu permanent.",
-            "16": "Seguretat i amenaça (ara ve f3, que ataca e4). A partir d'aquí, pressió sobre c6 i millors peces menors."
+            "16": "Seguretat i amenaça (ara ve f3, que ataca e4). A partir d’aquí, pressió sobre c6 i millors peces menors."
           }
         }
       }
@@ -366,9 +366,9 @@
       "lines": {
         "Advance — Short system (...c5 break)": {
           "name": "Avanç — Sistema Short (ruptura ...c5)",
-          "plan": "El teu joc és al flanc de dama i contra d4: acumula-hi forces amb ...Nc6, ...Qb6, ...Rc8 a la columna c semioberta. El peó d'e5 t'estreny una mica, però el teu alfil ha sortit ABANS de ...e6: tota la gràcia de la Caro-Kann respecte de la Francesa.",
+          "plan": "El teu joc és al flanc de dama i contra d4: acumula-hi forces amb ...Nc6, ...Qb6, ...Rc8 a la columna c semioberta. El peó d’e5 t’estreny una mica, però el teu alfil ha sortit ABANS de ...e6: tota la gràcia de la Caro-Kann respecte de la Francesa.",
           "notes": {
-            "5": "La promesa de la Caro-Kann complerta: l'alfil surt abans que ...e6 el tapi. Compara-ho amb el pobre alfil francès de c8.",
+            "5": "La promesa de la Caro-Kann complerta: l’alfil surt abans que ...e6 el tapi. Compara-ho amb el pobre alfil francès de c8.",
             "9": "El cop típic: ataca d4 mentre les blanques encara es desenvolupen. Tota la carrera del peó de c6 era per preparar això.",
             "11": "Canvia quan et convé: el cavall que recaptura es pot qüestionar després amb ...Bc5 o ...Nc6.",
             "13": "Desenvolupament flexible: aquest cavall pot anar a c6 o g6, i després vindrà ...Nd7. Lent ja va bé; la posició és tancada.",
@@ -377,80 +377,80 @@
         },
         "Exchange Variation": {
           "name": "Variant de canvis",
-          "plan": "Una estructura de gambit de dama invertida on coneixes els plans: acaba el desenvolupament sense presses i després tria entre ...Rc8 amb pressió a la columna c o la ruptura ...e5 quan tinguis les peces a lloc. L'«atac» blanc aquí és sobretot un rumor: iguala i després juga millor.",
+          "plan": "Una estructura de gambit de dama invertida on coneixes els plans: acaba el desenvolupament sense presses i després tria entre ...Rc8 amb pressió a la columna c o la ruptura ...e5 quan tinguis les peces a lloc. L’«atac» blanc aquí és sobretot un rumor: iguala i després juga millor.",
           "notes": {
             "4": "La variant de canvis: les blanques eviten la teoria, però et regalen un desenvolupament lliure i natural.",
             "7": "Desenvolupa pressionant d4 abans que les blanques juguin c3 amb comoditat... Normalment ho fan igualment, però el temps et segueix ajudant.",
             "9": "Caselles naturals, cap debilitat: la recepta de la Caro-Kann.",
             "11": "La teva «peça problema» troba feina: provoca debilitats o es canvia pel futur cavall de f3.",
-            "13": "Defensa b7 amb calma. Fixa't que ...Na5, que ataca la dama, també és un recurs si les blanques pressionen.",
+            "13": "Defensa b7 amb calma. Fixa’t que ...Na5, que ataca la dama, també és un recurs si les blanques pressionen.",
             "15": "Estructura completa. Ara ...Bd6 o ...Be7, enroca, i la partida és del tot igualada i encara té joc."
           }
         },
         "Classical (4...Bf5 main line)": {
           "name": "Clàssica (línia principal 4...Bf5)",
-          "plan": "La famosa Caro-Kann «avorrida però bonica»: la teva estructura no té debilitats, els peons h4-h5 que les blanques han avançat poden ser objectius i els finals t'afavoreixen. Enroca llarg o curt segons l'esquema blanc; trenca amb ...c5 quan estiguis desenvolupat.",
+          "plan": "La famosa Caro-Kann «avorrida però bonica»: la teva estructura no té debilitats, els peons h4-h5 que les blanques han avançat poden ser objectius i els finals t’afavoreixen. Enroca llarg o curt segons l’esquema blanc; trenca amb ...c5 quan estiguis desenvolupat.",
           "notes": {
-            "5": "Canvia al centre, la Clàssica: acceptes menys espai a canvi d'una posició sense cap debilitat.",
-            "7": "Una altra vegada l'alfil surt primer. El millor intent blanc és perseguir-lo, i això costa temps i afluixa peons.",
-            "9": "L'alfil s'aparta; deixa que les blanques «guanyin» temps afeblint caselles.",
-            "11": "Dona a l'alfil l'amagatall de h7 i treu g5 a les peces blanques. El peó de h4 potser es penedirà d'haver avançat.",
-            "15": "Ben amagat. Fa cara de passiu; tornarà a sortir després de ...e6 i els canvis: la història clàssica de l'alfil de la Caro-Kann.",
-            "17": "Canvia cap a la seguretat total: l'alfil atacant blanc surt del tauler.",
-            "19": "El mur es completa. Ara: ...Ngf6, ...Bd6 o ...Be7, enroca i tens una partida igualada amb l'estructura més sana."
+            "5": "Canvia al centre, la Clàssica: acceptes menys espai a canvi d’una posició sense cap debilitat.",
+            "7": "Una altra vegada l’alfil surt primer. El millor intent blanc és perseguir-lo, i això costa temps i afluixa peons.",
+            "9": "L’alfil s’aparta; deixa que les blanques «guanyin» temps afeblint caselles.",
+            "11": "Dona a l’alfil l’amagatall de h7 i treu g5 a les peces blanques. El peó de h4 potser es penedirà d’haver avançat.",
+            "15": "Ben amagat. Fa cara de passiu; tornarà a sortir després de ...e6 i els canvis: la història clàssica de l’alfil de la Caro-Kann.",
+            "17": "Canvia cap a la seguretat total: l’alfil atacant blanc surt del tauler.",
+            "19": "El mur es completa. Ara: ...Ngf6, ...Bd6 o ...Be7, enroca i tens una partida igualada amb l’estructura més sana."
           }
         },
         "vs Two Knights (2.Nf3 3.Nc3)": {
           "name": "Contra els Dos Cavalls (2.Nf3 3.Nc3)",
-          "plan": "El canvi a f3 resol totes les qüestions de desenvolupament. Busca l'estructura fiable: ...e6, ...Nd7/...Ngf6, canvia una parella de cavalls i juga a llarg termini. La teva formació de peons no té objectius.",
+          "plan": "El canvi a f3 resol totes les qüestions de desenvolupament. Busca l’estructura fiable: ...e6, ...Nd7/...Ngf6, canvia una parella de cavalls i juga a llarg termini. La teva formació de peons no té objectius.",
           "notes": {
-            "5": "Contra els Dos Cavalls, la clavada és el desenvolupament correcte: 3...dxe4 4.Nxe4 deixa menys còmodes els plans de l'alfil a f5.",
-            "7": "Cedeix la parella d'alfils a canvi d'una estructura sòlida i una igualtat fàcil: un canvi molt de Caro-Kann.",
-            "11": "Captura ara que ja s'ha jugat d4: el cavall blanc recaptura i entra als canvis de peces que tens preparats.",
-            "15": "Desenvolupa i ofereix el canvi: cada canvi aprima l'«avantatge» de la parella d'alfils blanca.",
+            "5": "Contra els Dos Cavalls, la clavada és el desenvolupament correcte: 3...dxe4 4.Nxe4 deixa menys còmodes els plans de l’alfil a f5.",
+            "7": "Cedeix la parella d’alfils a canvi d’una estructura sòlida i una igualtat fàcil: un canvi molt de Caro-Kann.",
+            "11": "Captura ara que ja s’ha jugat d4: el cavall blanc recaptura i entra als canvis de peces que tens preparats.",
+            "15": "Desenvolupa i ofereix el canvi: cada canvi aprima l’«avantatge» de la parella d’alfils blanca.",
             "17": "Recaptura amb el cavall i mantén els peons endreçats. Igualat i fàcil de jugar: ara ...Bd6/...Be7 i enroc."
           }
         },
         "vs Panov Attack": {
-          "name": "Contra l'Atac Panov",
-          "plan": "Bloqueja el peó aïllat: un cavall s'instal·la a d5, es canvien peces i cada canvi fa més gran la debilitat del peó. Els finals són els teus amics: porta-hi la partida i recull el peó de d4 a la segona ronda.",
+          "name": "Contra l’Atac Panov",
+          "plan": "Bloqueja el peó aïllat: un cavall s’instal·la a d5, es canvien peces i cada canvi fa més gran la debilitat del peó. Els finals són els teus amics: porta-hi la partida i recull el peó de d4 a la segona ronda.",
           "notes": {
-            "6": "La Panov: les blanques volen l'activitat del peó de dama aïllat. El teu pla és simple: bloqueig, canvis, final.",
-            "9": "Sòlid: mantén d5 amb fermesa. L'alfil de c8 rondina, però aquí el bloqueig compta més.",
+            "6": "La Panov: les blanques volen l’activitat del peó de dama aïllat. El teu pla és simple: bloqueig, canvis, final.",
+            "9": "Sòlid: mantén d5 amb fermesa. L’alfil de c8 rondina, però aquí el bloqueig compta més.",
             "13": "Arriba el cavall bloquejador. A d5 cap peó el pot fer fora: el problema permanent del peó de dama aïllat.",
             "17": "Desenvolupament acabat. Ara reagrupaments amb ...Bf6/...Nce7, pressió a d4 i simplificació pacient."
           }
         },
         "vs Fantasy (3.f3)": {
           "name": "Contra la Fantasia (3.f3)",
-          "plan": "Respon a l'excentricitat amb el clàssic: ...e5! contraataca de seguida. La clavada de g4 és el teu recurs clau: el cavall de f3 està lligat a la dama i la tensió central t'afavoreix. Desenvolupa de pressa; f3 ha tret una casella al cavall de rei, i això ho aprofites.",
+          "plan": "Respon a l’excentricitat amb el clàssic: ...e5! contraataca de seguida. La clavada de g4 és el teu recurs clau: el cavall de f3 està lligat a la dama i la tensió central t’afavoreix. Desenvolupa de pressa; f3 ha tret una casella al cavall de rei, i això ho aprofites.",
           "notes": {
-            "4": "La variant Fantasia: les blanques aguanten e4 d'una manera estranya. Castiga l'estranyesa amb un cop al centre.",
+            "4": "La variant Fantasia: les blanques aguanten e4 d’una manera estranya. Castiga l’estranyesa amb un cop al centre.",
             "7": "El contracop: sense el peó de f3, la diagonal del rei blanc queda oberta i d4 rep pressió de veritat.",
             "9": "La clavada és la clau: ara dxe5?? perd la dama per trucs amb ...Bxf3. Comprova-ho: el cavall està clavat davant de d1.",
             "11": "Defensa e5 i completa la idea: el centre blanc queda congelat mentre acabes el desenvolupament.",
             "13": "Tot defensat, tot desenvolupat. El f3 prematur de les blanques no els ha donat res.",
-            "15": "Sòlid i actiu: enroca ara, conserva el punt fort d'e5 i juga contra el rei blanc afeblit."
+            "15": "Sòlid i actiu: enroca ara, conserva el punt fort d’e5 i juga contra el rei blanc afeblit."
           }
         },
         "vs King's Indian Attack (2.d3)": {
-          "name": "Contra l'Atac de l'Índia de rei (2.d3)",
-          "plan": "Si les blanques renuncien al centre, ocupa'l tu: ...e5 i ...d5 et donen l'espai, per una vegada. Mantén sa el duo e5/d5, desenvolupa't al darrere i respon a les idees lentes del flanc de rei blanc amb una marxa més ràpida al flanc de dama (...b5-b4).",
+          "name": "Contra l’Atac de l’Índia de rei (2.d3)",
+          "plan": "Si les blanques renuncien al centre, ocupa’l tu: ...e5 i ...d5 et donen l’espai, per una vegada. Mantén sa el duo e5/d5, desenvolupa’t al darrere i respon a les idees lentes del flanc de rei blanc amb una marxa més ràpida al flanc de dama (...b5-b4).",
           "notes": {
-            "2": "L'Atac de l'Índia de rei: les blanques juguen un sistema, sense mirar les teves jugades. Perfecte: el teu sistema és més gran.",
-            "5": "El luxe que la Caro-Kann gairebé mai té: un centre complet de peons per a tu. Agafa'l.",
-            "11": "Enroca darrere del teu avantatge d'espai. L'atac habitual és molt més lent quan c6+d5 neutralitzen l'alfil de g2.",
-            "13": "Sobreprotegeix e5, el punt fort on es recolza tot l'esquema.",
+            "2": "L’Atac de l’Índia de rei: les blanques juguen un sistema, sense mirar les teves jugades. Perfecte: el teu sistema és més gran.",
+            "5": "El luxe que la Caro-Kann gairebé mai té: un centre complet de peons per a tu. Agafa’l.",
+            "11": "Enroca darrere del teu avantatge d’espai. L’atac habitual és molt més lent quan c6+d5 neutralitzen l’alfil de g2.",
+            "13": "Sobreprotegeix e5, el punt fort on es recolza tot l’esquema.",
             "15": "Complet i còmode. Idees següents: ...b5, espai al flanc de dama amb ...a5-a4, o reagrupar amb ...Bf8 si les blanques pressionen e5."
           }
         },
         "vs Advance, 4.Nc3 (Shirov's g4 lunge)": {
-          "name": "Contra l'Avanç, 4.Nc3 (l'embranzida g4 de Shírov)",
-          "plan": "No tinguis por de l'allau de peons: afluixa més les blanques que a tu. Mantén l'alfil segur a g6, colpeja el peó fix de d4 amb ...c5 i recorda que el rei blanc també viu en aquell costat del tauler. El desenvolupament tranquil guanya els peons salvatges.",
+          "name": "Contra l’Avanç, 4.Nc3 (l’embranzida g4 de Shírov)",
+          "plan": "No tinguis por de l’allau de peons: afluixa més les blanques que a tu. Mantén l’alfil segur a g6, colpeja el peó fix de d4 amb ...c5 i recorda que el rei blanc també viu en aquell costat del tauler. El desenvolupament tranquil guanya els peons salvatges.",
           "notes": {
-            "6": "L'esquema agressiu: les blanques volen g4 i una allau de peons al flanc de rei.",
+            "6": "L’esquema agressiu: les blanques volen g4 i una allau de peons al flanc de rei.",
             "8": "Ja és aquí. Els peons no fan mat: aguanta.",
-            "10": "Va cap a f4 per molestar el teu alfil: era d'esperar i té resposta.",
+            "10": "Va cap a f4 per molestar el teu alfil: era d’esperar i té resposta.",
             "11": "La contraregla: a un atac de flanc es respon amb un cop al centre. d4 cruix de seguida.",
             "13": "Una jugada profilàctica: atura g5, a h5 es pot respondre amb ...Bh7, i ara les blanques han de justificar els peons avançats."
           }
@@ -460,8 +460,8 @@
           "plan": "El joc és idèntic a la línia principal de la Clàssica: el cavall blanc ha arribat a e4 per un altre camí i no canvia res. Els mateixos canvis, el mateix mur, la mateixa estructura sana i la mateixa confiança a llarg termini.",
           "notes": {
             "4": "Només és una altra porta per entrar a la Clàssica: després de la teva jugada següent, transposa exactament.",
-            "17": "El canvi conegut: a aquestes alçades, aquesta posició ja t'hauria de semblar casa teva.",
-            "19": "I el mur conegut. Un sol repertori per a diversos ordres de jugades blancs: això és l'eficiència de la Caro-Kann."
+            "17": "El canvi conegut: a aquestes alçades, aquesta posició ja t’hauria de semblar casa teva.",
+            "19": "I el mur conegut. Un sol repertori per a diversos ordres de jugades blancs: això és l’eficiència de la Caro-Kann."
           }
         },
         "vs Accelerated Panov (2.c4)": {
@@ -470,7 +470,7 @@
           "notes": {
             "2": "La versió accelerada: respon al centre exactament com sempre.",
             "7": "Recaptura amb el CAVALL (no amb la dama): arriba a d5 com a bloquejador permanent.",
-            "13": "L'esquema de sempre. Les blanques tenen el peó aïllat; tu tens la casella d5 i el pla.",
+            "13": "L’esquema de sempre. Les blanques tenen el peó aïllat; tu tens la casella d5 i el pla.",
             "15": "Desenvolupa, enroca i després ...Bf6 i ...Nce7-f5 carreguen sobre d4. Posicions de Panov, solucions de Caro-Kann."
           }
         }
@@ -478,54 +478,54 @@
     },
     "black-vs-e4-openGames": {
       "title": "Contra 1.e4 — Partides obertes (1...e5)",
-      "blurb": "Planta cara a 1.e4 amb 1...e5: respostes sòlides i coherents contra la Ruy López, la Italiana, l'Escocesa i els gambits.",
+      "blurb": "Planta cara a 1.e4 amb 1...e5: respostes sòlides i coherents contra la Ruy López, la Italiana, l’Escocesa i els gambits.",
       "lines": {
         "Ruy Lopez — Closed (Chigorin setup)": {
           "name": "Ruy López — Tancada (esquema Txigorin)",
-          "plan": "L'eterna batalla espanyola: el teu espai al flanc de dama (idees amb ...b5, ...c5, ...Na5-c4) contra el joc blanc al centre i al flanc de rei. Mantén viu el punt fort d'e5, respon a d4 amb canvis només quan les peces estiguin a punt i no toquis mai els peons del flanc de rei sense motiu.",
+          "plan": "L’eterna batalla espanyola: el teu espai al flanc de dama (idees amb ...b5, ...c5, ...Na5-c4) contra el joc blanc al centre i al flanc de rei. Mantén viu el punt fort d’e5, respon a d4 amb canvis només quan les peces estiguin a punt i no toquis mai els peons del flanc de rei sense motiu.",
           "notes": {
-            "5": "La jugada de Morphy: fes la pregunta a l'alfil abans de res més. Gairebé universal, i amb raó.",
-            "7": "Desenvolupa i ataca e4: les blanques se n'han d'ocupar (O-O i Re1 ho fan tàcticament; les línies amb ...Nxe4 existeixen, però demanen compte).",
-            "9": "La Ruy López Tancada: sòlida, flexible i jugable tota la vida. L'aguda ...Nxe4 (Oberta) és un altre món.",
-            "11": "Ara arriba guanyant temps: l'alfil es retira i ja ha començat la teva expansió al flanc de dama.",
+            "5": "La jugada de Morphy: fes la pregunta a l’alfil abans de res més. Gairebé universal, i amb raó.",
+            "7": "Desenvolupa i ataca e4: les blanques se n’han d’ocupar (O-O i Re1 ho fan tàcticament; les línies amb ...Nxe4 existeixen, però demanen compte).",
+            "9": "La Ruy López Tancada: sòlida, flexible i jugable tota la vida. L’aguda ...Nxe4 (Oberta) és un altre món.",
+            "11": "Ara arriba guanyant temps: l’alfil es retira i ja ha començat la teva expansió al flanc de dama.",
             "13": "Consolida e5. El centre aguanta; els plans poden respirar.",
             "15": "Rei segur. El c3 blanc anuncia d4: ja estàs a punt.",
-            "17": "La maniobra Txigorin: molesta l'alfil espanyol i guanya les caselles c4/b3.",
+            "17": "La maniobra Txigorin: molesta l’alfil espanyol i guanya les caselles c4/b3.",
             "19": "Desplegament complet al flanc de dama: després tornen ...Qc7 i ...Nc6, amb una partida totalment sana."
           }
         },
         "Italian — Giuoco Pianissimo": {
           "name": "Italiana — Giuoco Pianissimo",
-          "plan": "Imita la construcció lenta de les blanques i estàs igualat: ...a6/...Ba7 conserva l'alfil, ...h6 vigila g5 i després vénen els reagrupaments ...Ne7-g6 o ...Be6. Qui es llança primer sol quedar pitjor: que siguin les blanques.",
+          "plan": "Imita la construcció lenta de les blanques i estàs igualat: ...a6/...Ba7 conserva l’alfil, ...h6 vigila g5 i després vénen els reagrupaments ...Ne7-g6 o ...Be6. Qui es llança primer sol quedar pitjor: que siguin les blanques.",
           "notes": {
-            "5": "Simètrica i la millor: l'alfil pren la diagonal ideal abans que ...Nf6 convidi a les complicacions de Ng5.",
+            "5": "Simètrica i la millor: l’alfil pren la diagonal ideal abans que ...Nf6 convidi a les complicacions de Ng5.",
             "7": "Ataca e4 perquè les blanques hi hagin de gastar una jugada: d3 ho manté tot tranquil.",
-            "13": "Una jugada d'ordre amb un objectiu: prepara ...Ba7 i conserva la forta diagonal de l'alfil encara que d4 arribi guanyant temps.",
-            "15": "Ben col·locat i per sempre: des d'a7 mira f2 tota la partida. Un actiu de cocció lenta."
+            "13": "Una jugada d’ordre amb un objectiu: prepara ...Ba7 i conserva la forta diagonal de l’alfil encara que d4 arribi guanyant temps.",
+            "15": "Ben col·locat i per sempre: des d’a7 mira f2 tota la partida. Un actiu de cocció lenta."
           }
         },
         "Two Knights — vs 4.Ng5 (the real test)": {
           "name": "Dos Cavalls — contra 4.Ng5 (la prova de veritat)",
-          "plan": "Has donat un peó a canvi d'avantatge de desenvolupament i de lligar les blanques: ...e4 i ...Bd6 fan tornar les peces blanques a casa. Conserva la iniciativa: obre la columna e, enroca de pressa i fes valer el temps de més abans que les blanques es desembolliquin. És la resposta combativa a la Italiana.",
+          "plan": "Has donat un peó a canvi d’avantatge de desenvolupament i de lligar les blanques: ...e4 i ...Bd6 fan tornar les peces blanques a casa. Conserva la iniciativa: obre la columna e, enroca de pressa i fes valer el temps de més abans que les blanques es desembolliquin. És la resposta combativa a la Italiana.",
           "notes": {
             "5": "Els Dos Cavalls: convides a 4.Ng5 perquè tens una bona resposta preparada.",
-            "7": "Forçada però excel·lent: tapa l'atac a f7 i obre el teu joc.",
-            "9": "LA jugada per recordar: 5...Nxd5?? cau al sacrifici del Fegatello. En canvi, el cavall ataca l'alfil de c4.",
+            "7": "Forçada però excel·lent: tapa l’atac a f7 i obre el teu joc.",
+            "9": "LA jugada per recordar: 5...Nxd5?? cau al sacrifici del Fegatello. En canvi, el cavall ataca l’alfil de c4.",
             "14": "La millor retirada blanca; el peó ja està capturat i ara cobres els interessos...",
-            "15": "Fes fora l'intrús guanyant temps: només té un camí segur per tornar a casa.",
+            "15": "Fes fora l’intrús guanyant temps: només té un camí segur per tornar a casa.",
             "17": "Torna a avançar guanyant temps: el cavall es mou per quarta vegada mentre les teves peces surten.",
             "19": "Discuteix de seguida el cavall orgullós. Tens un peó menys i una activitat monstruosa: històricament, les negres puntuen molt bé aquí."
           }
         },
         "Scotch Game": {
           "name": "Escocesa",
-          "plan": "Els peons c doblats et compren el centre: ...d5 ho allibera tot i les teves peces arriben a caselles naturals i actives. Juga contra l'estructura blanca d'e4/d3, aprofita la columna b semioberta i gaudeix d'un mig joc a parts iguals.",
+          "plan": "Els peons c doblats et compren el centre: ...d5 ho allibera tot i les teves peces arriben a caselles naturals i actives. Juga contra l’estructura blanca d’e4/d3, aprofita la columna b semioberta i gaudeix d’un mig joc a parts iguals.",
           "notes": {
-            "5": "No t'aferris a e5: captura i desenvolupa. L'Escocesa dona a les negres joc de peces gratis.",
+            "5": "No t’aferris a e5: captura i desenvolupa. L’Escocesa dona a les negres joc de peces gratis.",
             "9": "Clavada i pressió: ara e4 demana atenció constant.",
-            "11": "Cap al centre i obrint la columna b: els peons doblats controlen d5 i són difícils d'atacar.",
+            "11": "Cap al centre i obrint la columna b: els peons doblats controlen d5 i són difícils d’atacar.",
             "13": "La ruptura que iguala, just a temps. Tot el que tenen les negres cobra vida.",
-            "17": "Seguretat simètrica; la teva parella d'alfils i el peó central et donen una partida còmoda i rica."
+            "17": "Seguretat simètrica; la teva parella d’alfils i el peó central et donen una partida còmoda i rica."
           }
         },
         "vs King's Gambit (3...d5, the modern cure)": {
@@ -533,8 +533,8 @@
           "plan": "Torna el peó de seguida per tenir un desenvolupament fàcil i millor estructura: els somnis blancs amb f4 i la columna f no es fan mai realitat. Enroca de pressa, tingues el peó de f4 com a ostatge a llarg termini i juga el mig joc amb un avantatge petit però estable.",
           "notes": {
             "2": "El Gambit de rei: romàntic i, objectivament, inofensiu si mantens la calma.",
-            "3": "Captura primer i DESPRÉS torna'l quan et convingui.",
-            "5": "L'antídot modern: obre el centre mentre la diagonal del rei blanc està oberta. Res de memoritzar teoria per defensar f4.",
+            "3": "Captura primer i DESPRÉS torna’l quan et convingui.",
+            "5": "L’antídot modern: obre el centre mentre la diagonal del rei blanc està oberta. Res de memoritzar teoria per defensar f4.",
             "11": "Recaptura amb el cavall: desenvolupament abans que peons, principis abans que cobdícia.",
             "13": "Vigila el trofeu de f4 i apunta al tou flanc de rei blanc: les debilitats del gambit tallen pels dos costats.",
             "15": "Tot desenvolupat i amb el rei més sa. Les blanques encara estan explicant on ha anat a parar la compensació."
@@ -542,23 +542,23 @@
         },
         "vs Vienna (3.f4 d5!)": {
           "name": "Contra la Vienesa (3.f4 d5!)",
-          "plan": "El contraatac central guanya sempre el peó de flanc: el teu cavall d'e4 és una roca, ...f5 l'ha reforçat i les debilitats són de les blanques. Desenvolupa al voltant del cavall, enroca i deixa que les blanques demostrin alguna cosa.",
+          "plan": "El contraatac central guanya sempre el peó de flanc: el teu cavall d’e4 és una roca, ...f5 l’ha reforçat i les debilitats són de les blanques. Desenvolupa al voltant del cavall, enroca i deixa que les blanques demostrin alguna cosa.",
           "notes": {
             "3": "Un desenvolupament natural que conserva totes les bones opcions i esquiva les idees més enganyoses de la Vienesa.",
             "5": "El cop clau, amb el mateix esperit que contra el Gambit de rei: respon a f4 amb el centre, mai amb por.",
-            "7": "Un cavall magnífic s'instal·la per quedar-s'hi: capturar-lo (Nxe4 dxe4) només ajuda la teva estructura.",
-            "11": "Primer la seguretat; el cavall d'e4 encara no necessita ningú que el vigili.",
+            "7": "Un cavall magnífic s’instal·la per quedar-s’hi: capturar-lo (Nxe4 dxe4) només ajuda la teva estructura.",
+            "11": "Primer la seguretat; el cavall d’e4 encara no necessita ningú que el vigili.",
             "13": "Reforça el punt fort i guanya espai al flanc de rei: la captura al pas permet canviar, però les teves peces recapturen encantades.",
             "15": "La columna f queda semioberta cap al rei blanc i les teves peces funcionen. Una imatge model contra la Vienesa."
           }
         },
         "vs Bishop's Opening": {
-          "name": "Contra l'Obertura de l'alfil",
-          "plan": "El contraatac ...c6/...d5 ocupa el centre i neutralitza tota la idea de l'alfil de c4. Després dels canvis, desenvolupa amb naturalitat i una estructura endreçada: una partida igualada on conèixer el pla (idees de minories, joc per la columna e) val més que la llista de jugades.",
+          "name": "Contra l’Obertura de l’alfil",
+          "plan": "El contraatac ...c6/...d5 ocupa el centre i neutralitza tota la idea de l’alfil de c4. Després dels canvis, desenvolupa amb naturalitat i una estructura endreçada: una partida igualada on conèixer el pla (idees de minories, joc per la columna e) val més que la llista de jugades.",
           "notes": {
-            "2": "L'Obertura de l'alfil: sovint és una Italiana disfressada, però amb trucs si t'adorms.",
-            "5": "La resposta precisa: prepara ...d5 i pregunta a l'alfil què hi fa, a c4.",
-            "7": "Aquí el tens: el centre complet, amb l'alfil mossegant granit.",
+            "2": "L’Obertura de l’alfil: sovint és una Italiana disfressada, però amb trucs si t’adorms.",
+            "5": "La resposta precisa: prepara ...d5 i pregunta a l’alfil què hi fa, a c4.",
+            "7": "Aquí el tens: el centre complet, amb l’alfil mossegant granit.",
             "11": "El bloqueig pràctic: canvia la peça que fa escac i simplifica cap a una igualtat còmoda.",
             "13": "Recaptura el cavall de b8: la parella de f6 queda flexible i el peó de d5, cobert.",
             "15": "Ben actiu i a punt per enrocar: el teu peó central i la partida fàcil ja inclinen la posició a favor teu."
@@ -566,43 +566,43 @@
         },
         "Ruy Lopez — Exchange (4.Bxc6)": {
           "name": "Ruy López — Canvis (4.Bxc6)",
-          "plan": "Tens la parella d'alfils per sempre; les blanques tenen una majoria de peons més sana. Conserva les peces (els finals sense dames afavoreixen l'estructura blanca), obre línies per als alfils i aprofita l'activitat de ...c5/...Bg4: en el mig joc, els dos alfils guanyen la discussió als peons doblats.",
+          "plan": "Tens la parella d’alfils per sempre; les blanques tenen una majoria de peons més sana. Conserva les peces (els finals sense dames afavoreixen l’estructura blanca), obre línies per als alfils i aprofita l’activitat de ...c5/...Bg4: en el mig joc, els dos alfils guanyen la discussió als peons doblats.",
           "notes": {
-            "6": "La variant de canvis: les blanques aposten per l'estructura. Tu aposes per la parella d'alfils, una bona aposta al mig joc.",
-            "8": "Un compte necessari: 5.Nxe5? Qd4! fa forquilla al cavall i al peó d'e4 i ho recupera tot amb interessos. Les blanques ho saben i enroquen.",
-            "9": "Protecció sòlida d'e5. Fa cara d'estranya, però és habitual i forta: el peó d'e5 aguanta el centre per als alfils.",
+            "6": "La variant de canvis: les blanques aposten per l’estructura. Tu aposes per la parella d’alfils, una bona aposta al mig joc.",
+            "8": "Un compte necessari: 5.Nxe5? Qd4! fa forquilla al cavall i al peó d’e4 i ho recupera tot amb interessos. Les blanques ho saben i enroquen.",
+            "9": "Protecció sòlida d’e5. Fa cara d’estranya, però és habitual i forta: el peó d’e5 aguanta el centre per als alfils.",
             "11": "Canvia quan et convingui.",
-            "13": "Guanya un temps i activa't: el peó doblat fa una feina honesta.",
+            "13": "Guanya un temps i activa’t: el peó doblat fa una feina honesta.",
             "15": "Cap al «final» sense por: amb dos alfils i peces actives, aquest mig joc sense dames és bo per a les negres. Ho diu la teoria, no és fanfarroneria.",
             "17": "La idea: activitat immediata. La torre rep empentes i acabes el desenvolupament amb amenaces."
           }
         },
         "vs Evans Gambit (decline it!)": {
-          "name": "Contra el Gambit Evans (rebutja'l!)",
+          "name": "Contra el Gambit Evans (rebutja’l!)",
           "plan": "Rebutjar-lo conserva tots els avantatges posicionals sense cap perill: a la llarga, els peons blancs de b4/a4 queden fluixos. Desenvolupa amb normalitat, enroca, ataca el centre amb ...d6/...Nf6: el jugador de gambits es queda sense línies obertes i sense diversió.",
           "notes": {
-            "6": "L'Evans. Acceptar-lo és jugable però demana molta memòria; rebutjar-lo és l'opció pràctica per al repertori.",
-            "7": "Una casella enrere i tots els problemes resolts: l'alfil conserva la diagonal i en algunes línies b4 penja.",
+            "6": "L’Evans. Acceptar-lo és jugable però demana molta memòria; rebutjar-lo és l’opció pràctica per al repertori.",
+            "7": "Una casella enrere i tots els problemes resolts: l’alfil conserva la diagonal i en algunes línies b4 penja.",
             "13": "Els peons han anat massa lluny: canvia i deixa que el flanc de dama blanc ensenyi les cicatrius.",
-            "15": "Un desenvolupament senzill que ataca e4. L'«atac» blanc s'ha convertit en peons fluixos i una partida normal on estàs bé."
+            "15": "Un desenvolupament senzill que ataca e4. L’«atac» blanc s’ha convertit en peons fluixos i una partida normal on estàs bé."
           }
         },
         "vs Four Knights (Spanish, Metger unwind)": {
           "name": "Contra els Quatre Cavalls (espanyola, maniobra Metger)",
-          "plan": "La maniobra Metger ho desembolica tot: ...Qe7 i ...Nd8-e6 recol·loquen les peces, ...Bxc3 ha tret la pressió i l'estructura simètrica aguanta. Una resposta fiable i amb poca teoria a l'intent més sòlid de les blanques.",
+          "plan": "La maniobra Metger ho desembolica tot: ...Qe7 i ...Nd8-e6 recol·loquen les peces, ...Bxc3 ha tret la pressió i l’estructura simètrica aguanta. Una resposta fiable i amb poca teoria a l’intent més sòlid de les blanques.",
           "notes": {
-            "7": "Imita la clavada: l'igualador clàssic als Quatre Cavalls.",
+            "7": "Imita la clavada: l’igualador clàssic als Quatre Cavalls.",
             "13": "El moment precís: elimina el cavall ABANS que Nd5 faci realment molesta la clavada de g5.",
             "15": "Comença la maniobra Metger: la dama avança perquè la ruta del cavall de d8 (d8–e6) desfaci la clavada."
           }
         },
         "vs Centre Game (2.d4)": {
           "name": "Contra el Joc del centre (2.d4)",
-          "plan": "La dama blanca prematura és el teu objectiu: desenvolupa guanyant temps, enroca de pressa i obre el centre mentre la dama passeja. Amb enrocs oposats a l'horitzó, el teu atac sol arribar primer: ...Re8, ...d5 o fins i tot trucs de torre per e4 són a l'aire.",
+          "plan": "La dama blanca prematura és el teu objectiu: desenvolupa guanyant temps, enroca de pressa i obre el centre mentre la dama passeja. Amb enrocs oposats a l’horitzó, el teu atac sol arribar primer: ...Re8, ...d5 o fins i tot trucs de torre per e4 són a l’aire.",
           "notes": {
             "2": "El Joc del centre: les blanques guanyen el peó central, però la dama ha de sortir aviat per mantenir-lo.",
-            "5": "Desenvolupa guanyant temps: la dama es torna a moure i tu et desenvolupes gratis. Tota l'obertura en una idea.",
-            "9": "Clavada i pressió; l'esquema blanc només funciona si deixes que es coordinin els trucs a e4/f2.",
+            "5": "Desenvolupa guanyant temps: la dama es torna a moure i tu et desenvolupes gratis. Tota l’obertura en una idea.",
+            "9": "Clavada i pressió; l’esquema blanc només funciona si deixes que es coordinin els trucs a e4/f2.",
             "13": "La torre mira e4 i la dama blanca al descobert: ara, cada ruptura central cau amb doble força."
           }
         }
@@ -614,20 +614,20 @@
       "lines": {
         "Slav Defense (main line, 4...dxc4)": {
           "name": "Defensa Eslava (línia principal, 4...dxc4)",
-          "plan": "La promesa de l'Eslava txeca: l'alfil de c8 surt FORA de la cadena de peons abans de ...e6. Busca les ruptures ...c5 o ...e5 quan estiguis desenvolupat, mantén la pressió de l'alfil de b4 i gaudeix d'una posició sense caselles febles i amb opcions reals de guanyar.",
+          "plan": "La promesa de l’Eslava txeca: l’alfil de c8 surt FORA de la cadena de peons abans de ...e6. Busca les ruptures ...c5 o ...e5 quan estiguis desenvolupat, mantén la pressió de l’alfil de b4 i gaudeix d’una posició sense caselles febles i amb opcions reals de guanyar.",
           "notes": {
-            "3": "L'Eslava: defensa d5 amb un peó i manté oberta la diagonal de l'alfil de c8. La millora sobre l'antic GDR.",
+            "3": "L’Eslava: defensa d5 amb un peó i manté oberta la diagonal de l’alfil de c8. La millora sobre l’antic GDR.",
             "7": "La línia principal: guanya un temps. Les blanques han de gastar una jugada (a4) per recuperar el peó, i aquesta jugada afebleix b4.",
-            "9": "La idea de tot plegat: l'alfil arriba a la casella somiada abans que ...e6 tanqui la porta.",
+            "9": "La idea de tot plegat: l’alfil arriba a la casella somiada abans que ...e6 tanqui la porta.",
             "13": "A la casella que a4 ha afeblit: clava i prepara un enroc còmode.",
-            "17": "L'última peça troba el seu lloc; després vénen ...Bg6, ...Qa5 o les ruptures ...e5/...c5, segons l'esquema blanc."
+            "17": "L’última peça troba el seu lloc; després vénen ...Bg6, ...Qa5 o les ruptures ...e5/...c5, segons l’esquema blanc."
           }
         },
         "Slav — Exchange (drawish? only if you let it)": {
           "name": "Eslava — Canvis (taules? només si ho permets)",
           "plan": "La simetria és una treva, no unes taules: conserva les últimes peces, lluita per les caselles e4/e5 i deixa que les blanques es quedin primer sense idees. El teu esquema és a prova de bales: els intents de guanyar de les blanques creen les debilitats contra les quals jugaràs.",
           "notes": {
-            "4": "L'Eslava de canvis: les blanques esperen una encaixada de mans. Declina-la amb educació.",
+            "4": "L’Eslava de canvis: les blanques esperen una encaixada de mans. Declina-la amb educació.",
             "11": "Simetria mantinguda, i el teu alfil és tan bo com el de les blanques.",
             "15": "Canvia per iniciativa TEVA: la recaptura de la dama frena per un moment les ambicions blanques a la columna d.",
             "18": "Les blanques canvien; recaptura i la posició queda del tot igualada, amb tot el joc encara per davant."
@@ -635,91 +635,91 @@
         },
         "QGD — Tartakower (the lifetime system)": {
           "name": "GDR — Tartakower (el sistema de tota la vida)",
-          "plan": "La Tartakower ha servit campions del món durant un segle: ...b6 resol l'alfil dolent (va a b7), la ruptura ...c5 iguala l'espai i l'estructura es doblega però no es trenca mai. Aprèn-ne les idees una vegada i juga-la per sempre.",
+          "plan": "La Tartakower ha servit campions del món durant un segle: ...b6 resol l’alfil dolent (va a b7), la ruptura ...c5 iguala l’espai i l’estructura es doblega però no es trenca mai. Aprèn-ne les idees una vegada i juga-la per sempre.",
           "notes": {
             "3": "El gambit de dama refusat: la resposta més clàssica dels escacs. Aguanta d5 amb el peó e.",
             "7": "Desfés la clavada amb calma. El GDR és una fortalesa construïda amb jugades modestes, una a una.",
-            "11": "Una empenta útil: l'alfil s'ha de definir, i h6 dona aire al teu rei per sempre.",
-            "13": "La jugada Tartakower: l'alfil «problemàtic» de c8 obté la gran diagonal i ...c5 guanya suport.",
-            "15": "Aquí el tens: des de b7, l'alfil vigila e4 i recolza totes les ruptures centrals.",
-            "17": "Recaptura encantat: els dos alfils en una posició que s'obrirà amb ...c5. Un canvi just per la «pressió» de les blanques.",
+            "11": "Una empenta útil: l’alfil s’ha de definir, i h6 dona aire al teu rei per sempre.",
+            "13": "La jugada Tartakower: l’alfil «problemàtic» de c8 obté la gran diagonal i ...c5 guanya suport.",
+            "15": "Aquí el tens: des de b7, l’alfil vigila e4 i recolza totes les ruptures centrals.",
+            "17": "Recaptura encantat: els dos alfils en una posició que s’obrirà amb ...c5. Un canvi just per la «pressió» de les blanques.",
             "19": "Conserva el peó central: d5 controla e4/c4 i les teves peces es desenvolupen còmodes al seu voltant."
           }
         },
         "QGD — Exchange (know the Carlsbad)": {
           "name": "GDR — Canvis (coneix la Carlsbad)",
-          "plan": "L'estructura Carlsbad: les blanques juguen l'atac de minories (b4-b5); tu respons al centre o al flanc de rei amb ...Ne4, la tenalla de ...f5 o ruptures ...c5 oportunes. La col·locació de les peces ho és tot: cavalls a d6? No: somnis a e4 i g6-f4; torre a e8; alfil fora abans que es tanqui el mur.",
+          "plan": "L’estructura Carlsbad: les blanques juguen l’atac de minories (b4-b5); tu respons al centre o al flanc de rei amb ...Ne4, la tenalla de ...f5 o ruptures ...c5 oportunes. La col·locació de les peces ho és tot: cavalls a d6? No: somnis a e4 i g6-f4; torre a e8; alfil fora abans que es tanqui el mur.",
           "notes": {
-            "4": "El GDR de canvis: les blanques fixen l'estructura aviat, amb l'objectiu del famós atac de minories.",
-            "9": "Desclavada habitual; les decisions d'estructura ja estan preses, així que desenvolupa amb un objectiu.",
+            "4": "El GDR de canvis: les blanques fixen l’estructura aviat, amb l’objectiu del famós atac de minories.",
+            "9": "Desclavada habitual; les decisions d’estructura ja estan preses, així que desenvolupa amb un objectiu.",
             "13": "Cap a f8/g6 o b6: a la Carlsbad, els cavalls trien carrera aviat.",
-            "15": "Segur i a punt per a les típiques ...Re8 i ...Ne4, les teves respostes habituals a l'avanç pel flanc de dama.",
-            "17": "La torre ocupa la columna que dominarà tota la partida. Quan arribi b4-b5, s'hi respon amb ...Ne4 i joc al flanc de rei."
+            "15": "Segur i a punt per a les típiques ...Re8 i ...Ne4, les teves respostes habituals a l’avanç pel flanc de dama.",
+            "17": "La torre ocupa la columna que dominarà tota la partida. Quan arribi b4-b5, s’hi respon amb ...Ne4 i joc al flanc de rei."
           }
         },
         "vs London System": {
           "name": "Contra el Sistema Londres",
-          "plan": "No copiïs el pilot automàtic del jugador de la Londres, qüestiona'l: pressió amb ...c5, ...b6/...Bb7 i un ...Ne4 o un canvi amb ...Bf5 ben calculats. La Londres només és còmoda fins que les negres prenen la iniciativa al flanc de dama, i aquesta és la teva feina.",
+          "plan": "No copiïs el pilot automàtic del jugador de la Londres, qüestiona’l: pressió amb ...c5, ...b6/...Bb7 i un ...Ne4 o un canvi amb ...Bf5 ben calculats. La Londres només és còmoda fins que les negres prenen la iniciativa al flanc de dama, i aquesta és la teva feina.",
           "notes": {
-            "2": "La Londres: te la trobaràs contínuament, així que aquesta línia s'ho val.",
-            "7": "Fes la pregunta de seguida: el canvi a d6 t'ajuda, i si es retira a g3 pots ignorar-lo.",
+            "2": "La Londres: te la trobaràs contínuament, així que aquesta línia s’ho val.",
+            "7": "Fes la pregunta de seguida: el canvi a d6 t’ajuda, i si es retira a g3 pots ignorar-lo.",
             "11": "La ruptura que dona joc real a les negres: ataca d4 mentre c3 encara no ha arribat.",
             "15": "El pla complet: ...Bb7, ...Qe7 o ...Rc8, i pressió al flanc de dama, on els jugadors de la Londres es despisten.",
-            "17": "Desenvolupa amb calma: el cavall d'e5 fa cara d'orgullós, però ...Nxe5 i les ruptures centrals el neutralitzen quan vulguis."
+            "17": "Desenvolupa amb calma: el cavall d’e5 fa cara d’orgullós, però ...Nxe5 i les ruptures centrals el neutralitzen quan vulguis."
           }
         },
         "vs Catalan (open, ...dxc4 + ...b5)": {
           "name": "Contra la Catalana (oberta, ...dxc4 + ...b5)",
-          "plan": "Has capturat c4 i l'has conservat prou per desenvolupar ...Bb7: l'alfil català mossega els teus peons de b5/c6. Consolida't (...Nbd7, ...c5 més endavant), torna el peó només a canvi de la igualtat completa i neutralitza la diagonal de g2 amb el teu alfil.",
+          "plan": "Has capturat c4 i l’has conservat prou per desenvolupar ...Bb7: l’alfil català mossega els teus peons de b5/c6. Consolida’t (...Nbd7, ...c5 més endavant), torna el peó només a canvi de la igualtat completa i neutralitza la diagonal de g2 amb el teu alfil.",
           "notes": {
-            "4": "La Catalana: l'alfil de g2 de les blanques vol dominar la gran diagonal tota la partida. El teu pla: neutralitzar-lo.",
+            "4": "La Catalana: l’alfil de g2 de les blanques vol dominar la gran diagonal tota la partida. El teu pla: neutralitzar-lo.",
             "11": "La Catalana oberta: captura el peó en el moment que les blanques no el poden recuperar fàcilment.",
             "13": "Conserva el peó de més una mica més: les blanques han de treballar (Qxc4 perd temps per la teva jugada següent).",
             "15": "El cop que guanya temps i fa bona tota la línia: la dama es retira i el teu alfil reclama la diagonal PRIMER.",
-            "17": "Missió complerta: l'alfil català es mira al mirall. ...Nbd7 i ...c5 acaben la feina."
+            "17": "Missió complerta: l’alfil català es mira al mirall. ...Nbd7 i ...c5 acaben la feina."
           }
         },
         "vs Colle / Torre setups": {
           "name": "Contra els esquemes Colle / Torre",
-          "plan": "Contra els jugadors de sistema, aprofita el moment en què el sistema es compromet: la teva tensió lliure c5/cxd4 i la casella e4 són els premis. Després de l'avanç e4 de les blanques, canvia cap a una posició amb peces més lliures i objectius clars.",
+          "plan": "Contra els jugadors de sistema, aprofita el moment en què el sistema es compromet: la teva tensió lliure c5/cxd4 i la casella e4 són els premis. Després de l’avanç e4 de les blanques, canvia cap a una posició amb peces més lliures i objectius clars.",
           "notes": {
             "4": "La Colle: modesta, popular als clubs, i es respon amb jugades naturals.",
-            "7": "Colpeja abans que el mur s'assenti: la tensió a la columna c la gestiones tu tota la partida.",
-            "11": "Imita la bona diagonal de l'alfil: quan les blanques per fi juguin e4, tu estaràs més preparat.",
-            "15": "Recaptura i torna a apuntar: l'alfil ha trobat una diagonal encara millor.",
+            "7": "Colpeja abans que el mur s’assenti: la tensió a la columna c la gestiones tu tota la partida.",
+            "11": "Imita la bona diagonal de l’alfil: quan les blanques per fi juguin e4, tu estaràs més preparat.",
+            "15": "Recaptura i torna a apuntar: l’alfil ha trobat una diagonal encara millor.",
             "17": "Respon a la ruptura sense complicacions.",
             "19": "Una retirada prudent (el cavall mirava c5) i la posició és simplement igualada, amb tu coneixent els plans: ...b6, ...Bb7, canvis de peces menors."
           }
         },
         "vs Torre Attack (3.Bg5)": {
-          "name": "Contra l'Atac Torre (3.Bg5)",
-          "plan": "La Torre vol un domini barat d'e5; nega-l'hi amb ...c5 i les preguntes de ...h6. Fes el fianchetto de l'alfil de c8, canvia la pressió i arriba a un mig joc on el «sistema» blanc no ha donat cap avantatge i tens el pla més clar (joc de minories al flanc de dama o una ruptura central).",
+          "name": "Contra l’Atac Torre (3.Bg5)",
+          "plan": "La Torre vol un domini barat d’e5; nega-l’hi amb ...c5 i les preguntes de ...h6. Fes el fianchetto de l’alfil de c8, canvia la pressió i arriba a un mig joc on el «sistema» blanc no ha donat cap avantatge i tens el pla més clar (joc de minories al flanc de dama o una ruptura central).",
           "notes": {
-            "4": "L'Atac Torre: una clavada que de moment no té cap cavall a la casella parella de f6 que la recolzi.",
-            "7": "Fes la pregunta aviat: qualsevol decisió de l'alfil t'ajuda.",
-            "9": "Fixa el centre mentre l'alfil és fora de joc.",
-            "11": "Desclava amb calma: el peó blanc de d4 és ara l'únic tret estàtic de la partida, i és un objectiu.",
-            "15": "L'esquema fiable: gran diagonal, ...d6 o ...d5 per triar, i igualtat fàcil contra el sistema."
+            "4": "L’Atac Torre: una clavada que de moment no té cap cavall a la casella parella de f6 que la recolzi.",
+            "7": "Fes la pregunta aviat: qualsevol decisió de l’alfil t’ajuda.",
+            "9": "Fixa el centre mentre l’alfil és fora de joc.",
+            "11": "Desclava amb calma: el peó blanc de d4 és ara l’únic tret estàtic de la partida, i és un objectiu.",
+            "15": "L’esquema fiable: gran diagonal, ...d6 o ...d5 per triar, i igualtat fàcil contra el sistema."
           }
         },
         "vs Trompowsky (2.Bg5)": {
           "name": "Contra la Trompowsky (2.Bg5)",
           "plan": "Recaptura amb el peó e i abraça els peons f doblats: controlen e5/g5, la columna e semioberta va bé a les torres i els dos alfils són un interès a llarg termini. Juga ...Bd6, enroca i després ...f5 o ruptures centrals: el «dany» és el teu dinamisme.",
           "notes": {
-            "2": "La Trompowsky: les blanques ofereixen danys a l'estructura a canvi de la parella d'alfils. Accepta el canvi quan et convingui.",
+            "2": "La Trompowsky: les blanques ofereixen danys a l’estructura a canvi de la parella d’alfils. Accepta el canvi quan et convingui.",
             "5": "La recaptura correcta: columna e oberta, e5 controlada i el peó de f6 vigila caselles del flanc de rei. Doblat ≠ feble.",
-            "7": "L'alfil pren la diagonal b8–h2, que el canvi ha deixat sense vigilar.",
+            "7": "L’alfil pren la diagonal b8–h2, que el canvi ha deixat sense vigilar.",
             "9": "Captura quan a les blanques els costi un temps recuperar-lo.",
-            "13": "Cap a b6 o f8-g6: flexible, sòlid, i els alfils esperen que s'obri el tauler.",
-            "15": "Recupera el temps (l'alfil s'ha de moure) i controla c4/d5: igualtat completa amb la posició més rica."
+            "13": "Cap a b6 o f8-g6: flexible, sòlid, i els alfils esperen que s’obri el tauler.",
+            "15": "Recupera el temps (l’alfil s’ha de moure) i controla c4/d5: igualtat completa amb la posició més rica."
           }
         },
         "vs Slow Slav (4.e3 with ...Bf5)": {
-          "name": "Contra l'Eslava lenta (4.e3 amb ...Bf5)",
-          "plan": "Quan les blanques juguen tranquil, el teu alfil TAMBÉ surt primer: és tota la identitat de l'Eslava. Si Nh4 el persegueix, el canvi et deixa l'estructura més sòlida i g6 com a palanca útil. Després ...Nbd7, ...Be7 o d6, enroc, igualtat i fàcil de jugar.",
+          "name": "Contra l’Eslava lenta (4.e3 amb ...Bf5)",
+          "plan": "Quan les blanques juguen tranquil, el teu alfil TAMBÉ surt primer: és tota la identitat de l’Eslava. Si Nh4 el persegueix, el canvi et deixa l’estructura més sòlida i g6 com a palanca útil. Després ...Nbd7, ...Be7 o d6, enroc, igualtat i fàcil de jugar.",
           "notes": {
-            "6": "L'Eslava tranquil·la: sense el bloqueig amb a4, desenvolupa l'alfil de seguida.",
-            "10": "L'únic intent real de les blanques: caçar l'alfil abans que es completi el mur.",
+            "6": "L’Eslava tranquil·la: sense el bloqueig amb a4, desenvolupa l’alfil de seguida.",
+            "10": "L’únic intent real de les blanques: caçar l’alfil abans que es completi el mur.",
             "11": "Aguanta: la captura a g6 obre la TEVA columna h i no arregla res per a les blanques.",
             "15": "Desenvolupa com sempre: la columna h semioberta és un petit regal permanent i la teva estructura no té forats."
           }
@@ -729,8 +729,8 @@
   },
   "traps": {
     "white-traps": {
-      "title": "Blanques — paranys d'obertura",
-      "blurb": "Respostes temptadores que perden a l'acte. Els pares tu, amb blanques.",
+      "title": "Blanques — paranys d’obertura",
+      "blurb": "Respostes temptadores que perden a l’acte. Els pares tu, amb blanques.",
       "traps": {
         "Légal's Mate": {
           "name": "Mat de Légal",
@@ -745,17 +745,17 @@
         "Caro-Kann Smothered Mate (Qe2)": {
           "name": "Mat de la coça a la Caro-Kann (Qe2)",
           "bait": "…Ngf6 (desenvolupament natural)",
-          "idea": "5.Qe2 clava discretament per la columna e. Després de …Ngf6, Nd6# és mat: …exd6 és il·legal perquè el peó d'e7 està clavat davant del rei."
+          "idea": "5.Qe2 clava discretament per la columna e. Després de …Ngf6, Nd6# és mat: …exd6 és il·legal perquè el peó d’e7 està clavat davant del rei."
         },
         "Monticelli Trap": {
           "name": "Parany Monticelli",
           "bait": "…Nxc3 (es queda un cavall)",
-          "idea": "Ignora el cavall: 10.Ng5! ataca alhora h7 i l'alfil de b7, i les blanques guanyen la qualitat amb una pressió decisiva."
+          "idea": "Ignora el cavall: 10.Ng5! ataca alhora h7 i l’alfil de b7, i les blanques guanyen la qualitat amb una pressió decisiva."
         },
         "Tennison Gambit Trap": {
           "name": "Parany del gambit Tennison",
           "bait": "…h6 (fa fora el cavall)",
-          "idea": "La tranquil·la 6.Nxf7! Kxf7 7.Bg6+!! Kxg6 8.Qxd8 guanya la dama: l'escac d'alfil treu el rei de la columna d."
+          "idea": "La tranquil·la 6.Nxf7! Kxf7 7.Bg6+!! Kxg6 8.Qxd8 guanya la dama: l’escac d’alfil treu el rei de la columna d."
         },
         "Danish Gambit Trap": {
           "name": "Parany del gambit danès",
@@ -765,43 +765,43 @@
         "Légal Trap (Philidor)": {
           "name": "Parany de Légal (Philidor)",
           "bait": "…Bxd1 (es queda la dama)",
-          "idea": "La posició original de Légal: 5.Nxe5! i si 5…Bxd1?? 6.Bxf7+ Ke7 7.Nd5#. Els dos cavalls i l'alfil teixeixen una xarxa de mat."
+          "idea": "La posició original de Légal: 5.Nxe5! i si 5…Bxd1?? 6.Bxf7+ Ke7 7.Nd5#. Els dos cavalls i l’alfil teixeixen una xarxa de mat."
         },
         "Rubinstein Trap (Queen’s Gambit Declined)": {
           "name": "Parany de Rubinstein (gambit de dama refusat)",
-          "bait": "…b6 (un fianchetto d'aparença natural)",
-          "idea": "El cavall de f6 està clavat davant de la dama, així que 8.cxd5 exd5 9.Nxd5! guanya un peó: 9…Nxd5 10.Bxe7 guanya després l'alfil i el peó."
+          "bait": "…b6 (un fianchetto d’aparença natural)",
+          "idea": "El cavall de f6 està clavat davant de la dama, així que 8.cxd5 exd5 9.Nxd5! guanya un peó: 9…Nxd5 10.Bxe7 guanya després l’alfil i el peó."
         }
       }
     },
     "black-traps": {
-      "title": "Negres — paranys d'obertura",
+      "title": "Negres — paranys d’obertura",
       "blurb": "Gambits i contraparanys on una jugada blanca cobdiciosa o natural perd. Els pares tu, amb negres.",
       "traps": {
         "Kieninger Trap (Budapest)": {
           "name": "Parany Kieninger (Budapest)",
-          "bait": "8.axb4 (guanya l'alfil)",
-          "idea": "La primerenca …Qe7 clava el peó e blanc. Quan les blanques es queden l'alfil, …Nd3 és un mat de la coça: exd3 és il·legal."
+          "bait": "8.axb4 (guanya l’alfil)",
+          "idea": "La primerenca …Qe7 clava el peó e blanc. Quan les blanques es queden l’alfil, …Nd3 és un mat de la coça: exd3 és il·legal."
         },
         "Lasker Trap (Albin Countergambit)": {
           "name": "Parany Lasker (contragambit Albin)",
           "bait": "4.e3 (la ruptura natural)",
-          "idea": "El peó d avançat de l'Albin permet una subpromoció: …exf2+ i després …fxg1=N+! guanya, perquè quan el cavall és capturat …Bg4+ fa una enfilada a la dama."
+          "idea": "El peó d avançat de l’Albin permet una subpromoció: …exf2+ i després …fxg1=N+! guanya, perquè quan el cavall és capturat …Bg4+ fa una enfilada a la dama."
         },
         "Englund Gambit Trap": {
           "name": "Parany del gambit Englund",
           "bait": "6.Bc3?? (defensa b2)",
-          "idea": "Després de 6.Bc3 Bb4! l'alfil està clavat; 7.Qd2 Bxc3 8.Qxc3 Qc1# és un mat de la coça a la darrera fila."
+          "idea": "Després de 6.Bc3 Bb4! l’alfil està clavat; 7.Qd2 Bxc3 8.Qxc3 Qc1# és un mat de la coça a la darrera fila."
         },
         "Mortimer Trap (Ruy Lopez)": {
           "name": "Parany Mortimer (Ruy López)",
           "bait": "5.Nxe5?? (es queda el peó «gratis»)",
-          "idea": "La curiosa 4…Ne7 convida a 5.Nxe5?? c6! 6.Bc4 Qa5+!: un escac que fa forquilla al rei i al cavall encallat d'e5."
+          "idea": "La curiosa 4…Ne7 convida a 5.Nxe5?? c6! 6.Bc4 Qa5+!: un escac que fa forquilla al rei i al cavall encallat d’e5."
         },
         "From's Gambit Trap": {
           "name": "Parany del gambit From",
           "bait": "4.Nc3?? (desenvolupament natural)",
-          "idea": "Contra el gambit From, 4.Nc3?? Qh4+ 5.g3 Qxg3+! 6.hxg3 Bxg3# és un mat clàssic, d'estil coça, per les caselles fosques."
+          "idea": "Contra el gambit From, 4.Nc3?? Qh4+ 5.g3 Qxg3+! 6.hxg3 Bxg3# és un mat clàssic, d’estil coça, per les caselles fosques."
         },
         "Stafford Gambit Trap": {
           "name": "Parany del gambit Stafford",
@@ -809,14 +809,14 @@
           "idea": "La Stafford mossega: 6.Bg5?? Nxe4! 7.Bxd8 Bxf2+ 8.Ke2 Bg4#. La captura cobdiciosa de la dama acaba en mat."
         },
         "Noah's Ark Trap (Ruy Lopez)": {
-          "name": "Parany de l'arca de Noè (Ruy López)",
+          "name": "Parany de l’arca de Noè (Ruy López)",
           "bait": "8.Qxd4 (recaptura al centre)",
-          "idea": "L'avanç de peons …c5–c4 tanca l'alfil de b3: amb els peons a i c i els seus propis cobrint-li les caselles, no té on anar i es perd."
+          "idea": "L’avanç de peons …c5–c4 tanca l’alfil de b3: amb els peons a i c i els seus propis cobrint-li les caselles, no té on anar i es perd."
         },
         "Elephant Trap (Queen’s Gambit Declined)": {
-          "name": "Parany de l'elefant (gambit de dama refusat)",
+          "name": "Parany de l’elefant (gambit de dama refusat)",
           "bait": "6.Nxd5 (es queda el peó)",
-          "idea": "Si les blanques capturen a d5, …Nxd5! funciona: després de Bxd8, …Bb4+ recupera l'alfil amb interessos i les negres acaben amb una peça neta de més."
+          "idea": "Si les blanques capturen a d5, …Nxd5! funciona: després de Bxd8, …Bb4+ recupera l’alfil amb interessos i les negres acaben amb una peça neta de més."
         },
         "Siberian Trap (Smith-Morra)": {
           "name": "Parany siberià (Smith-Morra)",
@@ -825,13 +825,13 @@
         },
         "Blackburne Shilling Gambit Trap": {
           "name": "Parany del gambit Blackburne Shilling",
-          "bait": "4.Nxe5?? (guanya el peó d'e5)",
-          "idea": "L'atrevida 3…Nd4 el para: 4.Nxe5?? Qg5! 5.Nxf7 Qxg2 6.Rf1 Qxe4+ 7.Be2 Nf3#. L'alfil clavat d'e2 no pot capturar el cavall que fa mat."
+          "bait": "4.Nxe5?? (guanya el peó d’e5)",
+          "idea": "L’atrevida 3…Nd4 el para: 4.Nxe5?? Qg5! 5.Nxf7 Qxg2 6.Rf1 Qxe4+ 7.Be2 Nf3#. L’alfil clavat d’e2 no pot capturar el cavall que fa mat."
         },
         "Cambridge Springs Trap": {
           "name": "Parany de Cambridge Springs",
           "bait": "7.Bd3?? (es desenvolupa cap a la clavada)",
-          "idea": "Cambridge Springs: 7…dxc4 8.Bxc4 Ne4! fa forquilla al cavall clavat de c3 (subjectat per …Qa5) i a l'alfil de g5, i guanya una peça."
+          "idea": "Cambridge Springs: 7…dxc4 8.Bxc4 Ne4! fa forquilla al cavall clavat de c3 (subjectat per …Qa5) i a l’alfil de g5, i guanya una peça."
         }
       }
     }

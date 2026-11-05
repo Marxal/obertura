@@ -58,7 +58,11 @@ textarea:focus { outline: none; border-color: var(--accent); background: var(--p
   <div id="list"></div>
 </main>
 <script>
-var LANGS = ['ca', 'es', 'sv'];
+var LANGS = ['ca', 'es', 'sv', 'en'];
+var HINT = {
+  translation: 'The English is on the left, for reference. Change the right side: it saves as you type, and your words don’t have to follow the English.',
+  en: 'Editing the English itself. The Catalan is on the left, for reference. The translations don’t change with it: at the end, Claude lists what to look at again in each language.',
+};
 var state = { lang: 'ca', section: 'landing', query: '', data: {} };
 try {
   var saved = JSON.parse(localStorage.getItem('bito-copy') || '{}');
@@ -89,6 +93,7 @@ function save(item, area, row) {
     if (old) old.remove();
     if (res.ok) {
       item.value = value;
+      if (state.lang === 'en') { item.en = value; item.path = item.path.map(function (step, i) { return i === 1 && item.section === 'landing' ? value : step; }); }
       row.classList.remove('problem');
       row.classList.add('saved');
       statusEl.textContent = 'Saved';
@@ -104,12 +109,12 @@ function save(item, area, row) {
 function rowFor(item) {
   var row = el('div', 'row');
   if (item.context) row.appendChild(el('div', 'context', item.context));
-  row.appendChild(el('div', 'en', item.en));
+  row.appendChild(el('div', 'en', state.lang === 'en' ? (item.ref || '—') : item.en));
   var area = document.createElement('textarea');
   area.value = item.value;
   area.rows = 1;
   area.lang = state.lang;
-  area.setAttribute('aria-label', item.en.slice(0, 80));
+  area.setAttribute('aria-label', (state.lang === 'en' ? 'English: ' : '') + item.en.slice(0, 80));
   var timer = null;
   area.addEventListener('input', function () {
     fit(area);
@@ -128,7 +133,8 @@ function rowFor(item) {
 function matches(item) {
   if (!state.query) return true;
   var q = state.query.toLowerCase();
-  return item.en.toLowerCase().indexOf(q) >= 0 || item.value.toLowerCase().indexOf(q) >= 0;
+  return item.en.toLowerCase().indexOf(q) >= 0 || item.value.toLowerCase().indexOf(q) >= 0
+    || (item.ref || '').toLowerCase().indexOf(q) >= 0;
 }
 
 function render() {
@@ -159,6 +165,8 @@ function render() {
 }
 
 function paintBar() {
+  document.getElementById('hint').textContent = state.lang === 'en' ? HINT.en : HINT.translation;
+  if (state.lang === 'en' && !(state.data.en || []).some(function (s) { return s.id === state.section; }) && state.data.en) state.section = 'landing';
   var langs = document.getElementById('langs');
   langs.textContent = '';
   LANGS.forEach(function (lang) {
@@ -178,10 +186,10 @@ function paintBar() {
     sections.appendChild(b);
   });
   var see = document.getElementById('see');
-  var appUrl = 'http://' + location.hostname + ':5173/obertura/?lang=' + state.lang;
+  var appUrl = 'http://' + location.hostname + ':5173/obertura/?lang=' + (state.lang === 'en' ? '' : state.lang);
   see.href = state.section === 'legal' ? '/' + state.lang + '/terms.html'
     : state.section === 'app' || state.section === 'packs' || state.section === 'openings' ? appUrl
-    : '/' + state.lang + '/';
+    : state.lang === 'en' ? '/' : '/' + state.lang + '/';
 }
 function remember() {
   try { localStorage.setItem('bito-copy', JSON.stringify({ lang: state.lang, section: state.section })); } catch (_) {}

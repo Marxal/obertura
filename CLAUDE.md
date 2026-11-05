@@ -132,7 +132,8 @@ build (`scripts/landing-pages.mjs`). Changed text needs its translation updated 
 `src/locales/landing/` or `src/locales/legal/`, and a selftest says which. A translation
 may differ from the English on purpose: Marçal edits them himself, so don't "fix" that.
 `npm run copy` is the editor for all translated text, and shows those pages fresh on
-every reload. Changing `scripts/landing-pages.mjs` needs that server restarted.
+every reload. Its EN tab edits the English itself (landing, app, packs), renaming the landing
+translations' keys so none is lost; `npm run i18n:status` then lists what to look at again. Changing `scripts/landing-pages.mjs` needs that server restarted.
 `src/legal.ts` resolves the right URL for each host so the app can link to them.
 
 No Google Fonts, anywhere. Chakra Petch is self-hosted (`src/fonts/` for the
