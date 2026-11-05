@@ -12,7 +12,7 @@
 //
 // ── EUR AND SEK, CHOSEN BY LOCALE ───────────────────────────────────────────
 // Two Price objects exist in Stripe, each with an amount set by hand: €12 and a
-// round 139 kr. Not a converted amount — a Swede should see a number that looks
+// round 120 kr. Not a converted amount — a Swede should see a number that looks
 // deliberate in Swedish, not 137,96 kr picked by yesterday's exchange rate.
 //
 // The pick is by the DEVICE's language list, not by IP. A Swedish phone gets SEK;
@@ -48,7 +48,7 @@ export interface PriceQuote {
   id?: string;
   // ISO 4217, lower-case, as Stripe returns it.
   currency: string;
-  // The smallest unit of the currency: 1200 is €12.00, 13900 is 139,00 kr.
+  // The smallest unit of the currency: 1200 is €12.00, 12000 is 120,00 kr.
   unitAmount: number;
 }
 
@@ -65,7 +65,7 @@ const FETCH_TIMEOUT_MS = 6000;
 // The built-in numbers. See the note above: keep them equal to the Stripe prices.
 const FALLBACK_AMOUNTS: Record<string, number> = {
   eur: 1200,
-  sek: 13900,
+  sek: 12000,
 };
 
 const DEFAULT_CURRENCY = 'eur';

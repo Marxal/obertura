@@ -9,9 +9,14 @@
 // Lines and traps are matched by their English name, so reordering the source can't
 // put a note on the wrong line. Filters and matching keep reading the English values
 // (`level`, `style`, `family`), which is why those are shown through labels instead.
+//
+// The translation files write moves in English letters, so a selftest can compare them
+// with the source. They become symbols here, which can't be mistaken for a player's own
+// "Re2" in Catalan, where R is the king: see formatMovesInText.
 
 import { activeLanguage } from './language';
 import { t, type MessageKey } from './i18n';
+import { formatMovesInText, movesToSymbols } from './notation';
 import type { Pack } from './onboarding-starter';
 import type { Trap, TrapPack } from './traps';
 
@@ -40,6 +45,26 @@ export function loadContentWords(): Promise<ContentWords | null> {
   return wordsPromise;
 }
 
+function symbolsIn(notes?: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(notes ?? {}).map(([ply, note]) => [ply, movesToSymbols(note)]));
+}
+
+// A line's name is saved with the line and shown in many places, so it takes the
+// person's notation here, as the list loads, rather than at each of those places.
+export function packNamesForShowing(packs: Pack[]): Pack[] {
+  return packs.map((pack) => ({
+    ...pack,
+    lines: pack.lines.map((line) => ({ ...line, name: formatMovesInText(line.name) })),
+  }));
+}
+
+export function trapNamesForShowing(groups: TrapPack[]): TrapPack[] {
+  return groups.map((group) => ({
+    ...group,
+    traps: group.traps.map((trap) => ({ ...trap, name: formatMovesInText(trap.name) })),
+  }));
+}
+
 export function translatePacks(packs: Pack[], words?: Record<string, PackWords>): Pack[] {
   if (!words) return packs;
   return packs.map((pack) => {
@@ -54,10 +79,10 @@ export function translatePacks(packs: Pack[], words?: Record<string, PackWords>)
         if (!l) return line;
         return {
           ...line,
-          name: l.name ?? line.name,
-          plan: l.plan ?? line.plan,
+          name: l.name ? movesToSymbols(l.name) : line.name,
+          plan: l.plan ? movesToSymbols(l.plan) : line.plan,
           // Note by note, so one missing translation can't lose the others.
-          notes: line.notes && { ...line.notes, ...l.notes },
+          notes: line.notes && { ...line.notes, ...symbolsIn(l.notes) },
         };
       }),
     };
@@ -75,7 +100,13 @@ export function translateTraps(groups: TrapPack[], words?: Record<string, TrapGr
       blurb: w.blurb ?? group.blurb,
       traps: group.traps.map((trap): Trap => {
         const x = w.traps?.[trap.name];
-        return x ? { ...trap, name: x.name ?? trap.name, bait: x.bait ?? trap.bait, idea: x.idea ?? trap.idea } : trap;
+        if (!x) return trap;
+        return {
+          ...trap,
+          name: x.name ? movesToSymbols(x.name) : trap.name,
+          bait: x.bait ? movesToSymbols(x.bait) : trap.bait,
+          idea: x.idea ? movesToSymbols(x.idea) : trap.idea,
+        };
       }),
     };
   });

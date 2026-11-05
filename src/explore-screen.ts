@@ -66,7 +66,7 @@ import { renderLinesScreen } from './lines-screen';
 import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
 import { pushBack } from './back-nav';
-import { formatSanLine } from './notation';
+import { formatSanLine, formatMovesInText } from './notation';
 import { t, type MessageKey } from './i18n';
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
@@ -990,7 +990,7 @@ function packLineCard(pack: Pack, line: PackLine): HTMLElement {
   if (line.plan) {
     const planEl = document.createElement('div');
     planEl.className = 'stat-card-note';
-    planEl.textContent = line.plan;
+    planEl.textContent = formatMovesInText(line.plan);
     content.appendChild(planEl);
   }
 

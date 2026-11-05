@@ -3123,7 +3123,7 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - ✅ **Level and style chips were still English** on pack and trap cards. Fixed in the same pass.
 - ✅ **The layout check passes in all three languages,** and packs, traps and endgame lists were driven in each.
 - A pack line already added keeps the language it was added in, because its notes are saved as that person's own.
-- Moves inside notes still use English letters (*Nf3*), while the move lists above them use piece symbols.
+- Moves inside notes used English letters at this point: fixed in the Phase 8 round below.
 
 ### Translation: landing page, checkout and sign-in emails (Phase 8, first round)
 
@@ -3137,6 +3137,18 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   else follows the browser, as before. Not yet tried against Stripe.
 - **Sign-in emails:** the language is saved at sign-up, and the wording and test steps are in `EMAIL-TEMPLATES.md`. The
   templates are in Supabase's dashboard, so nothing changes until they're pasted there.
-- Not started: privacy and terms, which need a decision on which version governs.
-- Found, not changed: the landing page's search data (`application/ld+json`) lists Full Access at 9 EUR, and the page says 12€.
+- Found the landing page's search data listing Full Access at 9 EUR: fixed in the round below.
+
+### Translation: privacy and terms, moves in every language, prices (Phase 8, second round)
+
+- **Privacy and terms in all three languages,** at `/ca/privacy.html` and so on, generated like the landing page. **The English
+  version governs,** as Marçal decided: the English terms now say so, and each translation says so under its title. Nobody
+  has reviewed the translated legal text.
+- **Other changes to the English legal text:** the terms' price is now 120 SEK, and the privacy table lists the language
+  saved at sign-up, because the app now stores it. Both are dated 5 November 2026.
+- **Moves:** notes, plans and traps now show piece symbols, in English too, and follow the notation setting. Letter
+  notation uses each language's letters, Cf3 in Catalan and Spanish, Sf3 in Swedish, and the landing pages use them too.
+  A Catalan player's own "Re2" stays as written, because there R is the king.
+- ✅ **Prices:** 120 kr everywhere, matching Stripe (checked live), and 12 EUR in the landing page's search data.
+- ✅ **`npm run landing:preview`:** edit a translation file, save, reload the phone. It needs no build.
 

@@ -6,6 +6,8 @@
 // Default is figurine: it reads more like a board and tells pawn moves apart
 // from piece moves at a glance.
 
+import { appLocale } from './i18n';
+
 const KEY = 'obertura.moveNotation';
 
 export type MoveNotation = 'standard' | 'figurine';
@@ -19,6 +21,20 @@ const FIGURES: Record<string, string> = {
   B: '♝',
   N: '♞',
 };
+
+// What the letter notation calls each piece, for languages that don't use the English
+// letters. Cf3 in Catalan and Spanish, Sf3 in Swedish. PGN never goes through this: it
+// stays in English everywhere, as the format requires.
+const LETTERS: Record<string, Record<string, string>> = {
+  ca: { K: 'R', Q: 'D', R: 'T', B: 'A', N: 'C' },
+  es: { K: 'R', Q: 'D', R: 'T', B: 'A', N: 'C' },
+  sv: { K: 'K', Q: 'D', R: 'T', B: 'L', N: 'S' },
+};
+
+function localLetter(piece: string): string {
+  const language = appLocale();
+  return (language && LETTERS[language]?.[piece]) ?? piece;
+}
 
 // Guarded because the modules that print moves are also read by the pure-logic
 // self-tests, which run under Node with no localStorage at all — and because a
@@ -35,18 +51,45 @@ export function setMoveNotation(n: MoveNotation): void {
   localStorage.setItem(KEY, n);
 }
 
-// Convert ONE SAN move to the chosen notation. Standard returns it untouched;
-// figurine swaps the leading piece letter and any promotion piece (the "Q" in
-// "e8=Q") for its glyph, leaving files, ranks, captures, checks, mates and
-// castling exactly as written.
+// Convert ONE SAN move to the chosen notation. Standard writes it in the language's
+// own letters; figurine swaps the leading piece letter and any promotion piece (the
+// "Q" in "e8=Q") for its glyph. Either way files, ranks, captures, checks, mates and
+// castling stay exactly as written.
 export function formatMove(san: string, notation: MoveNotation = getMoveNotation()): string {
-  if (notation === 'standard' || !san) return san;
+  if (!san) return san;
+  const piece = (letter: string): string => (notation === 'standard' ? localLetter(letter) : FIGURES[letter]);
   // Promotion piece, e.g. e8=Q → e8=♛, also covers "e8=Q+".
-  let out = san.replace(/=([KQRBN])/g, (_m, p: string) => '=' + FIGURES[p]);
+  let out = san.replace(/=([KQRBN])/g, (_m, p: string) => '=' + piece(p));
   // Leading piece letter. Castling ("O-O") starts with 'O', so it's left alone.
   const first = out[0];
-  if (FIGURES[first]) out = FIGURES[first] + out.slice(1);
+  if (FIGURES[first]) out = piece(first) + out.slice(1);
   return out;
+}
+
+// Moves written inside a sentence: "Nf3", "...Bxf7+", "Nbd2–f1", "e8=Q".
+const MOVE_IN_TEXT = /(?<![\p{L}\p{N}])(?:([KQRBN])([a-h]?[1-8]?x?[a-h][1-8](?:=[KQRBN])?[+#]?)|([a-h](?:x[a-h])?[18]=)([KQRBN])([+#]?))(?![\p{L}\p{N}])/gu;
+const FIGURE_LETTERS: Record<string, string> = { '♚': 'K', '♛': 'Q', '♜': 'R', '♝': 'B', '♞': 'N' };
+
+/** English letters in a sentence become piece symbols, which mean the same in every language. */
+export function movesToSymbols(text: string): string {
+  return text.replace(MOVE_IN_TEXT, (_m, piece?: string, rest?: string, pawn?: string, promoted?: string, end?: string) => (
+    piece
+      ? FIGURES[piece] + (rest ?? '').replace(/=([KQRBN])/, (_p, q: string) => '=' + FIGURES[q])
+      : `${pawn}${FIGURES[promoted ?? '']}${end ?? ''}`
+  ));
+}
+
+// A note, plan or trap's text, for showing. Only ever on the way to the screen: what's
+// stored stays as written, and the edit box still shows that.
+//
+// In English any letters in the sentence are moves, whoever wrote them. Elsewhere the
+// letters are left alone, because a Catalan note saying "Re2" means the KING: our own
+// translated notes reach this already in symbols (content-language.ts), so nobody's own
+// words get turned into the wrong piece.
+export function formatMovesInText(text: string, notation: MoveNotation = getMoveNotation()): string {
+  const symbols = appLocale() ? text : movesToSymbols(text);
+  if (notation === 'figurine') return symbols;
+  return symbols.replace(/[♚♛♜♝♞]/g, (figure) => localLetter(FIGURE_LETTERS[figure]));
 }
 
 // "1.e4 e5 2.♞f3 ♞c6" — a flat SAN list rendered with move numbers, honouring

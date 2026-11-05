@@ -35,7 +35,7 @@ export interface ProSheetOptions {
   // user opened the offer themselves, where a number they haven't reached would
   // just be wrong.
   eyebrow?: string;
-  // '12€' or '139 kr' — already formatted. The sheet is built synchronously, so
+  // '12€' or '120 kr' — already formatted. The sheet is built synchronously, so
   // this is whatever the caller has in hand right now, which may be a cached or
   // built-in number rather than a freshly fetched one.
   price: string;

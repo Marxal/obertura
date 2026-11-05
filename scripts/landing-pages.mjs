@@ -1,8 +1,9 @@
-// Generates the landing page's language versions from docs/index.html, so there is
-// one page to edit and not four. The translations are in src/locales/landing/<lang>.json,
-// keyed by the English text: nothing marks up the page, and an English sentence that
-// changes simply falls back to English there until it is translated again
-// (`src/landing-pages.selftest.ts` lists those).
+// Generates the language versions of the landing page and the legal pages from docs/, so
+// there is one page to edit and not four. The translations are in
+// src/locales/landing/<lang>.json and src/locales/legal/<lang>.json, keyed by the English
+// text: nothing marks up the pages, and an English sentence that changes simply falls back
+// to English there until it is translated again (`scripts/landing-pages.selftest.ts` lists
+// those). A translation is free to say something different from the English.
 //
 // What gets translated:
 //   - text between tags, with its surrounding whitespace kept
@@ -10,6 +11,7 @@
 //   - string literals in the page's scripts, only when the dictionary has that string
 //   - `blocks`: a whole element's inner HTML, for a sentence with a link or <em> in it,
 //     because a sentence must never be translated in fragments
+//   - moves everywhere on the page, into the language's own letters: Nf3 is Cf3 in Catalan
 //
 // No dependencies, because this runs inside the deploy build.
 
@@ -23,6 +25,19 @@ export const LANDING_LANGUAGES = {
 };
 
 const SITE = 'https://bitochess.com/';
+
+// The same letters as src/notation.ts, and a selftest holds them together. The page has
+// no notation setting, so it uses the language's letters as the English page uses its own.
+const LETTERS = {
+  ca: { K: 'R', Q: 'D', R: 'T', B: 'A', N: 'C' },
+  es: { K: 'R', Q: 'D', R: 'T', B: 'A', N: 'C' },
+  sv: { K: 'K', Q: 'D', R: 'T', B: 'L', N: 'S' },
+};
+const MOVE = /(?<![\p{L}\p{N}])([KQRBN])([a-h]?[1-8]?x?[a-h][1-8][+#]?)(?![\p{L}\p{N}])/gu;
+
+export function localiseMoves(text, lang) {
+  return text.replace(MOVE, (_all, piece, rest) => LETTERS[lang][piece] + rest);
+}
 
 const normalise = (text) => text.replace(/\s+/g, ' ').trim();
 const hasWords = (text) => /\p{L}{2}/u.test(text);
@@ -72,10 +87,11 @@ export function landingText(html) {
   return { texts: [...texts], scripts: [...scripts] };
 }
 
-// Page assets are relative to the site root, and this page sits one folder down.
+// Page assets are relative to the site root, and this page sits one folder down. The home
+// page, privacy and terms exist in the same folder, so links to them stay as they are.
 function fromSubfolder(html) {
   return html
-    .replace(/\b(href|src)="(?!https?:|mailto:|#|\/|\.\.\/|data:|tel:)([^"]+)"/g, '$1="../$2"')
+    .replace(/\b(href|src)="(?!https?:|mailto:|#|\/|\.\.\/|\.\/|data:|tel:|privacy\.html|terms\.html)([^"]+)"/g, '$1="../$2"')
     .replace(/\b(srcset|imagesrcset)="([^"]+)"/g, (_all, name, list) => `${name}="${list.split(',').map((item) => `../${item.trim()}`).join(', ')}"`)
     .replace(/url\('fonts\//g, "url('../fonts/")
     .replace(/content="(?!https?:)([\w./-]+\.(?:png|webp|jpg))"/g, 'content="../$1"');
@@ -85,26 +101,26 @@ function escapeForAttribute(text) {
   return text.replace(/"/g, '&quot;');
 }
 
-function translateScript(code, dictionary) {
+function translateScript(code, dictionary, lang) {
   return code.replace(STRING_LITERAL, (whole, single, double) => {
     const text = single ?? double;
     const translated = dictionary.scripts?.[text];
-    if (translated === undefined) return whole;
     const quote = whole[0];
-    const safe = translated.replace(/\\/g, '\\\\').replaceAll(quote, `\\${quote}`);
+    if (translated === undefined) return `${quote}${localiseMoves(text, lang)}${quote}`;
+    const safe = localiseMoves(translated, lang).replace(/\\/g, '\\\\').replaceAll(quote, `\\${quote}`);
     return `${quote}${safe}${quote}`;
   });
 }
 
-function translateMarkup(markup, dictionary) {
+function translateMarkup(markup, dictionary, lang) {
   const lookup = dictionary.text ?? {};
   return markup
     .replace(TEXT_NODE, (whole, raw) => {
       const translated = lookup[normalise(raw)];
-      if (translated === undefined) return whole;
+      if (translated === undefined) return `>${localiseMoves(raw, lang)}<`;
       const before = raw.match(/^\s*/)[0];
       const after = raw.match(/\s*$/)[0];
-      return `>${before}${translated}${after}<`;
+      return `>${before}${localiseMoves(translated, lang)}${after}<`;
     })
     .replace(ATTRIBUTE, (whole, name, raw) => {
       const translated = lookup[normalise(raw)];
@@ -125,17 +141,17 @@ function translateData(block, dictionary) {
 }
 
 // Links between the versions, for search engines.
-function languageLinks(released) {
-  const links = [`<link rel="alternate" hreflang="en" href="${SITE}" />`];
-  for (const lang of released) links.push(`<link rel="alternate" hreflang="${lang}" href="${SITE}${lang}/" />`);
-  links.push(`<link rel="alternate" hreflang="x-default" href="${SITE}" />`);
+function languageLinks(released, page = '') {
+  const links = [`<link rel="alternate" hreflang="en" href="${SITE}${page}" />`];
+  for (const lang of released) links.push(`<link rel="alternate" hreflang="${lang}" href="${SITE}${lang}/${page}" />`);
+  links.push(`<link rel="alternate" hreflang="x-default" href="${SITE}${page}" />`);
   return links.join('\n');
 }
 
 // A visible switcher at the foot of the page. Picking a language saves it, so it also
 // carries into the app, and it stops `/` sending this person anywhere else.
-function switcher(current, released, prefix) {
-  const options = [['en', 'English', `${prefix}`], ...released.map((l) => [l, LANDING_LANGUAGES[l].name, `${prefix}${l}/`])];
+function switcher(current, released, page = '') {
+  const options = [['en', 'English', `/${page}`], ...released.map((l) => [l, LANDING_LANGUAGES[l].name, `/${l}/${page}`])];
   const links = options.map(([lang, name, href]) => (
     lang === current
       ? `<span aria-current="true">${name}</span>`
@@ -167,28 +183,56 @@ export function buildRootPage(html, released, redirects) {
   if (released.length === 0) return html;
   return html
     .replace('</head>', `${languageLinks(released)}\n${redirectFromRoot(released, redirects)}\n</head>`)
-    .replace('</footer>', `${switcher('en', released, '/')}\n</footer>`);
+    .replace('</footer>', `${switcher('en', released)}\n</footer>`);
 }
 
-/** One language's page, built from the English page and its dictionary. */
-export function buildLanguagePage(html, lang, dictionary, released) {
-  const languages = released.includes(lang) ? released : [...released, lang];
+/** The English privacy or terms page, with the language links added once a language is released. */
+export function buildEnglishLegalPage(html, page, released) {
+  if (released.length === 0) return html;
+  return html
+    .replace('</head>', `${languageLinks(released, page)}\n</head>`)
+    .replace('</footer>', `${switcher('en', released, page)}\n</footer>`);
+}
+
+function translated(html, lang, dictionary) {
   let page = html;
-  for (const [english, translated] of Object.entries(dictionary.blocks ?? {})) {
-    page = page.replaceAll(english, translated);
+  for (const [english, words] of Object.entries(dictionary.blocks ?? {})) {
+    // Anchored to the whole element, so a short sentence can't land inside a longer one.
+    page = page.replaceAll(`>${english}</`, `>${words}</`);
   }
-  page = regions(page).map((part) => {
-    if (part.kind === 'markup') return translateMarkup(part.text, dictionary);
-    if (part.kind === 'script') return translateScript(part.text, dictionary);
+  return regions(page).map((part) => {
+    if (part.kind === 'markup') return translateMarkup(part.text, dictionary, lang);
+    if (part.kind === 'script') return translateScript(part.text, dictionary, lang);
     if (part.kind === 'data') return translateData(part.text, dictionary);
     return part.text;
   }).join('');
-  return fromSubfolder(page)
+}
+
+/** One language's landing page, built from the English page and its dictionary. */
+export function buildLanguagePage(html, lang, dictionary, released) {
+  const languages = released.includes(lang) ? released : [...released, lang];
+  return fromSubfolder(translated(html, lang, dictionary))
     .replace(/<html lang="[^"]*"/, `<html lang="${lang}"`)
     .replace('<link rel="canonical" href="https://bitochess.com/" />', `<link rel="canonical" href="${SITE}${lang}/" />`)
     .replace('<meta property="og:url" content="https://bitochess.com/" />', `<meta property="og:url" content="${SITE}${lang}/" />`)
     .replace('<meta property="og:locale" content="en_GB" />', `<meta property="og:locale" content="${LANDING_LANGUAGES[lang].locale}" />`)
     .replace('</head>', `${languageLinks(languages)}\n</head>`)
-    .replace('</footer>', `${switcher(lang, languages, '/')}\n</footer>`)
+    .replace('</footer>', `${switcher(lang, languages)}\n</footer>`)
+    .replace(/<\/body>/, `${carryLanguageIntoApp(lang)}\n</body>`);
+}
+
+/**
+ * One language's privacy or terms page. A notice under the title says the English governs,
+ * and links to it.
+ */
+export function buildLegalPage(html, page, lang, dictionary, released) {
+  const languages = released.includes(lang) ? released : [...released, lang];
+  const notice = dictionary.notice.replace('{english}', `/${page}`);
+  return fromSubfolder(translated(html, lang, dictionary))
+    .replace(/<html lang="[^"]*"/, `<html lang="${lang}"`)
+    .replace(`<link rel="canonical" href="${SITE}${page}" />`, `<link rel="canonical" href="${SITE}${lang}/${page}" />`)
+    .replace('</head>', `${languageLinks(languages, page)}\n</head>`)
+    .replace(/(<p class="doc__meta">[\s\S]*?<\/p>)/, `$1\n  <p class="doc__meta" data-translation-notice>${notice}</p>`)
+    .replace('</footer>', `${switcher(lang, languages, page)}\n</footer>`)
     .replace(/<\/body>/, `${carryLanguageIntoApp(lang)}\n</body>`);
 }

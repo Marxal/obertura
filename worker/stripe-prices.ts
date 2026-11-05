@@ -8,15 +8,15 @@
 //
 // ── WHAT IT RETURNS ─────────────────────────────────────────────────────────
 //   { "prices": [ { "id": "price_…", "currency": "eur", "unitAmount": 1200 },
-//                 { "id": "price_…", "currency": "sek", "unitAmount": 13900 } ] }
+//                 { "id": "price_…", "currency": "sek", "unitAmount": 12000 } ] }
 //
 // `unitAmount` is in the currency's smallest unit, exactly as Stripe stores it —
-// 1200 is €12.00, 13900 is 139.00 kr. The app formats it (src/pricing.ts); nothing
+// 1200 is €12.00, 12000 is 120.00 kr. The app formats it (src/pricing.ts); nothing
 // here decides how a price is written.
 //
 // ONE PRICE OBJECT PER CURRENCY, created by hand in the Stripe dashboard with an
 // explicit amount. Not a converted amount, and not Stripe's `currency_options`
-// on a single price: a Swede should see a round 139 kr, chosen because it looks
+// on a single price: a Swede should see a round 120 kr, chosen because it looks
 // right in Swedish, rather than a figure chosen by yesterday's exchange rate.
 // STRIPE-SETUP.md walks through creating both.
 //

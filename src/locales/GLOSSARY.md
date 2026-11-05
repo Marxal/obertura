@@ -18,14 +18,20 @@ two disagree, this file wins, because it records the decisions made after that g
 - If a sentence sounds translated, rewrite it from scratch.
 - Check three things: is it the right chess word, would a speaker say it, is it the shortest
   clear way.
-- Move notation isn't translated: a note says *Nf3* in every language, as it does in English.
+- Moves: write them in English letters in the translation files (*Nf3*). The app shows piece symbols, or
+  the language's own letters if someone picks letters: *Cf3* in Catalan and Spanish, *Sf3* in Swedish. A
+  translation written with *Cf3* would fail the move check, and could be taken for the wrong piece.
 - Opening names from the library aren't translated yet (Phase 10). Names we wrote ourselves, for
   starter pack lines and traps, are translated: see below.
 - "Bito" and "Bito Chess" are never translated.
 
+**Piece letters:** *R D T A C* in Catalan and Spanish, *K D T L S* in Swedish.
+
 **Catalan only:** *badada* and *cagada* are Bito's one playful touch. Spanish and Swedish stay
 neutral. *Cagada* is used inside the app only: never in the landing page, legal text, app store
 text or emails.
+
+**Legal pages:** *errors* in Catalan, never *badades*. Same first person as the English.
 
 **Spanish:** keep its own list of calques from English, as Catalan's guide does. A past game is told in the past
 too: *Jugaste {move}*.

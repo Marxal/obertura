@@ -3,7 +3,9 @@
 
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { buildLanguagePage, buildRootPage, buildSitemap, landingText } from './landing-pages.mjs';
+import { buildEnglishLegalPage, buildLanguagePage, buildLegalPage, buildRootPage, buildSitemap, landingText, localiseMoves } from './landing-pages.mjs';
+import { formatMove } from '../src/notation';
+import { englishDictionary, useDictionary, type Dictionary } from '../src/i18n';
 import { BROWSER_REDIRECTS, pickLanguage, type Language } from '../src/language-choice';
 import { checkoutLocale } from '../worker/checkout-locale';
 
@@ -21,10 +23,12 @@ interface LandingWords {
 }
 
 const html = readFileSync(new URL('../docs/index.html', import.meta.url), 'utf8');
+const legalWords = (lang: string): LandingWords & { notice: string } => JSON.parse(readFileSync(new URL(`../src/locales/legal/${lang}.json`, import.meta.url), 'utf8'));
+const LEGAL_KEEP = /^(bito chess|Bito Chess|Supabase|Cloudflare|Stripe|Google|Resend|Web3Forms|© 2026 Bito Chess|creative@marxal\.net|stripe\.com\/.*|.*\.se|Umami|ARN|IMY|Lichess|Chess\.com|chess-api\.com|YouTube|EU \(Frankfurt\)|USA|ec\.europa\.eu.*|\.)$/;
 const words = (lang: string): LandingWords => JSON.parse(readFileSync(new URL(`../src/locales/landing/${lang}.json`, import.meta.url), 'utf8'));
 
 // Names and moves read the same in every language.
-const KEEP = /^(bito chess|Bito Chess|Chess\.com|Lichess|Marçal|Marçal, marxal\.net|Ruy López|© 2026 Bito Chess|5 parts|\d+[.…]+[KQRBN]?[a-h]?x?[a-h][1-8])$/;
+const KEEP = /^(bito chess|Bito Chess|Chess\.com|Lichess|Marçal|Marçal, marxal\.net|Ruy López|© 2026 Bito Chess|5 parts|\d+[.…]+[a-h]?x?[a-h][1-8])$/;
 const CHESS = /(?<![A-Za-zÀ-ÿ0-9])(O-O-O|O-O|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?)(?![A-Za-zÀ-ÿ0-9])/g;
 const chessIn = (text: string): string => [...text.matchAll(CHESS)].map((m) => m[1]).sort().join(' ');
 
@@ -52,6 +56,12 @@ export function runLandingPagesSelfTest(): TestResult[] {
   for (const lang of ['ca', 'es', 'sv']) {
     const dictionary = words(lang);
     const page = buildLanguagePage(html, lang, dictionary, []);
+    const untranslated = landingText(page).scripts.filter((s) => /^(White to move|Fewer|More|Moves$)/.test(s));
+    check(`${lang}: the page's scripts have no English sentence left that we know of`, untranslated.length === 0, untranslated.join(' | '));
+    check(`${lang}: moves are in the language's letters`, !/<b>Nf3<\/b>|san: 'Ne7\+'|5\.Nxe5/.test(page) && page.includes(`<b>${localiseMoves('Nf3', lang)}</b>`));
+    useDictionary(englishDictionary as Dictionary, lang);
+    check(`${lang}: the same letters as the app`, ['Nf3', 'Bxf7+', 'Rd1', 'Qh5#', 'Kf1'].every((m) => localiseMoves(m, lang) === formatMove(m, 'standard')));
+    useDictionary(englishDictionary as Dictionary, 'en');
     const left = landingText(page).texts.filter((t) => english.texts.includes(t) && !KEEP.test(t));
     check(`${lang}: no landing text left in English`, left.length === 0, left.slice(0, 5).join(' | '));
 
@@ -68,8 +78,8 @@ export function runLandingPagesSelfTest(): TestResult[] {
 
     check(`${lang}: the page says what language it is`, page.includes(`<html lang="${lang}"`));
     check(`${lang}: it points at its own address`, page.includes(`rel="canonical" href="https://bitochess.com/${lang}/"`));
-    check(`${lang}: images and pages load from one folder up`,
-      page.includes('src="../art/') && page.includes('href="../privacy.html"') && !/\b(src|srcset|imagesrcset)="art\//.test(page) && page.includes("url('../fonts/"));
+    check(`${lang}: images load from one folder up, and privacy and terms from this one`,
+      page.includes('src="../art/') && page.includes('href="privacy.html"') && page.includes('href="../licences.html"') && !/\b(src|srcset|imagesrcset)="art\//.test(page) && page.includes("url('../fonts/"));
     check(`${lang}: links on the page itself still stay on the page`, /href="#[a-z]/.test(page) && !page.includes('href="../#'));
     check(`${lang}: opening the app carries the language`, page.includes(`'obertura.language','${lang}'`));
     check(`${lang}: the page scripts still parse`, [...page.matchAll(/<script(?![^>]*ld\+json)[^>]*>([\s\S]*?)<\/script>/g)].every((m) => {
@@ -79,6 +89,34 @@ export function runLandingPagesSelfTest(): TestResult[] {
 
   const catalan = JSON.stringify(words('ca'));
   check('Catalan: "cagada" stays inside the app', !/cagad/i.test(catalan));
+
+  // ── Privacy and terms ───────────────────────────────────────────────────────
+  for (const lang of ['ca', 'es', 'sv']) {
+    const dictionary = legalWords(lang);
+    const stale: string[] = [];
+    const left: string[] = [];
+    let used = '';
+    for (const file of ['privacy.html', 'terms.html']) {
+      const english = readFileSync(new URL(`../docs/${file}`, import.meta.url), 'utf8');
+      const page = buildLegalPage(english, file, lang, dictionary, []);
+      used += english;
+      const before = landingText(english).texts;
+      left.push(...landingText(page).texts.filter((t) => before.includes(t) && !LEGAL_KEEP.test(t)));
+      check(`${lang}: ${file} says the English governs, and links to it`, page.includes('data-translation-notice') && page.includes(`href="/${file}"`));
+      check(`${lang}: ${file} points at its own address`, page.includes(`rel="canonical" href="https://bitochess.com/${lang}/${file}"`) && page.includes(`<html lang="${lang}"`));
+      check(`${lang}: ${file} loads its styles from one folder up`, page.includes('href="../legal.css"') && page.includes('href="../licences.html"') && page.includes('href="./"'));
+    }
+    for (const key of Object.keys({ ...dictionary.text, ...dictionary.blocks })) if (!used.includes(key.replace('&amp;', '&amp;'))) stale.push(key);
+    check(`${lang}: no privacy or terms text left in English`, left.length === 0, [...new Set(left)].slice(0, 5).join(' | '));
+    check(`${lang}: every privacy or terms translation still has its English`, stale.length === 0, stale.slice(0, 3).join(' | '));
+    const allLegal = JSON.stringify(dictionary);
+    check(`${lang}: the legal pages keep the facts`, ['SE871224129101', 'creative@marxal.net', '120', '500', '13', '14', '30', '60'].every((f) => allLegal.includes(f)));
+  }
+  const terms = readFileSync(new URL('../docs/terms.html', import.meta.url), 'utf8');
+  check('the English terms say the English governs', terms.includes('the English version applies'));
+  check('the price is 120 SEK in the terms', terms.includes('€12 / 120 SEK') && !terms.includes('139'));
+  check('with nothing released, the English legal pages are untouched', buildEnglishLegalPage(terms, 'terms.html', []) === terms);
+  check('the search data has the real price', html.includes('"price": "12"') && !html.includes('"price": "9"'));
 
   // ── `/` ─────────────────────────────────────────────────────────────────────
   check('with nothing released, `/` is untouched', buildRootPage(html, [], BROWSER_REDIRECTS) === html);

@@ -189,7 +189,7 @@ import { mountFab, type FabItem, type FabAction, type FabSplit, type FabControll
 import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
 import { openExploreOpponent, openExploreTab, importOpponentFlow } from './explore-screen';
-import { formatMove } from './notation';
+import { formatMove, formatMovesInText } from './notation';
 import {
   tryCallback as lichessTryCallback,
   takeReturn as lichessTakeReturn,
@@ -367,7 +367,7 @@ function renderBuilderDesc(): void {
   if (meta) {
     const span = document.createElement('span');
     span.className = 'builder-desc-meta';
-    span.textContent = meta;
+    span.textContent = text.startsWith('vs ') ? meta : formatMovesInText(meta);
     el.appendChild(span);
   }
   // A link back to the original game on its platform (chess.com / lichess).
@@ -2113,7 +2113,7 @@ function renderNoteBlock(): void {
   // tap away the moment it stops.
   const note = playbackTimer ? undefined : node.note?.trim();
   if (note) {
-    display.textContent = note;
+    display.textContent = formatMovesInText(note);
     display.hidden = false;
     block.hidden = false;
     label.textContent = t('home.note.edit');

@@ -112,9 +112,11 @@ A confidently wrong document costs more than a missing one.
 targets: `index.html` (the landing page), `privacy.html`, `terms.html` and
 `licences.html`, sharing `legal.css`. Nothing generates them. The landing copy's
 source of truth is `docs/LANDING-COPY.md` — edit there first, then mirror. The
-landing page's language versions are generated from `index.html` by the build
-(`scripts/landing-pages.mjs`). Changed landing text needs its translation updated in
-`src/locales/landing/`, and a selftest says which.
+landing page's and legal pages' language versions are generated from them by the
+build (`scripts/landing-pages.mjs`). Changed text needs its translation updated in
+`src/locales/landing/` or `src/locales/legal/`, and a selftest says which. A translation
+may differ from the English on purpose: Marçal edits them himself, so don't "fix" that.
+`npm run landing:preview` shows them all, fresh on every reload.
 `src/legal.ts` resolves the right URL for each host so the app can link to them.
 
 No Google Fonts, anywhere. Chakra Petch is self-hosted (`src/fonts/` for the

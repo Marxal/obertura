@@ -653,7 +653,7 @@
   "settings.pieces": "Pjäser",
   "settings.newSetsDownloadOnce": "Nya uppsättningar laddas ned en gång och sparas sedan.",
   "settings.moveNotation": "Notation",
-  "settings.howMovesAreWritten": "Hur drag skrivs överallt: med bokstäver (Nf3, Bxf7) eller pjässymboler (♞f3, ♝xf7).",
+  "settings.howMovesAreWritten": "Hur drag skrivs överallt: med bokstäver (Sf3, Lxf7) eller pjässymboler (♞f3, ♝xf7).",
   "settings.boardCoordinates": "Brädets koordinater",
   "settings.theAHAnd": "Etiketterna a–h och 1–8 i brädets hörn.",
   "settings.boardMiniatures": "Miniatyrbräden",

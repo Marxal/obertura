@@ -17,12 +17,12 @@ import { getAllLines } from './storage';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
-import { formatSanLine } from './notation';
+import { formatSanLine, formatMovesInText } from './notation';
 import { pushBack } from './back-nav';
 import { track } from './metrics';
 import { freeTrainingSlots, showBulkCapToast } from './entitlement';
 import { t } from './i18n';
-import { levelLabel, loadContentWords, styleLabel, translatePacks } from './content-language';
+import { levelLabel, loadContentWords, packNamesForShowing, styleLabel, translatePacks } from './content-language';
 
 // Lines in training that count as "onboarded". The Train screen stamps the
 // completion flag once this is reached, which is how the first-run picker knows
@@ -114,7 +114,7 @@ let packsPromise: Promise<Pack[]> | null = null;
 export function loadPacks(): Promise<Pack[]> {
   if (!packsPromise) {
     packsPromise = Promise.all([import('./starter-packs.json'), loadContentWords()])
-      .then(([m, words]) => translatePacks((m.default ?? m) as unknown as Pack[], words?.packs));
+      .then(([m, words]) => packNamesForShowing(translatePacks((m.default ?? m) as unknown as Pack[], words?.packs)));
   }
   return packsPromise;
 }
@@ -427,7 +427,7 @@ function lineRow(o: {
   if (o.sub) {
     const subEl = document.createElement('div');
     subEl.className = 'onb-line-sub';
-    subEl.textContent = o.sub;
+    subEl.textContent = formatMovesInText(o.sub);
     content.appendChild(subEl);
   }
 

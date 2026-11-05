@@ -653,7 +653,7 @@
   "settings.pieces": "Piezas",
   "settings.newSetsDownloadOnce": "Los juegos nuevos se descargan una vez y quedan guardados.",
   "settings.moveNotation": "Notación",
-  "settings.howMovesAreWritten": "Cómo se escriben las jugadas en todas partes: con letras (Nf3, Bxf7) o con símbolos de pieza (♞f3, ♝xf7).",
+  "settings.howMovesAreWritten": "Cómo se escriben las jugadas en todas partes: con letras (Cf3, Axf7) o con símbolos de pieza (♞f3, ♝xf7).",
   "settings.boardCoordinates": "Coordenadas del tablero",
   "settings.theAHAnd": "Las etiquetas a–h y 1–8 en las esquinas del tablero.",
   "settings.boardMiniatures": "Tableros en miniatura",

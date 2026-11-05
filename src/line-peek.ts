@@ -22,7 +22,7 @@ import type { MoveNode } from './tree';
 import { mainlineNodes } from './scheduler';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
-import { formatMove } from './notation';
+import { formatMove, formatMovesInText } from './notation';
 import { peekActionBtn, buildStatRow, type PeekStat } from './position-peek';
 import { lineFigures, lineTraining, lineMastered } from './line-status';
 import { t } from './i18n';
@@ -307,7 +307,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
     // The selected move's note rides along under the board.
     if (p.node.note) {
-      noteEl.textContent = p.node.note;
+      noteEl.textContent = formatMovesInText(p.node.note);
       noteEl.removeAttribute('hidden');
     } else {
       noteEl.setAttribute('hidden', '');

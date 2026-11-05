@@ -7,6 +7,7 @@
 //   • reviewing (Statistics)      — pass `revealUci` and the arrow is drawn at
 //     once, because there's nothing to test here, only something to look at.
 
+import { formatMovesInText } from './notation';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { registerBrushes, HINT_COLOR } from './board-brushes';
@@ -108,7 +109,7 @@ export function openPositionPeek(opts: PositionPeekOptions): void {
   if (opts.note) {
     const noteEl = document.createElement('div');
     noteEl.className = 'peek-note';
-    noteEl.textContent = opts.note;
+    noteEl.textContent = formatMovesInText(opts.note);
     sheet.appendChild(noteEl);
   }
 

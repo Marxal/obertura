@@ -653,7 +653,7 @@
   "settings.pieces": "Peces",
   "settings.newSetsDownloadOnce": "Els jocs nous es baixen un cop i queden desats.",
   "settings.moveNotation": "Notació",
-  "settings.howMovesAreWritten": "Com s’escriuen les jugades a tot arreu: amb lletres (Nf3, Bxf7) o amb símbols de peça (♞f3, ♝xf7).",
+  "settings.howMovesAreWritten": "Com s’escriuen les jugades a tot arreu: amb lletres (Cf3, Axf7) o amb símbols de peça (♞f3, ♝xf7).",
   "settings.boardCoordinates": "Coordenades del tauler",
   "settings.theAHAnd": "Les etiquetes a–h i 1–8 als cantons del tauler.",
   "settings.boardMiniatures": "Taulers en miniatura",

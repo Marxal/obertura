@@ -14,6 +14,9 @@
 // BASE_URL rather than hard-coding a domain keeps a local `vite dev` and a
 // preview build working too.
 
+import { activeLanguage } from './language';
+import { RELEASED_LANGUAGES } from './language-choice';
+
 const DOC_BASE =
   __DEPLOY_TARGET__ === 'cloudflare'
     // BASE_URL is '/app/'; the documents sit one level up, at the site root.
@@ -21,8 +24,15 @@ const DOC_BASE =
     // BASE_URL is '/obertura/'; the whole docs/ folder is copied inside it.
     : `${import.meta.env.BASE_URL}docs/`;
 
-export const PRIVACY_URL = `${DOC_BASE}privacy.html`;
-export const TERMS_URL = `${DOC_BASE}terms.html`;
+// Privacy and terms exist in each released language (scripts/landing-pages.mjs). Licences
+// are English everywhere, and so is everything before a language is released.
+const LANGUAGE = activeLanguage();
+const TRANSLATED_BASE = __DEPLOY_TARGET__ === 'cloudflare' && LANGUAGE !== 'en' && RELEASED_LANGUAGES.includes(LANGUAGE)
+  ? `${DOC_BASE}${LANGUAGE}/`
+  : DOC_BASE;
+
+export const PRIVACY_URL = `${TRANSLATED_BASE}privacy.html`;
+export const TERMS_URL = `${TRANSLATED_BASE}terms.html`;
 export const LICENCES_URL = `${DOC_BASE}licences.html`;
 
 // The marketing landing page — index.html of that same folder, which is the

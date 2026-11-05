@@ -17,7 +17,7 @@ import {
   type PieceSet,
 } from './appearance';
 import { PIECE_PREVIEWS } from './pieces/previews';
-import { getMoveNotation, setMoveNotation, type MoveNotation } from './notation';
+import { formatMove, getMoveNotation, setMoveNotation, type MoveNotation } from './notation';
 import {
   getRetriesBeforeReveal,
   setRetriesBeforeReveal,
@@ -608,7 +608,7 @@ function buildAppearanceGroup(): HTMLElement {
   sec.appendChild(row(
     t('settings.moveNotation'),
     segmented<MoveNotation>(
-      [{ value: 'standard', label: 'Nf3' }, { value: 'figurine', label: '♞f3' }],
+      [{ value: 'standard', label: formatMove('Nf3', 'standard') }, { value: 'figurine', label: formatMove('Nf3', 'figurine') }],
       getMoveNotation(),
       (v) => setMoveNotation(v),
     ),

@@ -3,9 +3,9 @@
 Status: **Phases 0 to 4, 6 and 7 done (2026-11-05).** Every screen, starter pack note, trap and endgame
 is in Catalan, Spanish and Swedish (`src/locales/`), reachable with `?lang=ca`, `?lang=es` and `?lang=sv`.
 None is released. Marçal has read the first 949 keys of Catalan on a phone. The rest of the Catalan, all
-the Spanish and all the Swedish are unread, including all of Phase 7. Of Phase 8, the landing page and
-checkout are done, and the emails are written but not live. Still to do: Phase 5 (reading it), privacy and
-terms, the emails, then release.
+the Spanish and all the Swedish are unread, including all of Phases 7 and 8. Of Phase 8, the landing page,
+privacy, terms and checkout are done, and the emails are written but not live. Still to do: Phase 5 (reading
+it), the emails, then release.
 
 Testing it: add `?lang=xx` to the address for the fake language (it lasts for that tab,
 and `?lang=` ends it). `npm run i18n:layout` is the automatic check.
@@ -43,8 +43,9 @@ isn't the personal one.
 Leave these in their original language: Lichess study titles, which come from
 other people through a pasted link, and players' names.
 
-Move notation needs no work. The default uses piece symbols, so there is no
-Cf3 / Sf3 problem. The optional letter notation stays in English letters.
+**Moves:** the default is piece symbols, in move lists and now in notes too. The optional letter
+notation uses each language's letters: Cf3 in Catalan and Spanish, Sf3 in Swedish (`src/notation.ts`). The
+landing page has no setting, so it uses the letters. PGN stays in English, as the format requires.
 
 ## How language is chosen
 
@@ -205,8 +206,11 @@ what keeps the unread parts consistent.
   `src/locales/landing/<lang>.json`, keyed by the English. A selftest lists any English with no translation,
   any translation whose English has gone, and any move that doesn't match. Only released languages get an
   address, so a deploy changes nothing until release. `LANDING_PREVIEW=1` builds them all, for looking at.
-- **Privacy and terms:** translate them, and get legal advice on which version
-  governs. Not decided here.
+- **Privacy and terms:** translated in `src/locales/legal/<lang>.json`, and generated the same way.
+  **The English version governs** (Marçal, 2026-11-05): the terms say so, and each translation says so under
+  its title with a link to the English. Licences stay in English.
+- **Changing the landing text:** `npm run landing:preview`, edit `src/locales/landing/ca.json`, save and
+  reload. The left side is the English and must stay. The right side is free to say something different.
 - **Sign-in emails:** Supabase has one template per project. The language is saved at sign-up, and
   the wording and test steps are in `EMAIL-TEMPLATES.md`. **Untested, so test first.**
 - **Checkout:** Stripe Checkout supports `es` and `sv` but not Catalan (checked
@@ -231,7 +235,7 @@ Each phase can stop safely, because of the English fallback.
 | 5 | Marçal reviews Catalan first, then Spanish, and shows a few club players | Catalan and Spanish visible behind a setting |
 | 6 ✅ | The remaining screens, one or two rounds at a time | No untranslated text in the fake language, apart from names, opening names and what Phase 7 covers |
 | 7 ✅ | Starter pack notes, traps, endgames | Written and checked by machine. Still to be sampled by a chess player |
-| 8 | Landing ✅, checkout ✅, emails (written, `EMAIL-TEMPLATES.md`, not live), privacy and terms (not started) | Each language's full path works, landing to purchase |
+| 8 | Landing ✅, checkout ✅, privacy and terms ✅, emails (written, `EMAIL-TEMPLATES.md`, not live) | Each language's full path works, landing to purchase |
 | 9 | Release Catalan, then Spanish, then Swedish, each once reviewed. Phones in Spain's Spanish get Catalan from the first release. They can only switch to Spanish once it's released, so ideally release the two together | |
 | 10 | Opening names | |
 

@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { readFileSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildLanguagePage, buildRootPage, buildSitemap, LANDING_LANGUAGES } from './scripts/landing-pages.mjs';
+import { buildEnglishLegalPage, buildLanguagePage, buildLegalPage, buildRootPage, buildSitemap, LANDING_LANGUAGES } from './scripts/landing-pages.mjs';
 import { BROWSER_REDIRECTS, RELEASED_LANGUAGES } from './src/language-choice';
 
 // Read the app name + version straight from package.json so the About screen and
@@ -15,7 +15,7 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 //    marketing landing page) can take over the dist root instead.
 const target = process.env.DEPLOY_TARGET === 'cloudflare' ? 'cloudflare' : 'github';
 
-// The landing page's language versions, generated from docs/index.html. Only released
+// The language versions of the landing and legal pages, generated from docs/. Only released
 // languages get a public address, so a deploy changes nothing until a language is released.
 // LANDING_PREVIEW=1 builds them all, for looking at them locally.
 function writeLandingLanguages(dist: string): void {
@@ -26,6 +26,13 @@ function writeLandingLanguages(dist: string): void {
     const words = JSON.parse(readFileSync(new URL(`./src/locales/landing/${lang}.json`, import.meta.url), 'utf-8'));
     mkdirSync(`${dist}/${lang}`, { recursive: true });
     writeFileSync(`${dist}/${lang}/index.html`, buildLanguagePage(english, lang, words, released));
+    const legalWords = JSON.parse(readFileSync(new URL(`./src/locales/legal/${lang}.json`, import.meta.url), 'utf-8'));
+    for (const page of ['privacy.html', 'terms.html']) {
+      writeFileSync(`${dist}/${lang}/${page}`, buildLegalPage(readFileSync(`${dist}/${page}`, 'utf-8'), page, lang, legalWords, released));
+    }
+  }
+  for (const page of ['privacy.html', 'terms.html']) {
+    writeFileSync(`${dist}/${page}`, buildEnglishLegalPage(readFileSync(`${dist}/${page}`, 'utf-8'), page, released));
   }
   writeFileSync(`${dist}/index.html`, buildRootPage(english, released, BROWSER_REDIRECTS));
   writeFileSync(`${dist}/sitemap.xml`, buildSitemap(readFileSync(`${dist}/sitemap.xml`, 'utf-8'), released));

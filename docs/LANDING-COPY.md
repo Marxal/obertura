@@ -25,7 +25,7 @@ than straight quotes ('). The wording below is identical either way.
   paywall FETCH the real number (`GET /api/stripe/prices`) and overwrite what was
   typed in. The hard-coded 12€ in each is now a no-JS / offline fallback rather
   than a second source of truth — so the copy below is the shape, and Stripe is
-  the number. A Swedish device is quoted in kronor instead (139 kr, a figure you
+  the number. A Swedish device is quoted in kronor instead (120 kr, a figure you
   should confirm or change when you set the SEK price in Stripe — see
   STRIPE-SETUP.md).
 

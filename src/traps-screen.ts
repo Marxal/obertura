@@ -12,7 +12,7 @@ import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import type { Trap, TrapPack } from './traps';
 import { formatSanLine } from './notation';
 import { t } from './i18n';
-import { levelLabel, loadContentWords, translateTraps } from './content-language';
+import { levelLabel, loadContentWords, trapNamesForShowing, translateTraps } from './content-language';
 
 type Colour = 'white' | 'black';
 
@@ -21,7 +21,7 @@ let packsPromise: Promise<TrapPack[]> | null = null;
 export function loadTraps(): Promise<TrapPack[]> {
   if (!packsPromise) {
     packsPromise = Promise.all([import('./traps.json'), loadContentWords()])
-      .then(([m, words]) => translateTraps((m.default ?? m) as unknown as TrapPack[], words?.traps));
+      .then(([m, words]) => trapNamesForShowing(translateTraps((m.default ?? m) as unknown as TrapPack[], words?.traps)));
   }
   return packsPromise;
 }

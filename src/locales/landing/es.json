@@ -366,6 +366,10 @@
     "<span class=\"dc-row__move\"><button type=\"button\" data-m=\"-1\" aria-label=\"Move ": "<span class=\"dc-row__move\"><button type=\"button\" data-m=\"-1\" aria-label=\"Sube ",
     "<button type=\"button\" data-m=\"1\" aria-label=\"Move ": "<button type=\"button\" data-m=\"1\" aria-label=\"Baja ",
     " up\">": "\">",
-    " down\">": "\">"
+    " down\">": "\">",
+    "White to move. Which is stronger — <b class=\"tint-a\">": "Juegan blancas. ¿Cuál es más fuerte: <b class=\"tint-a\">",
+    "</b> or <b class=\"tint-b\">": "</b> o <b class=\"tint-b\">",
+    "<span class=\"dc-row__count\"><button type=\"button\" data-d=\"-1\" aria-label=\"Fewer ": "<span class=\"dc-row__count\"><button type=\"button\" data-d=\"-1\" aria-label=\"Menos ",
+    "<button type=\"button\" data-d=\"1\" aria-label=\"More ": "<button type=\"button\" data-d=\"1\" aria-label=\"Más "
   }
 }

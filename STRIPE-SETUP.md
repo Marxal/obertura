@@ -116,11 +116,11 @@ Stripe dashboard → **Product catalogue** → **+ Add product**
 Save it, then add the second currency. On the product page → the price → **Add
 another currency** (or **+ Add price** if that is what your dashboard shows):
 
-- **139.00 SEK**, also one-off.
+- **120.00 SEK**, also one-off.
 
-**Set the SEK amount by hand, as a round 139 kr — do not let Stripe convert.** A
+**Set the SEK amount by hand, as a round 120 kr — do not let Stripe convert.** A
 Swede should see a number that looks deliberate in Swedish, not a figure picked
-by yesterday's exchange rate. `docs/terms.html` already quotes "€12 / 139 SEK" —
+by yesterday's exchange rate. `docs/terms.html` already quotes "€12 / 120 SEK" —
 update both if you pick a different round number here.
 
 Then copy two things down:
@@ -336,7 +336,7 @@ is gone. If it doesn't, Settings → **"Already paid? Check again"** is the same
 check on demand, and it always answers one way or the other.
 
 Also worth one look each: open the paywall on a phone set to Swedish and confirm
-it says **139 kr**, and open it on any other phone and confirm **12€**.
+it says **120 kr**, and open it on any other phone and confirm **12€**.
 
 If a delivery fails, Stripe retries it with backoff for up to three days and the
 webhook's page shows the status code. The webhook is deliberately noisy this way;

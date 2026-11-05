@@ -12,7 +12,7 @@ import { buildRunHeader } from './run-header';
 import { showDialog } from './dialog';
 import { showToast } from './toast';
 import { burstConfetti } from './confetti';
-import { formatMove, formatSanLine } from './notation';
+import { formatMove, formatSanLine, formatMovesInText } from './notation';
 import { createStruggleNudge, type StruggleNudge } from './struggle-nudge';
 import { t } from './i18n';
 
@@ -897,7 +897,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   function showNoteCard(note: string): void {
     noteCardEl.classList.remove('pt-note-card--edit', 'pt-note-card--fix');
-    noteCardEl.textContent = note;
+    noteCardEl.textContent = formatMovesInText(note);
     noteCardEl.removeAttribute('hidden');
     // Restart the entrance each time it's shown: the note arriving is the point
     // of the moment, so it should read as arriving, not as having been there.
@@ -979,7 +979,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     if (expected.note) {
       const noteEl = document.createElement('div');
       noteEl.className = 'pt-alt-note';
-      noteEl.textContent = expected.note;
+      noteEl.textContent = formatMovesInText(expected.note);
       altCardEl.appendChild(noteEl);
     } else {
       const addBtn = document.createElement('button');
