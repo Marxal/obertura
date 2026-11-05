@@ -38,6 +38,7 @@ import {
 } from './line-status';
 import { openLinePeek } from './line-peek';
 import { addedLabel, addedExact } from './line-info';
+import { t } from './i18n';
 
 // Game analysis walks every imported game through a merged repertoire tree — at
 // a year's worth of games that's a visible hitch on a phone. It was being re-run
@@ -137,7 +138,7 @@ export function renderLinesScreen(
 }
 
 async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> {
-  container.innerHTML = '<p class="lines-loading">Loading…</p>';
+  container.innerHTML = `<p class="lines-loading">${t('common.loading')}</p>`;
   let allLines: Line[];
   let games: ImportedGame[];
   try {

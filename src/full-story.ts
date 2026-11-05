@@ -33,6 +33,7 @@ import {
 } from './spot-facts';
 import { TIME_CLASS_LABELS } from './import-core';
 import type { ImportedGame } from './import-core';
+import { t } from './i18n';
 
 // The charts are drawn at a fixed viewBox and scaled by CSS — a phone's width
 // varies, the shape of the line does not.
@@ -85,29 +86,29 @@ export function buildStoryContent(game: ImportedGame, ply: number, opts: StoryOp
   // cost you nothing" both left the actual result to be inferred, which is a
   // strange thing to make someone do about their own game — so the tile names
   // the result outright, in the colour it deserves.
-  if (!opts.inRun) tiles.appendChild(tile('This game', RESULT_WORD[game.result], `fs-tile-v--${game.result}`));
-  tiles.appendChild(tile('Time control', timeControlLabel(game)));
+  if (!opts.inRun) tiles.appendChild(tile(t('story.thisGame'), RESULT_WORD[game.result], `fs-tile-v--${game.result}`));
+  tiles.appendChild(tile(t('story.timeControl'), timeControlLabel(game)));
   // Both ratings, not the gap between them. The gap is arithmetic anyone can do
   // from the two numbers, and the numbers are the ones you would actually
   // recognise — "1520 vs 1370" says who you were playing at the time.
   if (game.myRating != null && game.opponentRating != null) {
-    tiles.appendChild(tile('Ratings', `${game.myRating} vs ${game.opponentRating}`));
+    tiles.appendChild(tile(t('story.ratings'), `${game.myRating} vs ${game.opponentRating}`));
   } else if (game.myRating != null) {
-    tiles.appendChild(tile('Your rating', String(game.myRating)));
+    tiles.appendChild(tile(t('stats.yourRating'), String(game.myRating)));
   } else if (game.opponentRating != null) {
-    tiles.appendChild(tile('Their rating', String(game.opponentRating)));
+    tiles.appendChild(tile(t('story.theirRating'), String(game.opponentRating)));
   }
   if (facts.wobblesBefore !== null && facts.wobblesBefore > 0) {
     const n = facts.wobblesBefore;
-    tiles.appendChild(tile('Before this', `${n} slip${n === 1 ? '' : 's'}`));
-    tiles.appendChild(tile('Move', String(facts.moveNumber)));
-    if (game.opening) tiles.appendChild(wideTile('Opening', game.opening));
+    tiles.appendChild(tile(t('story.beforeThis'), `${n} slip${n === 1 ? '' : 's'}`));
+    tiles.appendChild(tile(t('story.move'), String(facts.moveNumber)));
+    if (game.opening) tiles.appendChild(wideTile(t('story.opening'), game.opening));
   } else {
     // No slip to pair the move number with, so it rides with the opening: the grid
     // is two across, and a tile alone on a row looks like something went missing.
     tiles.appendChild(game.opening
-      ? wideTile(`Opening, move ${facts.moveNumber}`, game.opening)
-      : wideTile('Move', String(facts.moveNumber)));
+      ? wideTile(t('story.openingMove', { moveNumber: facts.moveNumber }), game.opening)
+      : wideTile(t('story.move'), String(facts.moveNumber)));
   }
   host.appendChild(tiles);
 
@@ -148,8 +149,8 @@ function buildClockChart(game: ImportedGame, ply: number, quiet = false): HTMLEl
     return { x, y };
   });
 
-  const card = chartCard('Your clock', quiet ? '' : `${formatClock(clocks[idx])} left here`, 'fs-note--warn');
-  const svg = chartSvg(`Your clock through the game, ${formatClock(clocks[idx])} left at this move`);
+  const card = chartCard(t('story.yourClock'), quiet ? '' : t('story.clockLeft', { time: formatClock(clocks[idx]) }), 'fs-note--warn');
+  const svg = chartSvg(t('story.clockLabel', { time: formatClock(clocks[idx]) }));
   svg.appendChild(line(0, CHART_H - 8, CHART_W, CHART_H - 8, 'fs-axis'));
   svg.appendChild(path(points, 'fs-clock-line'));
   svg.appendChild(dot(points[idx]));
@@ -188,8 +189,8 @@ function buildEvalChart(game: ImportedGame, ply: number): HTMLElement | null {
     ? `${showCp(game.colour === 'white' ? before : -before)} → ${showCp(game.colour === 'white' ? after : -after)}`
     : '';
 
-  const card = chartCard('The game', swing, 'fs-note--danger');
-  const svg = chartSvg('The evaluation through the game, dropping at this move');
+  const card = chartCard(t('story.theGame'), swing, 'fs-note--danger');
+  const svg = chartSvg(t('story.theEvaluationThroughThe'));
   svg.appendChild(line(0, CHART_H / 2, CHART_W, CHART_H / 2, 'fs-axis'));
   svg.appendChild(path(pts, 'fs-eval-line'));
   const here = pts[Math.min(ply + 1, pts.length - 1)];
@@ -312,7 +313,7 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
   const sanLine = o.best.sanLine ?? [o.best.san];
   const ucis = sanLineToUci(o.preFen, sanLine);
   if (ucis.length > 0) {
-    panel.appendChild(lineBlock('The engine’s line', sanLine.slice(0, ucis.length), ucis, [], startPly, 0));
+    panel.appendChild(lineBlock(t('story.theEngineSLine'), sanLine.slice(0, ucis.length), ucis, [], startPly, 0));
   }
 
   const also = (o.also ?? []).filter(m => m.uci);
@@ -321,7 +322,7 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
     block.className = 'fs-engine-block fs-engine-also';
     const h = document.createElement('span');
     h.className = 'fs-engine-head';
-    h.textContent = 'Also good';
+    h.textContent = t('story.alsoGood');
     block.appendChild(h);
     for (const m of also) {
       const chip = document.createElement('button');
@@ -354,7 +355,7 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
     h.textContent = heading;
     const wait = document.createElement('div');
     wait.className = 'fs-engine-wait';
-    wait.textContent = 'Looking…';
+    wait.textContent = t('where.looking');
     slot.append(h, wait);
     void analysePosition(fen, 14, import.meta.env.BASE_URL, { multiPv: 1, movetimeMs: 1500 })
       .then((moves) => {
@@ -377,7 +378,7 @@ export function placeEngineLine(row: HTMLElement, o: EngineLineOptions): void {
   toggle.className = 'fs-engine-btn';
   const paint = (): void => {
     toggle.replaceChildren(
-      'Engine',
+      t('story.engine'),
       panel.hidden ? Icons.chevronDown(14) : Icons.chevronUp(14),
     );
     toggle.setAttribute('aria-expanded', String(!panel.hidden));
@@ -403,15 +404,15 @@ export function clearEngineLine(row: HTMLElement): void {
 export function buildGameTiles(game: ImportedGame): HTMLElement {
   const tiles = document.createElement('div');
   tiles.className = 'fs-tiles';
-  tiles.appendChild(tile('Opponent', game.opponent));
-  tiles.appendChild(tile('When', whenLabel(game.endTime)));
-  tiles.appendChild(tile('Time control', timeControlLabel(game)));
+  tiles.appendChild(tile(t('story.opponent'), game.opponent));
+  tiles.appendChild(tile(t('story.when'), whenLabel(game.endTime)));
+  tiles.appendChild(tile(t('story.timeControl'), timeControlLabel(game)));
   if (game.myRating != null && game.opponentRating != null) {
-    tiles.appendChild(tile('Ratings', `${game.myRating} vs ${game.opponentRating}`));
+    tiles.appendChild(tile(t('story.ratings'), `${game.myRating} vs ${game.opponentRating}`));
   } else if (game.opponentRating != null) {
-    tiles.appendChild(tile('Their rating', String(game.opponentRating)));
+    tiles.appendChild(tile(t('story.theirRating'), String(game.opponentRating)));
   }
-  if (game.opening) tiles.appendChild(wideTile('Opening', game.opening));
+  if (game.opening) tiles.appendChild(wideTile(t('story.opening'), game.opening));
   return tiles;
 }
 
@@ -422,7 +423,7 @@ export function buildGameTiles(game: ImportedGame): HTMLElement {
  * time" tile) said the fact; this makes it something to act on.
  */
 function openingRecordCard(record: OpeningRecord, onOpenGame?: (gameId: string) => void): HTMLElement {
-  const card = chartCard('This opening', `${ordinal(record.count)} time`, 'fs-note--warn');
+  const card = chartCard(t('story.thisOpening'), `${ordinal(record.count)} time`, 'fs-note--warn');
   const list = document.createElement('div');
   list.className = 'fs-record';
   for (const e of record.entries) {
@@ -538,13 +539,13 @@ function bookCard(link: RepertoireLink): HTMLElement {
   const name = shortLineName(link.lineName);
   head.textContent = link.kind === 'covered'
     ? `Your ${name} plays ${formatMove(link.san ?? '')} here`
-    : `${link.movesPast} move${link.movesPast === 1 ? '' : 's'} past your ${name}`;
+    : t('story.movesPast', { n: link.movesPast ?? 0, name });
   text.appendChild(head);
   const sub = document.createElement('span');
   sub.className = 'fs-book-sub';
   sub.textContent = link.kind === 'covered'
-    ? 'You have already worked this out'
-    : 'Where your preparation stopped';
+    ? t('story.youHaveAlreadyWorked')
+    : t('story.whereYourPreparationStopped');
   text.appendChild(sub);
   card.appendChild(text);
   return card;
@@ -554,9 +555,9 @@ function bookCard(link: RepertoireLink): HTMLElement {
 
 // The result in one word, said rather than implied.
 const RESULT_WORD: Record<ImportedGame['result'], string> = {
-  loss: 'Lost',
-  win: 'Won',
-  draw: 'Drawn',
+  loss: t('showcase.lost'),
+  win: t('showcase.won'),
+  draw: t('story.drawn'),
 };
 
 // "5+0 Blitz" — falls back to just the speed for a time control clock.ts

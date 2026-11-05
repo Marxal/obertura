@@ -49,7 +49,7 @@ function buildResultBar(games: ImportedGame[], deps: MyGamesDeps): HTMLElement {
   const wrap = document.createElement('button');
   wrap.type = 'button';
   wrap.className = 'mygames-wdl';
-  wrap.setAttribute('aria-label', 'Your results — open Statistics');
+  wrap.setAttribute('aria-label', t('games.yourResultsOpenStatistics'));
 
   const total = games.length;
   const won = games.filter(g => g.result === 'win').length;
@@ -79,7 +79,7 @@ function buildResultBar(games: ImportedGame[], deps: MyGamesDeps): HTMLElement {
   const foot = document.createElement('span');
   foot.className = 'mygames-wdl-foot';
   const count = document.createElement('span');
-  count.textContent = total === 1 ? '1 game' : `${total} games`;
+  count.textContent = t('backup.games.count', { n: total });
   foot.appendChild(count);
   const score = document.createElement('span');
   score.className = 'mygames-wdl-score';
@@ -128,10 +128,10 @@ export interface MyGamesDeps {
 }
 
 const RESULT_LABEL: Record<ImportedGame['result'], string> = {
-  win: 'Won', draw: 'Drew', loss: 'Lost',
+  win: t('showcase.won'), draw: t('showcase.drew'), loss: t('showcase.lost'),
 };
 
-const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
+const PLATFORM_LABEL = { chesscom: t('games.chessCom'), lichess: t('games.lichess') } as const;
 
 // Tags shown/filtered on for a game: the user's own tags plus the platform and
 // time control, derived on the fly rather than written into the stored `tags`
@@ -174,14 +174,14 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   topRow.className = 'mygames-top-row';
   const pageTitle = document.createElement('h1');
   pageTitle.className = 'desk-title';
-  pageTitle.textContent = 'My games';
+  pageTitle.textContent = t('nav.games');
   topRow.appendChild(pageTitle);
 
   const importBtn = document.createElement('button');
   importBtn.type = 'button';
   importBtn.className = 'mygames-import';
   importBtn.appendChild(Icons.download(18));
-  importBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Import a game' }));
+  importBtn.appendChild(Object.assign(document.createElement('span'), { textContent: t('games.importAGame') }));
   importBtn.addEventListener('click', deps.onImport);
   topRow.appendChild(importBtn);
 
@@ -191,22 +191,22 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     refreshBtn.type = 'button';
     refreshBtn.className = 'mygames-action';
     refreshBtn.appendChild(Icons.reset(15));
-    refreshBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Refresh games' }));
+    refreshBtn.appendChild(Object.assign(document.createElement('span'), { textContent: t('games.refreshGames') }));
     refreshBtn.addEventListener('click', async () => {
       if (refreshBtn.disabled) return;
       refreshBtn.disabled = true;
       refreshBtn.classList.add('mygames-action--busy');
-      showToast('Checking for new games…');
+      showToast(t('games.checkingForNewGames'));
       try {
         const n = await refreshGamesNow();
         if (n > 0) {
-          showToast(`${n} new game${n === 1 ? '' : 's'} added ✓`, { variant: 'success' });
+          showToast(t('games.newAdded', { n }), { variant: 'success' });
           refresh();
           return; // re-render replaces this button; nothing left to re-enable
         }
-        showToast('No new games.');
+        showToast(t('games.noNewGames'));
       } catch {
-        showToast('Couldn’t refresh — check your connection.');
+        showToast(t('games.couldnTRefreshCheck'));
       }
       refreshBtn.disabled = false;
       refreshBtn.classList.remove('mygames-action--busy');
@@ -237,8 +237,8 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     // This screen IS the games list, so an empty one has exactly one thing to
     // offer: the import form, in place, rather than a sentence about it.
     root.appendChild(buildInlineImport({
-      title: 'Import your games',
-      body: 'Pull your games from Chess.com or Lichess — they land here, ready to review, tag and analyse.',
+      title: t('firstRun.importTitle'),
+      body: t('games.pullYourGamesFrom'),
       onImported: () => { void renderMyGamesScreen(host, deps); },
     }));
     // Adding ONE game (a PGN, a link, the last game played) is a different and
@@ -301,7 +301,7 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     if (!gs.length) {
       const none = document.createElement('p');
       none.className = 'mygames-empty';
-      none.textContent = 'No games match these filters.';
+      none.textContent = t('games.noGamesMatchThese');
       listWrap.appendChild(none);
       return;
     }
@@ -441,17 +441,17 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   const del = document.createElement('button');
   del.type = 'button';
   del.className = 'mygames-card-del';
-  del.setAttribute('aria-label', `Delete game vs ${g.opponent}`);
+  del.setAttribute('aria-label', t('games.deleteGameVs', { opponent: g.opponent }));
   del.appendChild(Icons.trash(16));
   del.addEventListener('click', () => {
     showDialog({
-      title: 'Delete this game?',
-      body: `Remove your game vs ${g.opponent} from My games? This can’t be undone.`,
+      title: t('games.deleteThisGame'),
+      body: t('games.removeYourGameVs', { opponent: g.opponent }),
       buttons: [
-        { label: 'Delete', variant: 'danger', onClick: () => {
-          void deleteGame(g.id).then(noteGamesCount).then(() => { showToast('Game deleted'); refresh(); });
+        { label: t('repertoire.delete13'), variant: 'danger', onClick: () => {
+          void deleteGame(g.id).then(noteGamesCount).then(() => { showToast(t('games.gameDeleted')); refresh(); });
         } },
-        { label: 'Cancel', variant: 'secondary' },
+        { label: t('common.cancel'), variant: 'secondary' },
       ],
     });
   });
@@ -497,7 +497,7 @@ function buildReviewStrip(tree: MoveNode): HTMLElement | null {
   };
   const accLabel = document.createElement('span');
   accLabel.className = 'mgr-acc-label';
-  accLabel.textContent = 'Acc';
+  accLabel.textContent = t('games.acc');
 
   // Row 1 — White's numbers.
   grid.appendChild(accCell(s.accWhite, 'white'));

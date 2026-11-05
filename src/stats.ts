@@ -25,6 +25,7 @@ import {
 import type { DayOutcome } from './streak';
 import type { PuzzleDay, PuzzleOpeningTally } from './puzzle-log';
 import type { StatsRange } from './prefs';
+import { t } from './i18n';
 
 // A line is "mastered" once its training confidence reaches the top of the 0–5
 // scale — the same threshold the quick-stats box has always used.
@@ -97,7 +98,7 @@ function groupUserMoves(lines: Line[]): Map<string, KnowledgeGroup> {
       const key = `${epdKey(preFen)}|${node.uci}`;
       const instance: MoveInstance = {
         lineId: line.id,
-        lineName: line.name || line.openingName || 'Untitled line',
+        lineName: line.name || line.openingName || t('drill.untitledLine'),
         openingName: line.openingName,
         colour: line.colour,
         san: node.san,
@@ -309,7 +310,7 @@ export function lineRecall(lines: Line[], limit = 24): LineRecall[] {
     }
     out.push({
       lineId: line.id,
-      lineName: line.name || line.openingName || 'Untitled line',
+      lineName: line.name || line.openingName || t('drill.untitledLine'),
       openingName: line.openingName,
       colour: line.colour,
       memory: m,
@@ -549,7 +550,7 @@ export interface TrendPoint {
   scorePct: number;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = [t('stats.jan'), t('stats.feb'), t('stats.mar'), t('stats.apr'), t('stats.may'), t('stats.jun'), t('stats.jul'), t('stats.aug'), t('stats.sep'), t('stats.oct'), t('stats.nov'), t('stats.dec')];
 
 // Monthly win-rate series from imported games (oldest → newest). Months with no
 // games are skipped — no fabricated zeroes across a gap. endTime is unix seconds.

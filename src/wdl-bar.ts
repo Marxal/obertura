@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // A slim three-segment win/draw/loss bar — sage wins, neutral draws, brick
 // losses — flanked by a score percentage on the left and a games count on the
 // right, under one quiet caption that fixes the colour perspective ("their
@@ -13,7 +14,7 @@ export interface WdlCounts {
 }
 
 // Build the labelled block: caption, then [score% · bar · count].
-export function wdlBlock(counts: WdlCounts, caption = 'their results'): HTMLElement {
+export function wdlBlock(counts: WdlCounts, caption = t('stats.theirResults')): HTMLElement {
   const block = document.createElement('div');
   block.className = 'wdl-block';
 
@@ -22,7 +23,7 @@ export function wdlBlock(counts: WdlCounts, caption = 'their results'): HTMLElem
   cap.textContent = caption;
   block.appendChild(cap);
 
-  block.appendChild(wdlScoreRow(counts, `${counts.games} game${counts.games === 1 ? '' : 's'}`));
+  block.appendChild(wdlScoreRow(counts, t('backup.games.count', { n: counts.games })));
   return block;
 }
 
@@ -56,7 +57,7 @@ export function wdlBar(counts: WdlCounts): HTMLElement {
   bar.className = 'wdl-bar';
   bar.setAttribute('role', 'img');
   bar.setAttribute('aria-label',
-    `${counts.wins} wins, ${counts.draws} draws, ${counts.losses} losses`);
+    t('stats.winsDrawsLosses', { wins: counts.wins, draws: counts.draws, losses: counts.losses }));
 
   const total = counts.wins + counts.draws + counts.losses;
   if (total === 0) {

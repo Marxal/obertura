@@ -81,6 +81,7 @@ import {
   type DayPerformance, type PerformanceBand,
 } from './daily-review';
 import { formatDayLabel } from './daily-recap';
+import { t } from './i18n';
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
@@ -113,7 +114,7 @@ export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbac
 // same on both: the attribute below only matters to desktop.css.
 export type StatsTab = 'overview' | 'puzzles' | 'endgames' | 'games';
 const STATS_TAB_LABEL: Record<StatsTab, string> = {
-  overview: 'Overview', puzzles: 'Puzzles', endgames: 'Endgames', games: 'Your games',
+  overview: t('stats.overview'), puzzles: t('stats.puzzles'), endgames: t('train.domain.endgames'), games: t('recap.yourGames'),
 };
 let statsTab: StatsTab = 'overview';
 
@@ -142,7 +143,7 @@ function finishStatsTabs(container: HTMLElement, cb: ProgressCallbacks): void {
 }
 
 async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<void> {
-  container.innerHTML = '<p class="lines-loading">Loading…</p>';
+  container.innerHTML = `<p class="lines-loading">${t('common.loading')}</p>`;
   let games: ImportedGame[];
   let lines: Line[];
   try {
@@ -163,9 +164,9 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   if (lines.length === 0 && games.length === 0) {
     container.appendChild(buildEmptyState({
       icon: Icons.barChart(28),
-      line: 'Your numbers start with your first session.',
-      cta: { label: 'Start training', onClick: () => cb.onStartTraining() },
-      link: { label: 'or build your first line', onClick: () => cb.onBuildLine() },
+      line: t('stats.yourNumbersStartWith'),
+      cta: { label: t('firstRun.startTraining'), onClick: () => cb.onStartTraining() },
+      link: { label: t('stats.orBuildYourFirst'), onClick: () => cb.onBuildLine() },
     }));
     finishStatsTabs(container, cb);
     return;
@@ -179,8 +180,8 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   if (!trainedYet) {
     container.appendChild(buildEmptyState({
       icon: Icons.barChart(28),
-      line: 'Train once and this page comes alive.',
-      cta: { label: 'Start training', onClick: () => cb.onStartTraining() },
+      line: t('stats.trainOnceAndThis'),
+      cta: { label: t('firstRun.startTraining'), onClick: () => cb.onStartTraining() },
     }));
     renderPuzzlesRegion(container);
     renderEndgamesRegion(container, games);
@@ -215,8 +216,8 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 
-const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAY = [t('stats.sun'), t('stats.mon'), t('stats.tue'), t('stats.wed'), t('stats.thu'), t('stats.fri'), t('stats.sat')];
+const MONTH = [t('stats.jan'), t('stats.feb'), t('stats.mar'), t('stats.apr'), t('stats.may'), t('stats.jun'), t('stats.jul'), t('stats.aug'), t('stats.sep'), t('stats.oct'), t('stats.nov'), t('stats.dec')];
 
 function localDateKey(d: Date): string {
   const y = d.getFullYear();
@@ -337,7 +338,7 @@ function renderStreakHero(container: HTMLElement): void {
 
   const label = document.createElement('span');
   label.className = 'stats-streak-label';
-  label.textContent = 'day streak';
+  label.textContent = t('celebrate.streak');
   main.appendChild(label);
 
   hero.appendChild(main);
@@ -350,7 +351,7 @@ function renderStreakHero(container: HTMLElement): void {
 
   const weekGrid = document.createElement('div');
   weekGrid.className = 'stats-week-grid';
-  weekGrid.setAttribute('aria-label', 'Last 7 days training');
+  weekGrid.setAttribute('aria-label', t('stats.last7DaysTraining'));
 
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now);
@@ -395,12 +396,12 @@ function renderStreakHero(container: HTMLElement): void {
   const sub = document.createElement('div');
   sub.className = 'stats-streak-sub';
   if (streak === 0) {
-    sub.textContent = 'Train today to start a streak';
+    sub.textContent = t('stats.trainTodayToStart');
   } else if (today) {
-    sub.textContent = 'Trained today ✓';
+    sub.textContent = t('stats.trainedToday');
     sub.classList.add('stats-streak-sub--done');
   } else {
-    sub.textContent = `Train today to keep your ${streak}-day streak going`;
+    sub.textContent = t('stats.trainTodayToKeep', { streak: streak });
   }
   hero.appendChild(sub);
 
@@ -418,9 +419,8 @@ function renderStreakHero(container: HTMLElement): void {
 // is also what makes the tap worth offering.
 function dayCellLabel(key: string, trained: boolean, perf: DayPerformance | undefined): string {
   const day = formatDayLabel(key);
-  if (!perf) return `${day}: ${trained ? 'trained' : 'not trained'}`;
-  return `${day}: ${perf.right} of ${perf.total} moves right (${perf.accuracy}%)`
-    + `${perf.done ? ', challenge cleared' : ''} — see the results`;
+  if (!perf) return t(trained ? 'stats.day.trained' : 'stats.day.notTrained', { day });
+  return t(perf.done ? 'stats.day.cleared' : 'stats.day.score', { day, right: perf.right, total: perf.total, pct: perf.accuracy });
 }
 
 // The banding, spelled out once. Four swatches and their thresholds; the
@@ -440,7 +440,7 @@ function buildPerformanceLegend(): HTMLElement {
     return row;
   };
 
-  el.appendChild(item('low', `under ${PERFORMANCE_MID}%`));
+  el.appendChild(item('low', t('stats.under', { PERFORMANCE_MID: PERFORMANCE_MID })));
   el.appendChild(item('mid', `${PERFORMANCE_MID}%+`));
   el.appendChild(item('high', `${PERFORMANCE_HIGH}%+`));
   el.appendChild(item('perfect', 'perfect'));
@@ -476,7 +476,7 @@ function appendCalendarAccordion(
 
   const h = document.createElement('span');
   h.className = 'stats-activity-title';
-  h.textContent = 'Times trained this month';
+  h.textContent = t('stats.timesTrainedThisMonth');
   head.appendChild(h);
 
   const meta = document.createElement('span');
@@ -562,7 +562,7 @@ function buildMonthCalendar(
 // ── 2. Training region ──────────────────────────────────────────────────────
 
 function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
-  const region = statsRegion(container, 'Openings', 'openings');
+  const region = statsRegion(container, t('nav.openings'), 'openings');
   renderQuickStats(region, lines, cb);
   renderMoveMemory(region, lines);
   // "Forgotten moves" — the worst moves and weakest lines — lives on the Train
@@ -612,7 +612,7 @@ function renderMoveMemory(container: HTMLElement, lines: Line[]): void {
   const mem = moveMemory(lines);
   if (mem.total === 0) return;
 
-  const section = statsSection('Move memory', `${mem.total} moves in your lines`);
+  const section = statsSection(t('stats.moveMemory'), t('stats.movesInYourLines', { total: mem.total }));
 
   const row = document.createElement('div');
   row.className = 'stats-mem-row';
@@ -620,9 +620,9 @@ function renderMoveMemory(container: HTMLElement, lines: Line[]): void {
   const donutHost = document.createElement('div');
   donutHost.className = 'stats-donut-host stats-donut-host--big';
   renderDonut(donutHost, memorySegments(mem), {
-    ariaLabel: `Move memory: ${mem.solid} solid, ${mem.shaky} slipping, ${mem.total - mem.trained} not trained yet`,
+    ariaLabel: t('stats.memoryLabel', { solid: mem.solid, shaky: mem.shaky, fresh: mem.total - mem.trained }),
     centre: mem.recallPct === null ? '—' : `${mem.recallPct}%`,
-    caption: 'recall',
+    caption: t('stat.recall'),
   });
   row.appendChild(donutHost);
 
@@ -630,7 +630,7 @@ function renderMoveMemory(container: HTMLElement, lines: Line[]): void {
   legend.className = 'stats-donut-legend';
   legend.appendChild(donutLegendRow('solid', String(mem.solid), 'solid'));
   legend.appendChild(donutLegendRow('shaky', String(mem.shaky), 'slipping'));
-  legend.appendChild(donutLegendRow('untrained', String(mem.total - mem.trained), 'not trained yet'));
+  legend.appendChild(donutLegendRow('untrained', String(mem.total - mem.trained), t('stats.notTrainedYet')));
   row.appendChild(legend);
 
   section.appendChild(row);
@@ -638,8 +638,8 @@ function renderMoveMemory(container: HTMLElement, lines: Line[]): void {
   const cap = document.createElement('p');
   cap.className = 'stats-trend-caption';
   cap.textContent = mem.trained === 0
-    ? 'Start drilling and this ring fills in as your moves are graded.'
-    : 'Every move you play across your lines. Recall is the share of drilled moves you remembered last time.';
+    ? t('stats.startDrillingAndThis')
+    : t('stats.everyMoveYouPlay');
   section.appendChild(cap);
 
   container.appendChild(section);
@@ -680,23 +680,23 @@ function renderPuzzlesRegion(container: HTMLElement): void {
   // Nothing solved yet → no region at all.
   if (days.length === 0 && history.length === 0) return;
 
-  const region = statsRegion(container, 'Puzzles', 'puzzles');
+  const region = statsRegion(container, t('stats.puzzles'), 'puzzles');
 
   // Puzzle rating with its evolution over time, plus the solved/accuracy totals —
   // one integrated block sharing a single Week / Month / 90 days / All filter. The
   // graph sits on top, the range chips below it, the totals beneath those.
   if (history.length > 0) {
-    const section = statsSection('Puzzle rating');
+    const section = statsSection(t('stats.puzzleRating'));
 
     // Four boxes up top: current rating + best clean run (both range-independent),
     // plus Solved + Accuracy for the selected range. Tapping a day on the chart
     // swaps rating/solved/accuracy to that single day.
     const totals = document.createElement('div');
     totals.className = 'pz-stat-row pz-stat-row--four';
-    const ratingCell = puzzleStatCell(Icons.star(18), String(getPuzzleRating()), 'Your rating');
-    const streakCell = puzzleStatCell(Icons.zap(18), String(getBestCleanStreak()), 'Best run');
-    const solvedCell = puzzleStatCell(Icons.target(18), '0', 'Solved');
-    const accCell = puzzleStatCell(Icons.sparkles(18), '—', 'Accuracy');
+    const ratingCell = puzzleStatCell(Icons.star(18), String(getPuzzleRating()), t('stats.yourRating'));
+    const streakCell = puzzleStatCell(Icons.zap(18), String(getBestCleanStreak()), t('stats.bestRun'));
+    const solvedCell = puzzleStatCell(Icons.target(18), '0', t('stats.solved'));
+    const accCell = puzzleStatCell(Icons.sparkles(18), '—', t('stats.accuracy'));
     totals.appendChild(ratingCell);
     totals.appendChild(streakCell);
     totals.appendChild(solvedCell);
@@ -711,7 +711,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
     // chart itself swipes between ranges like a carousel.
     let range = getPzStatsRange();
     const rangeChips = buildSegmented<PzStatsRange>(
-      [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
+      [['week', t('stats.week')], ['month', t('stats.month')], ['all', t('import.all')]],
       range,
       (r) => { range = r; setPzStatsRange(r); fill(); },
       'stats-range',
@@ -743,7 +743,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
       const pts = cutoff ? history.filter((p) => p.day >= cutoff) : history;
       if (pts.length >= 2) {
         renderLineChart(chartHost, pts.map((p) => ({ value: p.rating, label: shortDay(p.day) })), {
-          ariaLabel: 'Puzzle rating over time',
+          ariaLabel: t('stats.puzzleRatingOverTime'),
           xTicks: sparseTicks(pts.map((p) => shortDay(p.day))),
           detailFor: (i) => `${formatDay(pts[i].day)} · rated ${pts[i].rating}`,
           onSelect: (i, userTap) => { if (userTap) onSelectDay(pts[i]); },
@@ -751,7 +751,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
       } else {
         const note = document.createElement('p');
         note.className = 'stats-no-games';
-        note.textContent = 'Not enough rated days in this range yet to chart a trend.';
+        note.textContent = t('stats.notEnoughRatedDays');
         chartHost.appendChild(note);
       }
       // Reset the rating box to the live current rating (a prior day-tap may have
@@ -773,20 +773,20 @@ function renderPuzzlesRegion(container: HTMLElement): void {
   } else if (days.length > 0) {
     // No rated history yet (casual play only) — just the solved totals, as before.
     let range: StatsRange = getStatsRange();
-    const section = statsSection('Solved');
+    const section = statsSection(t('stats.solved'));
     section.appendChild(buildSegmented<StatsRange>(
-      [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
+      [['week', t('stats.week')], ['month', t('stats.month')], ['all', t('import.all')]],
       range,
       (r) => { range = r; setStatsRange(r); fillTotals(); },
     ));
     const body = document.createElement('div');
     const fillTotals = (): void => {
       body.innerHTML = '';
-      const t = puzzleTotals(days, range);
+      const totals = puzzleTotals(days, range);
       const row = document.createElement('div');
       row.className = 'pz-stat-row';
-      row.appendChild(puzzleStatCell(Icons.target(18), String(t.solved), 'Solved'));
-      row.appendChild(puzzleStatCell(Icons.sparkles(18), t.attempts ? `${t.accuracyPct}%` : '—', 'Accuracy'));
+      row.appendChild(puzzleStatCell(Icons.target(18), String(totals.solved), t('stats.solved')));
+      row.appendChild(puzzleStatCell(Icons.sparkles(18), totals.attempts ? `${totals.accuracyPct}%` : '—', t('stats.accuracy')));
       body.appendChild(row);
     };
     fillTotals();
@@ -797,7 +797,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
   // Accuracy by opening — which trained openings you're sharp or shaky in.
   const opRows = puzzleAccuracyByOpening(byOpening, 1);
   if (opRows.length > 0) {
-    const section = statsSection('Accuracy by opening');
+    const section = statsSection(t('stats.accuracyByOpening'));
     for (const r of opRows.slice(0, 8)) {
       section.appendChild(otrLine(r.family, winBar(r.accuracyPct), `${r.accuracyPct}% · ${r.attempts}`));
     }
@@ -820,22 +820,22 @@ function renderEndgamesRegion(container: HTMLElement, games: ImportedGame[]): vo
   const hasPractice = Object.keys(progress).length > 0;
   if (!hasLadder && !hasPractice && spots.length === 0) return;
 
-  const region = statsRegion(container, 'Endgames', 'endgames');
+  const region = statsRegion(container, t('train.domain.endgames'), 'endgames');
 
   // Endgame puzzles: rating + best run tiles, and the rating line underneath.
   if (hasLadder) {
-    const section = statsSection('Endgame puzzles');
+    const section = statsSection(t('daily.pref.endgames'));
     const tiles = document.createElement('div');
     tiles.className = 'pz-stat-row';
-    tiles.appendChild(puzzleStatCell(Icons.flag(18), String(getPuzzleRating('endgame')), 'Endgame rating'));
-    tiles.appendChild(puzzleStatCell(Icons.zap(18), String(getBestCleanStreak('endgame')), 'Best run'));
+    tiles.appendChild(puzzleStatCell(Icons.flag(18), String(getPuzzleRating('endgame')), t('stats.endgameRating')));
+    tiles.appendChild(puzzleStatCell(Icons.zap(18), String(getBestCleanStreak('endgame')), t('stats.bestRun')));
     section.appendChild(tiles);
 
     if (history.length >= 2) {
       const chartHost = document.createElement('div');
       chartHost.className = 'pz-rating-chart';
       renderLineChart(chartHost, history.map(p => ({ value: p.rating, label: shortDay(p.day) })), {
-        ariaLabel: 'Endgame puzzle rating over time',
+        ariaLabel: t('stats.endgamePuzzleRatingOver'),
         xTicks: sparseTicks(history.map(p => shortDay(p.day))),
         detailFor: i => `${formatDay(history[i].day)} · rated ${history[i].rating}`,
       });
@@ -852,28 +852,28 @@ function renderEndgamesRegion(container: HTMLElement, games: ImportedGame[]): vo
   const slipped = spots.filter(ref => !ref.spot.converted).length;
 
   if (classicsSolved > 0 || spots.length > 0) {
-    const section = statsSection('Endgame practice');
+    const section = statsSection(t('stats.endgamePractice'));
 
     if (classicIds.length > 0) {
       section.appendChild(meterRow(
-        'Classic endgames',
+        t('stats.classicEndgames'),
         classicsSolved,
         classicIds.length,
-        `${classicsSolved} of ${classicIds.length} solved`,
+        t('stats.ofSolved', { classicsSolved: classicsSolved, length: classicIds.length }),
       ));
     }
     if (spots.length > 0) {
       section.appendChild(meterRow(
-        'From your games',
+        t('analysis.contextLabel'),
         playedSpots,
         spots.length,
-        `${playedSpots} of ${spots.length} played out`,
+        t('stats.ofPlayedOut', { playedSpots: playedSpots, length: spots.length }),
       ));
       const cap = document.createElement('p');
       cap.className = 'stats-trend-caption';
       cap.textContent = slipped > 0
-        ? `${slipped} of those endgames had a result you let slip in the game — the best ones to replay.`
-        : 'You converted every endgame the scan found — nothing was let slip.';
+        ? t('stats.ofThoseEndgamesHad', { slipped: slipped })
+        : t('stats.youConvertedEveryEndgame');
       section.appendChild(cap);
     }
     region.appendChild(section);
@@ -941,16 +941,16 @@ function renderQuickStats(container: HTMLElement, lines: Line[], cb: ProgressCal
   const row = document.createElement('div');
   row.className = 'stats-quick-row';
 
-  row.appendChild(quickBox('lines', Icons.pawn(18), lines.length, 'Lines',
-    () => openLinesSheet(cb, 'All lines', lines, 'No saved lines yet.', cb.onBuildLine)));
+  row.appendChild(quickBox('lines', Icons.pawn(18), lines.length, t('backup.lines'),
+    () => openLinesSheet(cb, t('stats.allLines'), lines, t('stats.noSavedLinesYet'), cb.onBuildLine)));
 
-  row.appendChild(quickBox('training', Icons.zap(18), inTraining.length, 'Training',
-    () => openLinesSheet(cb, 'In training', inTraining, 'No lines in training yet.', cb.onStartTraining)));
+  row.appendChild(quickBox('training', Icons.zap(18), inTraining.length, t('train.training'),
+    () => openLinesSheet(cb, t('stats.inTraining'), inTraining, t('stats.noLinesInTraining'), cb.onStartTraining)));
 
-  row.appendChild(quickBox('mastered', Icons.star(18), mastered.length, 'Mastered',
-    () => openLinesSheet(cb, 'Mastered lines', mastered, 'Nothing mastered yet — keep drilling.', cb.onStartTraining)));
+  row.appendChild(quickBox('mastered', Icons.star(18), mastered.length, t('stats.mastered'),
+    () => openLinesSheet(cb, t('stats.masteredLines'), mastered, t('stats.nothingMasteredYetKeep'), cb.onStartTraining)));
 
-  row.appendChild(quickBox('needs', Icons.alert(18), needs.length, 'Needs work',
+  row.appendChild(quickBox('needs', Icons.alert(18), needs.length, t('stats.needsWork'),
     () => openNeedsWorkSheet(cb, needs, lines)));
 
   container.appendChild(row);
@@ -994,7 +994,7 @@ function openLinesSheet(
     if (lines.length === 0) {
       body.appendChild(buildEmptyState({
         line: emptyLine,
-        cta: { label: 'Start training', onClick: () => { close(); emptyCta(); } },
+        cta: { label: t('firstRun.startTraining'), onClick: () => { close(); emptyCta(); } },
       }));
       return;
     }
@@ -1008,7 +1008,7 @@ function openLinesSheet(
       text.className = 'stats-sheet-text';
       const name = document.createElement('span');
       name.className = 'stats-sheet-name';
-      name.textContent = line.name || line.openingName || 'Untitled line';
+      name.textContent = line.name || line.openingName || t('drill.untitledLine');
       text.appendChild(name);
       const meta = document.createElement('span');
       meta.className = 'stats-sheet-meta';
@@ -1030,7 +1030,7 @@ function openLinesSheet(
 // rows (miniature, miss bar, tap-for-position) behave exactly as they do on the
 // Train screen. Only the callback shapes differ, hence the adapter.
 function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[], lines: Line[]): void {
-  openMovesSheet(moves, lines, forgottenCallbacks(cb), 'Needs work');
+  openMovesSheet(moves, lines, forgottenCallbacks(cb), t('stats.needsWork'));
 }
 
 function forgottenCallbacks(cb: ProgressCallbacks): ForgottenCallbacks {
@@ -1057,7 +1057,7 @@ function renderRememberedFailed(container: HTMLElement): void {
   head.className = 'section-head';
   const h = document.createElement('h3');
   h.className = 'section-title';
-  h.textContent = 'Remembered moves over time';
+  h.textContent = t('stats.rememberedMovesOverTime');
   head.appendChild(h);
   section.appendChild(head);
 
@@ -1085,7 +1085,7 @@ function renderRememberedFailed(container: HTMLElement): void {
   // the four quick boxes above. The chart itself also swipes between ranges,
   // carousel-style, with the slide following the direction of travel.
   const rangeChips = buildSegmented<StatsRange>(
-    [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
+    [['week', t('stats.week')], ['month', t('stats.month')], ['all', t('import.all')]],
     range,
     r => { range = r; setStatsRange(r); rebuild(); },
     'stats-range',
@@ -1100,10 +1100,10 @@ function renderRememberedFailed(container: HTMLElement): void {
     const r = bars.reduce((n, b) => n + b.remembered, 0);
     const f = bars.reduce((n, b) => n + b.failed, 0);
     const activeDays = bars.filter(b => b.remembered + b.failed > 0).length;
-    renderRfTotals(totals, r, f, `trained ${activeDays} of ${bars.length} days`);
+    renderRfTotals(totals, r, f, t('stats.trainedOfDays', { activeDays: activeDays, length: bars.length }));
     renderRfChart(chartEl, detailEl, bars, range, (bar) =>
       renderRfTotals(totals, bar.remembered, bar.failed,
-        bar.isToday ? 'today' : formatDay(bar.day)));
+        bar.isToday ? t('date.today') : formatDay(bar.day)));
   }
   rebuild();
 
@@ -1124,9 +1124,9 @@ function renderRfTotals(el: HTMLElement, remembered: number, failed: number, sco
     { value: remembered, kind: 'remembered' },
     { value: failed, kind: 'failed' },
   ], {
-    ariaLabel: `${remembered} remembered, ${failed} failed`,
+    ariaLabel: t('stats.rememberedFailed', { remembered: remembered, failed: failed }),
     centre: recall === null ? '—' : `${recall}%`,
-    caption: 'recall',
+    caption: t('stat.recall'),
     empty: total === 0,
   });
   el.appendChild(donutHost);
@@ -1144,10 +1144,10 @@ function renderRfTotals(el: HTMLElement, remembered: number, failed: number, sco
 
 function rfDetailText(bar: DayBar): string {
   const total = bar.remembered + bar.failed;
-  const label = bar.isToday ? 'Today' : formatDay(bar.day);
-  if (total === 0) return `${label} · no training`;
+  const label = bar.isToday ? t('date.today') : formatDay(bar.day);
+  if (total === 0) return t('stats.noTraining', { label: label });
   const acc = Math.round((bar.remembered / total) * 100);
-  return `${label} · ${bar.remembered} remembered · ${bar.failed} failed · ${acc}% recall`;
+  return t('stats.rememberedFailedRecall', { label: label, remembered: bar.remembered, failed: bar.failed, acc: acc });
 }
 
 function renderRfChart(
@@ -1164,7 +1164,7 @@ function renderRfChart(
   if (grand === 0) {
     const note = document.createElement('p');
     note.className = 'stats-rf-empty';
-    note.textContent = 'No training recorded in this range yet. Your drilled moves show up here from now on.';
+    note.textContent = t('stats.noTrainingRecordedIn');
     chartEl.appendChild(note);
     return;
   }
@@ -1191,7 +1191,7 @@ function renderRfChart(
     const stack = document.createElement('div');
     stack.className = 'stats-rf-stack';
     stack.setAttribute('role', 'img');
-    stack.setAttribute('aria-label', `${b.day}: ${b.remembered} remembered, ${b.failed} failed`);
+    stack.setAttribute('aria-label', t('stats.rememberedFailed13', { day: b.day, remembered: b.remembered, failed: b.failed }));
 
     const total = b.remembered + b.failed;
     if (total > 0) {
@@ -1249,7 +1249,7 @@ function buildRfTicks(bars: DayBar[]): HTMLElement {
 // ── 3. Your games region ────────────────────────────────────────────────────
 
 function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
-  const region = statsRegion(container, 'Your games', 'games');
+  const region = statsRegion(container, t('recap.yourGames'), 'games');
   // Half of Statistics is about games; without any there is nothing to plot, so
   // the region carries the import form itself rather than a button to one.
   //
@@ -1259,8 +1259,8 @@ function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
   const inset = document.createElement('div');
   inset.className = 'stats-region-import';
   inset.appendChild(buildInlineImport({
-    title: 'Import your games',
-    body: 'Then this fills in with your rating over time, your win rate and how each opening actually performs for you.',
+    title: t('firstRun.importTitle'),
+    body: t('stats.thenThisFillsIn'),
     // Re-read and repaint in place — cb.onImportGames() opens the panel, which
     // would put the sheet straight back up on top of the import that just
     // finished.
@@ -1270,7 +1270,7 @@ function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
 }
 
 function renderGamesRegion(container: HTMLElement, games: ImportedGame[], lines: Line[], cb: ProgressCallbacks): void {
-  const region = statsRegion(container, 'Your games', 'games');
+  const region = statsRegion(container, t('recap.yourGames'), 'games');
   // The identity strip re-renders the WHOLE screen after a refresh, so it keeps
   // the screen container as well as the region it paints into.
   renderGamesIdentity(region, container, cb);
@@ -1314,7 +1314,7 @@ function historyLabel(ms: number, spanDays: number): string {
 
 // Chip labels for the time classes ("Classical / Daily" is too long for a chip).
 const SHORT_CLASS_LABEL: Record<TimeClass, string> = {
-  bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', daily: 'Daily',
+  bullet: t('time.bullet'), blitz: t('time.blitz'), rapid: t('time.rapid'), daily: t('time.daily'),
 };
 
 function renderRatingSection(container: HTMLElement, games: ImportedGame[]): void {
@@ -1327,7 +1327,7 @@ function renderRatingSection(container: HTMLElement, games: ImportedGame[]): voi
     classesWithGames.has(tc) || cachedLive?.classes[tc]);
   if (chipClasses.length === 0) return;
 
-  const section = statsSection('Your rating', source ? `on ${platformLabel(source.platform)}` : '');
+  const section = statsSection(t('stats.yourRating'), source ? `on ${platformLabel(source.platform)}` : '');
   section.classList.add('stats-widget--rating');
 
   let tc: TimeClass = dominantTimeClass(games, cachedLive);
@@ -1349,9 +1349,9 @@ function renderRatingSection(container: HTMLElement, games: ImportedGame[]): voi
   // platform provides them, your imported games otherwise).
   const tiles = document.createElement('div');
   tiles.className = 'pz-stat-row pz-stat-row--rating';
-  const currentCell = puzzleStatCell(Icons.trending(18), '—', 'Current rating');
-  const peakCell = puzzleStatCell(Icons.star(18), '—', 'Peak');
-  const gamesCell = puzzleStatCell(Icons.grid2x2(18), '—', 'Games');
+  const currentCell = puzzleStatCell(Icons.trending(18), '—', t('stats.currentRating'));
+  const peakCell = puzzleStatCell(Icons.star(18), '—', t('stats.peak'));
+  const gamesCell = puzzleStatCell(Icons.grid2x2(18), '—', t('backup.games'));
   tiles.appendChild(currentCell);
   tiles.appendChild(peakCell);
   tiles.appendChild(gamesCell);
@@ -1362,7 +1362,7 @@ function renderRatingSection(container: HTMLElement, games: ImportedGame[]): voi
   section.appendChild(chartHost);
 
   const rangeChips = buildSegmented<RatingRange>(
-    [['3m', '3 months'], ['year', 'Year'], ['all', 'All']],
+    [['3m', t('stats.3Months')], ['year', t('stats.year')], ['all', t('import.all')]],
     range,
     r => { range = r; setRatingRange(r); fill(); },
     'stats-range',
@@ -1406,16 +1406,16 @@ function renderRatingSection(container: HTMLElement, games: ImportedGame[]): voi
       const spanDays = (clipped[clipped.length - 1].ms - clipped[0].ms) / 86_400_000;
       const pts: ChartPoint[] = clipped.map(p => ({ value: p.rating, label: historyLabel(p.ms, spanDays) }));
       renderLineChart(chartHost, pts, {
-        ariaLabel: `${TIME_CLASS_LABELS[tc]} rating over time`,
+        ariaLabel: t('stats.ratingOverTime', { label: TIME_CLASS_LABELS[tc] }),
         xTicks: sparseTicks(pts.map(p => p.label)),
-        detailFor: i => `${historyLabel(clipped[i].ms, 0)} ${new Date(clipped[i].ms).getFullYear()} · rated ${clipped[i].rating}`,
+        detailFor: i => t('stats.ratingDetail', { date: historyLabel(clipped[i].ms, 0), year: new Date(clipped[i].ms).getFullYear(), rating: clipped[i].rating }),
       });
     } else {
       const note = document.createElement('p');
       note.className = 'stats-no-games';
       note.textContent = source?.platform === 'lichess'
-        ? 'Not enough rating history here yet to chart a trend.'
-        : 'Ratings ride along with imported games — refresh (or re-import) your games to fill this chart.';
+        ? t('stats.notEnoughRatingHistory')
+        : t('stats.ratingsRideAlongWith');
       chartHost.appendChild(note);
     }
   };
@@ -1447,7 +1447,7 @@ function renderRecordSection(container: HTMLElement, games: ImportedGame[]): voi
   }
   if (wins + draws + losses === 0) return;
 
-  const section = statsSection('Record', `${games.length} imported game${games.length === 1 ? '' : 's'}`);
+  const section = statsSection(t('stats.record'), t('stats.importedGames', { n: games.length }));
   section.classList.add('stats-widget--record');
   const host = document.createElement('div');
   renderRecordStrip(host, { wins, draws, losses });
@@ -1466,7 +1466,7 @@ function renderGamesIdentity(host: HTMLElement, container: HTMLElement, cb: Prog
   btn.type = 'button';
   btn.className = 'games-refresh-btn';
   btn.appendChild(Icons.reset(15));
-  btn.appendChild(document.createTextNode(source ? 'Refresh my games' : 'Import my games'));
+  btn.appendChild(document.createTextNode(source ? t('stats.refreshMyGames') : t('tour.lines.import')));
   btn.addEventListener('click', () => {
     if (source) {
       openImportPanel({
@@ -1502,14 +1502,14 @@ function renderWinRateByOpening(container: HTMLElement, stats: OpeningStat[], li
   const rows = winRateByOpening(stats, lines);
   if (rows.length === 0) return;
 
-  const section = statsSection('Openings: games × memory');
+  const section = statsSection(t('stats.openingsGamesMemory'));
   // Up to eight opening cards: squeezed into one dashboard column they'd tower
   // over every widget beside them, so on desktop this one spans the whole row
   // and grids its own cards instead (.stats-widget--wide in style.css).
   section.classList.add('stats-widget--wide');
   const intro = document.createElement('p');
   intro.className = 'stats-detail-intro';
-  intro.textContent = 'Your real score in each opening beside how well you remember its moves:';
+  intro.textContent = t('stats.yourRealScoreIn');
   section.appendChild(intro);
 
   // .group drops the section box so the cards stand on their own.
@@ -1553,7 +1553,7 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
     .sort((a, b) => b.confidence - a.confidence);
   const best = mine[0] ?? null;
 
-  const openLabel = best ? 'Open line' : 'Build line';
+  const openLabel = best ? t('stats.openLine') : t('stats.buildLine');
   const open = () => { if (best) cb.onOpenLine(best); else cb.onBuildFromMoves(row.repUcis, row.colour); };
 
   const card = document.createElement('div');
@@ -1578,16 +1578,16 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
   // Games ring: W/D/L slices, the score in the hole (the same green/neutral/
   // brick trio as the Record strip), counts spelled out beneath.
   rings.appendChild(donutCell(
-    'Games',
+    t('backup.games'),
     [
       { value: row.wins, kind: 'win' },
       { value: row.draws, kind: 'draw' },
       { value: row.losses, kind: 'loss' },
     ],
     {
-      ariaLabel: `${row.family}: ${row.wins} won, ${row.draws} drawn, ${row.losses} lost — ${row.scorePct}% score`,
+      ariaLabel: t('stats.wonDrawnLostScore', { family: row.family, wins: row.wins, draws: row.draws, losses: row.losses, scorePct: row.scorePct }),
       centre: `${row.scorePct}%`,
-      caption: 'score',
+      caption: t('stats.score'),
     },
     `${row.wins}W · ${row.draws}D · ${row.losses}L`,
   ));
@@ -1597,19 +1597,19 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
   const mem = row.memory;
   const hasLine = row.lineCount > 0 && mem.total > 0;
   rings.appendChild(donutCell(
-    'Memory',
+    t('stats.memory'),
     memorySegments(mem),
     {
       ariaLabel: hasLine
-        ? `${row.family} memory: ${mem.solid} of ${mem.trained} drilled moves solid`
-        : `${row.family}: not in your lines yet`,
+        ? t('stats.memoryOfDrilledMoves', { family: row.family, solid: mem.solid, trained: mem.trained })
+        : t('stats.notInYourLines', { family: row.family }),
       centre: hasLine && mem.recallPct !== null ? `${mem.recallPct}%` : '—',
-      caption: 'recall',
+      caption: t('stat.recall'),
       empty: !hasLine,
     },
     hasLine
       ? `${mem.solid}/${mem.total} moves solid`
-      : 'No line yet',
+      : t('showcase.noLine'),
   ));
 
   card.appendChild(rings);
@@ -1621,7 +1621,7 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
   train.className = 'stats-otr-train';
   if (row.lineCount === 0) {
     train.classList.add('stats-otr-train--none');
-    train.textContent = 'Not in your lines yet';
+    train.textContent = t('stats.notInYourLinesYet');
   } else {
     train.textContent = `${confidenceDots(row.avgConfidence)}  ${row.masteredCount}/${row.lineCount} mastered`;
   }
@@ -1666,7 +1666,7 @@ function otrLine(tag: string, bar: HTMLElement, meta: string): HTMLElement {
 
 // Win rate over time — a filterable monthly line graph (inline SVG, no dependency).
 function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], stats: OpeningStat[]): void {
-  const section = statsSection('Win rate over time', '');
+  const section = statsSection(t('stats.winRateOverTime'), '');
   section.classList.add('stats-widget--trend');
 
   // Controls: opening filter (select) + Overall/White/Black toggle.
@@ -1686,7 +1686,7 @@ function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], st
   select.className = 'stats-trend-select';
   const allOpt = document.createElement('option');
   allOpt.value = 'all';
-  allOpt.textContent = 'All openings';
+  allOpt.textContent = t('stats.allOpenings');
   select.appendChild(allOpt);
   for (const fam of families) {
     const opt = document.createElement('option');
@@ -1698,7 +1698,7 @@ function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], st
   controls.appendChild(select);
 
   controls.appendChild(buildSegmented<'all' | 'white' | 'black'>(
-    [['all', 'Overall'], ['white', 'White'], ['black', 'Black']],
+    [['all', t('stats.overall')], ['white', t('common.white')], ['black', t('common.black')]],
     colour,
     c => { colour = c; rebuild(); },
   ));
@@ -1711,7 +1711,7 @@ function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], st
 
   const cap = document.createElement('p');
   cap.className = 'stats-trend-caption';
-  cap.textContent = 'Monthly score across your imported games — tap the line for any month’s record.';
+  cap.textContent = t('stats.monthlyScoreAcrossYour');
   section.appendChild(cap);
 
   function rebuild(): void {
@@ -1736,7 +1736,7 @@ function renderTrendChart(chartWrap: HTMLElement, points: TrendPoint[]): void {
   if (points.length < 2) {
     const note = document.createElement('p');
     note.className = 'stats-no-games';
-    note.textContent = 'Not enough months of games here yet to chart a trend.';
+    note.textContent = t('stats.notEnoughMonthsOf');
     chartWrap.appendChild(note);
     return;
   }
@@ -1748,7 +1748,7 @@ function renderTrendChart(chartWrap: HTMLElement, points: TrendPoint[]): void {
   const hi = Math.min(100, Math.max(...pcts, 55) + 6);
 
   renderLineChart(chartWrap, points.map(p => ({ value: p.scorePct, label: p.label })), {
-    ariaLabel: 'Win rate over time',
+    ariaLabel: t('stats.winRateOverTime'),
     domain: [lo, hi],
     baseline: 50,
     yFmt: v => `${Math.round(v)}%`,
@@ -1760,13 +1760,13 @@ function renderTrendChart(chartWrap: HTMLElement, points: TrendPoint[]): void {
 // Most played / Best scoring / Worst scoring — one tabbed ranked list.
 function renderScoringTabs(container: HTMLElement, stats: OpeningStat[]): void {
   const tabs = [
-    { key: 'most', label: 'Most played', items: mostPlayedOpenings(stats), val: (s: OpeningStat) => `${s.games}g`, empty: 'No games yet.' },
-    { key: 'best', label: 'Best scoring', items: bestScoringOpenings(stats), val: (s: OpeningStat) => `${s.scorePct}%`, empty: 'Play a few more games to rank your best.' },
-    { key: 'worst', label: 'Worst scoring', items: worstScoringOpenings(stats), val: (s: OpeningStat) => `${s.scorePct}%`, empty: 'Play a few more games to rank your worst.' },
+    { key: 'most', label: t('stats.mostPlayed'), items: mostPlayedOpenings(stats), val: (s: OpeningStat) => `${s.games}g`, empty: t('stats.noGamesYet') },
+    { key: 'best', label: t('stats.bestScoring'), items: bestScoringOpenings(stats), val: (s: OpeningStat) => `${s.scorePct}%`, empty: t('stats.playAFewMore') },
+    { key: 'worst', label: t('stats.worstScoring'), items: worstScoringOpenings(stats), val: (s: OpeningStat) => `${s.scorePct}%`, empty: t('stats.playAFewMoreGames') },
   ];
   if (tabs.every(t => t.items.length === 0)) return;
 
-  const section = statsSection('Openings', '');
+  const section = statsSection(t('nav.openings'), '');
   section.classList.add('stats-widget--lists');
 
   const listWrap = document.createElement('div');
