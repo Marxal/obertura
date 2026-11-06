@@ -8177,6 +8177,20 @@ html:has(> body > .edit-overlay) > body {
 
 /* A row of five actions on a phone squeezes its labels, not its icons. */
 .fm-actions .nr-action svg { flex: none; }
+/* Three actions under the board: icon above label, so a label longer than its third
+   (Catalan's "Entrena la línia") has the button's whole width and wraps inside it
+   instead of running into the next button. */
+.fm-actions--more .nr-action {
+  flex-direction: column;
+  gap: 0.25rem;
+  height: auto;
+  min-height: 56px;
+  padding: 0.45rem 0.3rem;
+  white-space: normal;
+  line-height: 1.15;
+  font-size: 0.8rem;
+  text-align: center;
+}
 
 .nr-under {
   position: absolute;

@@ -1314,6 +1314,20 @@
   "story.youHaveAlreadyWorked": "You have already worked this out",
   "story.whereYourPreparationStopped": "Where your preparation stopped",
   "story.drawn": "Drawn",
+  "story.slips": {
+    "one": "{n} slip",
+    "other": "{n} slips"
+  },
+  "story.nthTime": {
+    "one": "{n}st time",
+    "two": "{n}nd time",
+    "few": "{n}rd time",
+    "other": "{n}th time"
+  },
+  "story.timeLeft": "{time} left",
+  "stats.legendSolid": "solid",
+  "stats.legendShaky": "slipping",
+  "builder.slipping": "slipping",
   "stats.theirResults": "their results",
   "stats.winsDrawsLosses": "{wins} wins, {draws} draws, {losses} losses",
   "stats.score": "score",

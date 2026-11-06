@@ -295,7 +295,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
     // are still labelled, because that is a property of the line itself.
     if (p.isUser && !opts.stats) {
       bits.push(p.lapses > 0 ? t('builder.missed', { lapses: p.lapses }) : t('builder.neverMissed'));
-      if (p.node.review) bits.push(p.reps > 0 ? t('builder.cleanInARow', { reps: p.reps }) : 'slipping');
+      if (p.node.review) bits.push(p.reps > 0 ? t('builder.cleanInARow', { reps: p.reps }) : t('builder.slipping'));
     } else if (!p.isUser) {
       bits.push(t('builder.theirReply'));
     }

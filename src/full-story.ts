@@ -33,7 +33,7 @@ import {
 } from './spot-facts';
 import { TIME_CLASS_LABELS } from './import-core';
 import type { ImportedGame } from './import-core';
-import { t } from './i18n';
+import { t, tOrdinal } from './i18n';
 
 // The charts are drawn at a fixed viewBox and scaled by CSS — a phone's width
 // varies, the shape of the line does not.
@@ -100,7 +100,7 @@ export function buildStoryContent(game: ImportedGame, ply: number, opts: StoryOp
   }
   if (facts.wobblesBefore !== null && facts.wobblesBefore > 0) {
     const n = facts.wobblesBefore;
-    tiles.appendChild(tile(t('story.beforeThis'), `${n} slip${n === 1 ? '' : 's'}`));
+    tiles.appendChild(tile(t('story.beforeThis'), t('story.slips', { n })));
     tiles.appendChild(tile(t('story.move'), String(facts.moveNumber)));
     if (game.opening) tiles.appendChild(wideTile(t('story.opening'), game.opening));
   } else {
@@ -423,7 +423,7 @@ export function buildGameTiles(game: ImportedGame): HTMLElement {
  * time" tile) said the fact; this makes it something to act on.
  */
 function openingRecordCard(record: OpeningRecord, onOpenGame?: (gameId: string) => void): HTMLElement {
-  const card = chartCard(t('story.thisOpening'), `${ordinal(record.count)} time`, 'fs-note--warn');
+  const card = chartCard(t('story.thisOpening'), tOrdinal('story.nthTime', record.count), 'fs-note--warn');
   const list = document.createElement('div');
   list.className = 'fs-record';
   for (const e of record.entries) {
@@ -568,12 +568,4 @@ function timeControlLabel(game: ImportedGame): string {
   return tc ? `${tc.baseSec / 60}+${tc.incSec} ${speed}` : speed;
 }
 
-function ordinal(n: number): string {
-  const rem100 = n % 100;
-  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
-  if (n % 10 === 1) return `${n}st`;
-  if (n % 10 === 2) return `${n}nd`;
-  if (n % 10 === 3) return `${n}rd`;
-  return `${n}th`;
-}
 

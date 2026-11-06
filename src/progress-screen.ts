@@ -629,8 +629,8 @@ function renderMoveMemory(container: HTMLElement, lines: Line[]): void {
 
   const legend = document.createElement('div');
   legend.className = 'stats-donut-legend';
-  legend.appendChild(donutLegendRow('solid', String(mem.solid), 'solid'));
-  legend.appendChild(donutLegendRow('shaky', String(mem.shaky), 'slipping'));
+  legend.appendChild(donutLegendRow('solid', String(mem.solid), t('stats.legendSolid')));
+  legend.appendChild(donutLegendRow('shaky', String(mem.shaky), t('stats.legendShaky')));
   legend.appendChild(donutLegendRow('untrained', String(mem.total - mem.trained), t('stats.notTrainedYet')));
   row.appendChild(legend);
 

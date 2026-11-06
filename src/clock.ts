@@ -228,7 +228,7 @@ export function formatClock(sec: number): string {
 
 /** "2:04 left · 3s spent" — the right-hand half of the strip's clock row. */
 export function formatTimeFacts(facts: TimeFacts): string {
-  const left = `${formatClock(facts.leftSec)} left`;
+  const left = t('story.timeLeft', { time: formatClock(facts.leftSec) });
   if (facts.spentSec === null) return left;
   return t('last.spent', { left, spent: formatClock(facts.spentSec) });
 }
