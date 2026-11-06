@@ -173,8 +173,9 @@ when Marçal says push and deploy, just do it.
 
 Then check it actually landed, because "it usually works" is not the same as
 "it worked": wait a minute or two and confirm `https://bitochess.com/app/`
-serves a new `assets/index-*.js`, and that the file contains a string only this
-round could have produced. Note that the minifier strips spaces from CSS
+serves a new `assets/index-*.js`, and that the app chunk it loads (`assets/main-*.js`;
+`index-*.js` is only the loader, and English text sits in its own locale chunk)
+contains code only this round could have produced, such as a new class name. Note that the minifier strips spaces from CSS
 selectors, so grep for `html:has(>body>.pt-overlay)`, not the spaced version.
 
 **Pushing ANY branch used to deploy it.** Cloudflare's Workers Build deploys
