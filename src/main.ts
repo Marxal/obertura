@@ -141,7 +141,7 @@ import {
 } from './game-analysis';
 import { takeImportLink } from './import-link';
 import { openLinePeek } from './line-peek';
-import type { ImportLoader } from './import-progress';
+import { createImportLoader, type ImportLoader } from './import-progress';
 import { FREE_GUEST_IMPORT } from './import-tier';
 import { showRecapScreen } from './onboarding-recap-screen';
 // Aliased: daily-recap.ts already exports a buildRecap, and the two are
@@ -3809,12 +3809,18 @@ async function nameOpenings(games: readonly ImportedGame[]): Promise<Map<RecapGa
   const names = new Map<RecapGame, string | null>();
   for (let i = 0; i < games.length; i++) {
     const game = games[i];
-    names.set(game, openingForPath(replayGame(game)?.fens.slice(1) ?? [])?.name ?? null);
+    const name = openingForPath(replayGame(game)?.fens.slice(1) ?? [])?.name ?? null;
+    names.set(game, name);
     // Every 40 games, let the loader paint. Cheap: a handful of yields across a
     // 500-game library, and it is the difference between a live progress bar
-    // and a frozen one.
-    if (i % 40 === 39) await new Promise((r) => setTimeout(r, 0));
+    // and a frozen one. The loader shows how far through, and what it found.
+    if (i % 40 === 39) {
+      recapLoader?.set((i + 1) / games.length);
+      if (name) recapLoader?.openings.add([openingLabel(name)]);
+      await new Promise((r) => setTimeout(r, 0));
+    }
   }
+  recapLoader?.done();
   return names;
 }
 
@@ -3857,13 +3863,22 @@ async function showFirstRunRecap(
   firstRun = true,
   opts: { quietIfNothingNew?: boolean } = {},
 ): Promise<void> {
-  // Naming a whole library takes a moment with nothing on screen when Get started
-  // asks (first run has the import's loader up): say so, and a second tap meanwhile
-  // must not stack a second screen.
+  // Naming a whole library takes a while. First run has the import's own loader
+  // up already; every other door (Get started, Discover's "Openings importer",
+  // the offer after an import) gets the same full-screen loader, so the screen
+  // can't turn up later over whatever the user went on to do. It used to be a
+  // toast, and the app stayed usable underneath it. A second tap meanwhile must
+  // not stack a second screen.
   if (recapBuilding) return;
   recapBuilding = true;
-  // Not for the offer after an import: it may turn out to have nothing to show.
-  if (!firstRun && !opts.quietIfNothingNew) showToast(t('firstRun.reading'));
+  if (!firstRun && !recapLoader) {
+    const loader = createImportLoader();
+    loader.setStatus(t('firstRun.reading'));
+    const avatar = getGamesSource()?.avatarUrl;
+    if (avatar) loader.setAvatar(avatar);
+    document.body.appendChild(loader.el);
+    recapLoader = loader;
+  }
   try {
     await buildAndShowRecap(firstRun, opts.quietIfNothingNew ?? false);
   } finally {

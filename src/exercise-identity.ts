@@ -30,3 +30,24 @@ export const CATEGORY_ACCENT: Record<MistakeCategory, string> = {
   'missed-win': '#c79a2a',      // gold — the win that got away
   'blunder': '#a94444',         // red — the plain ??
 };
+
+// THE ICON PALETTE for Train's catalogue rows that have no colour of their own
+// (Tactics' and Endgames' rows). Train's cards wear their own colour on the icon
+// so exercises are easy to tell apart, and the domain's colour on the count pill
+// (style.css, "ONE COLOUR PER DOMAIN"). These are the hues the Openings modes and
+// the mistake categories already use, so the four sections read as one set.
+export const ICON_PALETTE = [
+  '#5b6ea8', // indigo
+  '#3f7d8a', // teal
+  '#c79a2a', // gold
+  '#7d5a86', // plum
+  '#4e8063', // green
+  '#c0603f', // terracotta
+  '#5c8bb0', // steel blue
+  '#a94444', // red
+] as const;
+
+/** The palette's nth colour, wrapping round. */
+export function paletteAccent(i: number): string {
+  return ICON_PALETTE[((i % ICON_PALETTE.length) + ICON_PALETTE.length) % ICON_PALETTE.length];
+}

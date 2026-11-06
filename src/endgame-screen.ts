@@ -43,6 +43,7 @@ import { pushBack } from './back-nav';
 import { Chessground } from 'chessground';
 import { showToast } from './toast';
 import { t as tr } from './i18n';
+import { paletteAccent } from './exercise-identity';
 
 export interface EndgameScreenDeps {
   // Open a finished puzzle in the full analyser (engine on) — wired from main.ts.
@@ -259,24 +260,24 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       icon: Icons.scout(20),
       label: tr('mid.yourEndgames'),
       sub: tr('mid.endgamesYouReachedVs'),
-      accent: ENDGAME_ACCENT,
+      accent: paletteAccent(6),
       body: renderFromGames(),
     }));
 
     const pieces = boxSection(box, tr('mid.ratedByPiece'));
-    for (const { theme } of SPECIFIC_THEMES) {
+    SPECIFIC_THEMES.forEach(({ theme }, i) => {
       pieces.appendChild(buildModeCard({
-        accent: ENDGAME_ACCENT,
+        accent: paletteAccent(i),
         icon: Icons.flag(20),
         name: tr('mid.themeEndgames', { theme: THEME_LABEL[theme] }),
         sub: tr('mid.themeOnly', { count: PUZZLE_COUNT, theme: THEME_LABEL[theme].toLowerCase() }),
         onClick: () => runEndgamePuzzles(theme, deps, rebuild),
       }));
-    }
+    });
 
     const classics = boxSection(box, tr('stats.classicEndgames'));
     const progress = getEndgameProgress();
-    for (const group of endgamesByCategory()) classics.appendChild(renderGroup(group, progress));
+    endgamesByCategory().forEach((group, i) => classics.appendChild(renderGroup(group, progress, i)));
     root.appendChild(box);
   };
 
@@ -290,7 +291,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
   // A classic group — "Rook endings" — as a row whose sheet holds its
   // positions, played in order with "Next endgame" chained through them.
-  function renderGroup(group: EndgameGroup, progress: EndgameProgress): HTMLElement {
+  function renderGroup(group: EndgameGroup, progress: EndgameProgress, index: number): HTMLElement {
     const list = document.createElement('div');
     list.className = 'eg-list';
     group.items.forEach((eg, i) => {
@@ -304,7 +305,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       label: group.label,
       sub: group.blurb,
       count: group.items.length,
-      accent: ENDGAME_ACCENT,
+      accent: paletteAccent(index + 2),
       body: list,
       key: `classic:${group.label}`,
     });

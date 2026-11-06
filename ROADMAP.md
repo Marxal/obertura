@@ -3202,3 +3202,14 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
 - **Middlegame's second heading** is "Based on your games" (it holds brilliant moves too). Translated in all three languages.
 - **Train:** each section's board sits under its Start card. Middlegame: Which move, Blunder detective and Time pressure
   together, then the mistake categories and brilliant moves last. Home's previews are real boards in your piece set.
+
+### Colours back on Train's icons, a loader for the importer, language codes (2026-11-06)
+
+- **Train's exercise icons wear their own colours again**; the count pill keeps the domain's. Openings and Middlegame got
+  their old colours back (they were still in the code, painted over by one CSS rule). Tactics and Endgames never had
+  their own, so they take the same hues from `ICON_PALETTE` in `exercise-identity.ts`.
+- **"Openings importer" (and Get started's "Pick from my games") shows the import loader** while the openings are read,
+  with progress and the openings it finds. Before, a toast left the app usable and the screen arrived later on top of
+  whatever you were doing.
+- **Language: ES · EN · SV · CA codes** instead of the dropdown, in Appearance, at the foot of Settings and on first run.
+  "Automatic" went with the dropdown: a fresh install still follows the phone.

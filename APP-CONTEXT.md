@@ -734,11 +734,14 @@ On a **desktop** (≥960px) the same panel shows, one at a time. The switch hide
 sidebar's Train section picks the panel and carries each door's figure, and the
 sections sit in two columns (`desktop.css`).
 
-**One colour per domain.** Every card on Train wears its domain's colour
-(`.train-box .mode-card` overrides `--mode-accent`), so switch, Start card and
-list agree. The cards still pass their own accent to the overlays they open
-(`exercise-identity.ts`), so a Time attack run's header is still gold — the
-drill screens were left for a later pass on purpose.
+**Colour: the domain's on the count, the exercise's on the icon** (2026-11-06).
+The count pill wears the domain's colour (`.train-box .mode-card .mode-card-stat`),
+so switch, Start card and list agree; the icon chip wears the card's own accent, so
+exercises are easy to tell apart. Openings uses `MODE_ACCENT` (`train-screen.ts`),
+Middlegame the category and exercise colours (`exercise-identity.ts`), and Tactics
+and Endgames take theirs from `ICON_PALETTE` there (the same hues). From v0.14 until
+then the whole card was forced to the domain colour. The same accents carry into the
+overlays the cards open.
 
 **The one piece of plumbing.** Each screen still renders its door and its box
 into one host (a panel) and repaints that host alone. A `MutationObserver` per
@@ -1754,6 +1757,10 @@ exercises". Skipping does NOT mark the session just-onboarded, so Home leads wit
 daily card. The same screen is what Get started's "Pick from my games" opens later
 (`firstRun: false`: no steps, no asking).
 
+**Every door outside first run shows the import loader** while the openings are
+read (`showFirstRunRecap`), so the screen can't land later over something else. It
+used to be a toast, with the app usable underneath.
+
 **An import from inside the app offers it too** (`offerRecapAfterImport`, via
 `setAfterOwnImport` in `import-panel.ts`): an import of your own games (not first run,
 not scouting, not from the builder) with fewer than 5 saved lines and enough games.
@@ -2282,7 +2289,7 @@ Every non-selftest module in `src/`, exactly once.
 | `language.ts` | loading the language at startup, `?lang=` previews, saving a choice |
 | `opening-names.ts` | opening names in the reader's language, built from a word list. Display only: the English name is what's stored and matched |
 | `content-language.ts` | laying translated starter pack notes and traps over the English, plus level and style labels |
-| `language-picker.ts` | the Language control, hidden until a second language is released |
+| `language-picker.ts` | the language codes ES · EN · SV · CA: a segmented control in Appearance, a quiet rail at the foot of Settings and on first run; hidden until a second language is released |
 | `locales/pseudo.ts` | the fake language `xx`, for finding untranslated text and overflow |
 | `onboarding-recap.ts` | the recap's arithmetic — openings, trunks, picks (engine-free) |
 | `onboarding-recap-screen.ts` | the payoff screen — pick your lines |

@@ -74,7 +74,7 @@ import { clearEndgameProgress } from './endgame-progress';
 import { clearMistakeDrills } from './mistake-scan';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { t } from './i18n';
-import { buildLanguagePicker, hasLanguageChoice } from './language-picker';
+import { buildLanguageCodes, buildLanguageRail, hasLanguageChoice } from './language-picker';
 import { Icons } from './icons';
 import { isCustomTrainOrder, resetTrainOrder } from './train-order';
 import { showToast } from './toast';
@@ -138,6 +138,12 @@ export function renderSettingsScreen(container: HTMLElement): void {
   screen.appendChild(buildBackupGroup());
   if (isConnected()) screen.appendChild(buildLichessGroup(refresh));
   screen.appendChild(buildAboutGroup());
+  // The language again at the very foot, where people look for it on a phone.
+  if (hasLanguageChoice()) {
+    const foot = buildLanguageRail();
+    foot.classList.add('lang-rail--settings');
+    screen.appendChild(foot);
+  }
 
   container.appendChild(screen);
 
@@ -591,7 +597,7 @@ export function buildThemeRow(): HTMLElement {
 function buildAppearanceGroup(): HTMLElement {
   const sec = group(t('settings.appearance'), Icons.eye(16));
 
-  if (hasLanguageChoice()) sec.appendChild(row(t('settings.language'), buildLanguagePicker()));
+  if (hasLanguageChoice()) sec.appendChild(row(t('settings.language'), buildLanguageCodes()));
 
   sec.appendChild(buildThemeRow());
 

@@ -1,49 +1,70 @@
 // The language control, in Settings and on first run. Shows nothing until there is
-// more than one language to choose. The names are always in their own language, so
-// someone stuck in the wrong one can still find theirs.
+// more than one language to choose.
+//
+// SHORT CODES, NOT A DROPDOWN (2026-11-06): ES · EN · SV · CA, every language one tap
+// away, as on the landing page. The dropdown was a small grey pill that didn't read
+// as a control on a phone. Each code carries its language's own name as its label,
+// so someone stuck in the wrong language can still find theirs. "Automatic" went with
+// the dropdown: a fresh install still follows the phone until something is tapped.
 
-import { Icons } from './icons';
-import { activeLanguage, languageChoice, selectableLanguages, setLanguageChoice } from './language';
-import { LANGUAGE_NAMES, isLanguage } from './language-choice';
+import { activeLanguage, selectableLanguages, setLanguageChoice } from './language';
+import { LANGUAGE_NAMES } from './language-choice';
 import { t } from './i18n';
+import { segmented } from './settings-controls';
+import type { Language } from './language-choice';
 
 export function hasLanguageChoice(): boolean {
   return selectableLanguages().length > 1;
 }
 
-export function buildLanguagePicker(): HTMLElement {
-  const pill = document.createElement('label');
-  pill.className = 'lib-band-pick';
+// Marçal's order. A language under preview (?lang=) isn't in it, so it gets no code.
+const CODE_ORDER: readonly Language[] = ['es', 'en', 'sv', 'ca'];
 
-  const label = document.createElement('span');
-  label.className = 'lib-band-pick-label';
-  label.textContent = LANGUAGE_NAMES[activeLanguage()];
-  pill.appendChild(label);
+function codeLanguages(): Language[] {
+  const selectable = selectableLanguages();
+  return CODE_ORDER.filter((l) => selectable.includes(l));
+}
 
-  const chevron = Icons.chevronDown(12);
-  chevron.classList.add('lib-band-pick-chev');
-  pill.appendChild(chevron);
+function choose(language: Language): void {
+  if (language !== activeLanguage()) setLanguageChoice(language);
+}
 
-  const select = document.createElement('select');
-  select.className = 'lib-band-select';
-  select.setAttribute('aria-label', t('settings.language'));
-
-  const automatic = document.createElement('option');
-  automatic.value = '';
-  automatic.textContent = t('settings.language.automatic');
-  select.appendChild(automatic);
-
-  for (const language of selectableLanguages()) {
-    const option = document.createElement('option');
-    option.value = language;
-    option.textContent = LANGUAGE_NAMES[language];
-    select.appendChild(option);
+/** The codes as a segmented control, for a Settings row. */
+export function buildLanguageCodes(): HTMLElement {
+  const languages = codeLanguages();
+  const current = (languages.includes(activeLanguage()) ? activeLanguage() : languages[0]);
+  const control = segmented<Language>(
+    languages.map((l) => ({ value: l, label: l.toUpperCase() })),
+    current,
+    choose,
+  );
+  control.classList.add('lang-codes');
+  control.setAttribute('aria-label', t('settings.language'));
+  for (const btn of control.querySelectorAll<HTMLButtonElement>('.seg-btn')) {
+    const name = LANGUAGE_NAMES[btn.dataset.value as Language];
+    btn.title = name;
+    btn.setAttribute('aria-label', name);
   }
-  select.value = languageChoice() ?? '';
+  return control;
+}
 
-  select.addEventListener('change', () => {
-    setLanguageChoice(isLanguage(select.value) ? select.value : null);
-  });
-  pill.appendChild(select);
-  return pill;
+/** The codes as a quiet line of text: first run's top bar, and the foot of Settings. */
+export function buildLanguageRail(): HTMLElement {
+  const nav = document.createElement('nav');
+  nav.className = 'lang-rail';
+  nav.setAttribute('aria-label', t('settings.language'));
+  for (const language of codeLanguages()) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lang-rail-code';
+    btn.textContent = language.toUpperCase();
+    btn.title = LANGUAGE_NAMES[language];
+    btn.setAttribute('aria-label', LANGUAGE_NAMES[language]);
+    const on = language === activeLanguage();
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.addEventListener('click', () => choose(language));
+    nav.appendChild(btn);
+  }
+  return nav;
 }

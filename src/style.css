@@ -8935,12 +8935,12 @@ html:has(> body > .edit-overlay) > body {
   border-color: color-mix(in srgb, var(--domain-accent) 28%, transparent);
 }
 
-/* ONE COLOUR PER DOMAIN (v0.14). Every card on Train wears its domain's colour
-   — the icon chip, the count pill — so the switch, the Start card and the list
-   agree on where you are. The cards still carry their own accent inline
-   (buildModeCard), which is what the overlays they open wear; this overrides
-   it on Train only. */
-.train-box .mode-card { --mode-accent: var(--domain-accent) !important; }
+/* ONE COLOUR PER DOMAIN, ON THE COUNT. The count pill wears the domain's colour,
+   so the switch, the Start card and the list agree on where you are. The icon
+   chip wears the card's own accent (buildModeCard sets it inline), so exercises
+   are easy to tell apart at a glance (Marçal, 2026-11-06). From v0.14 until then
+   the whole card was forced to the domain colour. */
+.train-box .mode-card .mode-card-stat { --mode-accent: var(--domain-accent); }
 
 .train-box-head {
   display: flex;
@@ -22983,3 +22983,33 @@ html:not([lang="en"]) .recap-record-row {
   width: 100%;
   margin-bottom: var(--space-md);
 }
+
+/* The language codes (language-picker.ts). In Settings, the segmented control
+   as is; on first run and at the foot of Settings, a quiet line of codes with the
+   current one in the accent. Each code is a full 44px-tall tap target. */
+.lang-rail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+}
+.lang-rail-code {
+  min-width: 2.6rem;
+  min-height: 44px;
+  padding: 0 0.4rem;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.lang-rail-code:hover { color: var(--text); }
+.lang-rail-code.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.lang-rail--settings { margin-block: var(--space-md) var(--space-lg); }

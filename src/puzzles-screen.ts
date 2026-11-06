@@ -38,6 +38,7 @@ import { buildDoor, buildBox, boxBody, boxSection, buildSheetRow, DOMAIN_ACCENT 
 import { buildModeCard } from './train-screen';
 import { PUZZLE_THEME_GROUPS, type PuzzleTheme, type PuzzleThemeGroup } from './puzzle-themes';
 import { t } from './i18n';
+import { paletteAccent } from './exercise-identity';
 
 export interface PuzzlesScreenDeps {
   onImportGames: () => void;
@@ -466,7 +467,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   function timedCard(source: TaSource, name: string, sub: string): HTMLElement {
     const best = getTaBest(source, TA_DEFAULT);
     return buildModeCard({
-      accent: TACTICS_ACCENT,
+      // Gold for the clock, terracotta for the traps.
+      accent: paletteAccent(source === 'traps' ? 5 : 2),
       icon: Icons.clock(20),
       name,
       sub,
@@ -537,7 +539,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         ? t(source === 'games' ? 'mid.fromPlay' : 'mid.fromSaved')
         : t('mid.nothingHereYet'),
       count: entries.length || undefined,
-      accent: TACTICS_ACCENT,
+      accent: paletteAccent(source === 'games' ? 6 : 4),
       body: list,
     });
   }
@@ -551,7 +553,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       label: group.label,
       sub: group.blurb,
       count: group.themes.length,
-      accent: TACTICS_ACCENT,
+      // Each theme group its own hue, in catalogue order.
+      accent: paletteAccent([7, 3, 1, 0, 5][PUZZLE_THEME_GROUPS.indexOf(group)] ?? 0),
       body: list,
     });
   }

@@ -50,7 +50,7 @@ import type { Platform } from './import-games';
 import { userAvatar } from './avatar';
 import { lookupPlayer, type FoundPlayer } from './player-lookup';
 import { buildWhereShowcase } from './where-showcase';
-import { buildLanguagePicker, hasLanguageChoice } from './language-picker';
+import { buildLanguageRail, hasLanguageChoice } from './language-picker';
 import { formatNumber, t } from './i18n';
 
 // Where the brand mark points. The marketing page, not the app — same as the
@@ -140,7 +140,7 @@ export function showWherePicker(deps: WherePickerDeps): () => void {
   brandRow.appendChild(brand);
   bar.appendChild(brandRow);
   // Many Catalans have their phone set to Spanish, so this can't wait for Settings.
-  if (hasLanguageChoice()) bar.appendChild(buildLanguagePicker());
+  if (hasLanguageChoice()) bar.appendChild(buildLanguageRail());
   overlay.appendChild(bar);
 
   // ── The one question ──
