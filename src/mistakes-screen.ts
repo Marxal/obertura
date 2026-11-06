@@ -460,7 +460,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     // 2026-11-06). Time pressure used to sit in an "Against the clock" group of
     // its own, a heading over a single card.
     const judgeList = boxSection(box, t('mid.findTheRightMove'));
-    const fixList = boxSection(box, t('showcase.mistakes.title'));
+    const fixList = boxSection(box, t('mid.section.fromGames'));
 
     // Why anything here is dead, said the same way on every card.
     const noneReason = counts.scanned === 0

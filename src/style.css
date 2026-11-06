@@ -22973,3 +22973,13 @@ html:not([lang="en"]) .recap-record-row {
 @media (prefers-reduced-motion: reduce) {
   .pz-yours--white cg-board piece.white, .pz-yours--black cg-board piece.black { animation: none; }
 }
+
+/* Discover's "Openings importer": the standing way back into Pick your lines. */
+.explore-importer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: var(--space-md);
+}

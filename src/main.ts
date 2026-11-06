@@ -3825,8 +3825,9 @@ async function nameOpenings(games: readonly ImportedGame[]): Promise<Map<RecapGa
 // picked up later, with no steps and nothing more to walk through after it.
 // Under this many saved lines, an import made from inside the app offers "Pick
 // your lines" the way first run does. Past it the user has a repertoire of their
-// own and more games are just more games.
-const RECAP_OFFER_BELOW = 10;
+// own and more games are just more games; Discover's "Openings importer" button
+// is the door for them.
+const RECAP_OFFER_BELOW = 5;
 
 // Someone who skipped the games at first run, or came in through a starter pack,
 // and imports later never saw the openings screen, so their games never became
@@ -4336,6 +4337,7 @@ function exploreScreenDeps() {
     // The Coverage tab's rows: seed the builder at the unanswered reply.
     onPrepareGap: prepareGap,
     onTabShown: (tab: ExploreTab) => sideGroups?.setActive('explore', tab),
+    onOpenImporter: () => { void showFirstRunRecap(false); },
   };
 }
 

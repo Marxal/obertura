@@ -390,6 +390,8 @@
     "other": "Add {n} more lines to start training your openings."
   },
   "steps.route.pick": "Pick from my games",
+  "open.importer": "Openings importer",
+  "mid.section.fromGames": "Based on your games",
   "mistake.label.openingBlunder": "Opening blunders",
   "mistake.label.punish": "Punish the opening",
   "mistake.label.missedWin": "Missed wins",

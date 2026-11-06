@@ -3196,7 +3196,9 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   Its goal reads "Add 3 lines to start training your openings".
 - **Skipping the openings at first run** is now the exercises-first door ("Start with the exercises"), and lands on a Home
   that leads with the daily card.
-- **Importing games from inside the app** offers "Pick your lines" while fewer than 10 lines are saved, leaving out what's
-  already saved and counting only the free slots left.
+- **Importing games from inside the app** offers "Pick your lines" while fewer than 5 lines are saved, leaving out what's
+  already saved and counting only the free slots left. Past that, **"Openings importer"** at the top of Openings → Discover
+  is the standing door into it.
+- **Middlegame's second heading** is "Based on your games" (it holds brilliant moves too). Translated in all three languages.
 - **Train:** each section's board sits under its Start card. Middlegame: Which move, Blunder detective and Time pressure
   together, then the mistake categories and brilliant moves last. Home's previews are real boards in your piece set.

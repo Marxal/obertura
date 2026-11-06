@@ -749,7 +749,7 @@ the layout.
 | Domain | Start card | Sections | Lives in |
 |---|---|---|---|
 | **Openings** | Run your book — every move asked once | Play your lines (Whole lines, Weak spots, New lines, Prep) · Single moves (Missed moves) · Against the clock (Time attack) | `train-screen.ts` |
-| **Middlegame** | Today's mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | Find the right move (Which move, Blunder detective, Time pressure) · Fix your mistakes (four categories, Your brilliant moves, Fixed): last, because Home's carousel is already a door into them. Locked until games are imported: the card says so and the box is the import form | `mistakes-screen.ts` |
+| **Middlegame** | Today's mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | Find the right move (Which move, Blunder detective, Time pressure) · Based on your games (four categories, Your brilliant moves, Fixed): last, because Home's carousel is already a door into them. Locked until games are imported: the card says so and the box is the import form | `mistakes-screen.ts` |
 | **Tactics** | Daily rated mix, 10 rated puzzles (the general `mix` with no openings, so never locked) | Against the clock (Puzzle rush, Satisfying traps) · From your openings (sheets) · By theme (sheets) | `puzzles-screen.ts` |
 | **Endgames** | Rated ladder, all themes | From your games (Your endgames, a sheet) · Rated, by piece · Classic endgames (sheets) | `endgame-screen.ts` |
 
@@ -1294,7 +1294,8 @@ Four tabs:
    reads your repertoire *against* itself, so the only one whose answer changes
    as you work.
 3. **Discover** — what your games show, each row saying what to do: no line yet
-   / your line is losing / prepared. **Not called "Openings"** — a tab with its
+   / your line is losing / prepared. Above them, "Openings importer" opens Pick your
+   lines over the games on the device (`onOpenImporter`). **Not called "Openings"** — a tab with its
    parent's name says nothing about itself.
 4. **Packs** — starter packs (6 packs, 62 lines) and traps.
 
@@ -1755,7 +1756,9 @@ daily card. The same screen is what Get started's "Pick from my games" opens lat
 
 **An import from inside the app offers it too** (`offerRecapAfterImport`, via
 `setAfterOwnImport` in `import-panel.ts`): an import of your own games (not first run,
-not scouting, not from the builder) with fewer than 10 saved lines and enough games.
+not scouting, not from the builder) with fewer than 5 saved lines and enough games.
+Past that, Discover's **"Openings importer"** button (top of the tab, once there are
+enough games) is the standing door into the same screen.
 Outside first run the screen leaves out openings an existing same-colour line already
 plays through, counts only the free slots that are left, and says nothing at all when
 nothing new is left to offer.

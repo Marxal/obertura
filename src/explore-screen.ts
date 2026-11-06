@@ -66,6 +66,7 @@ import { renderFamilyGroups } from './line-groups';
 import { renderLinesScreen } from './lines-screen';
 import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
+import { hasEnoughGames } from './onboarding-recap';
 import { pushBack } from './back-nav';
 import { formatSanLine, formatMovesInText } from './notation';
 import { t, type MessageKey } from './i18n';
@@ -119,6 +120,9 @@ export interface ExploreDeps {
   // Everything the My lines tab needs. Passed straight through: this screen
   // hosts lines-screen.ts, it doesn't reimplement it.
   linesDeps: Parameters<typeof renderLinesScreen>[1];
+  // "Openings importer": first run's "Pick your lines", over the games already
+  // on the device. The standing door into it, for whoever skipped it.
+  onOpenImporter?: () => void;
 }
 
 let exploreDeps: ExploreDeps | null = null;
@@ -591,6 +595,21 @@ function buildOpeningsRows(
       onImported: () => renderExploreScreen(container),
     }));
     return wrap;
+  }
+
+  // The standing way back into "Pick your lines". An import offers it on its
+  // own while the repertoire is small (main.ts, offerRecapAfterImport); this
+  // button is for everyone else, and for whoever said "Skip for now".
+  if (exploreDeps?.onOpenImporter && hasEnoughGames(games.length)) {
+    const importer = document.createElement('button');
+    importer.type = 'button';
+    importer.className = 'btn-primary explore-importer';
+    importer.appendChild(Icons.download(18));
+    const label = document.createElement('span');
+    label.textContent = t('open.importer');
+    importer.appendChild(label);
+    importer.addEventListener('click', exploreDeps.onOpenImporter);
+    wrap.appendChild(importer);
   }
 
   const rows = analyseGames(games, lines).openings;
