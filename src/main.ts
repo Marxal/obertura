@@ -131,7 +131,7 @@ import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openDraftSheet, type DraftSheetLine } from './draft-sheet';
 import { platformLabel } from './board-explorer';
-import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
+import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT, setAfterOwnImport } from './import-panel';
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { showWherePicker } from './onboarding-where';
@@ -3823,15 +3823,48 @@ async function nameOpenings(games: readonly ImportedGame[]): Promise<Map<RecapGa
 // exactly what the device now holds.
 // `firstRun` off is Get started's "Pick from my games": the same screen as a tool
 // picked up later, with no steps and nothing more to walk through after it.
-async function showFirstRunRecap(firstRun = true): Promise<void> {
+// Under this many saved lines, an import made from inside the app offers "Pick
+// your lines" the way first run does. Past it the user has a repertoire of their
+// own and more games are just more games.
+const RECAP_OFFER_BELOW = 10;
+
+// Someone who skipped the games at first run, or came in through a starter pack,
+// and imports later never saw the openings screen, so their games never became
+// lines. Offered, not forced: Back or "Skip for now" leaves with nothing saved.
+// Not from the builder, which is mid-task; Get started's "Pick from my games"
+// is there for later.
+async function offerRecapAfterImport(): Promise<void> {
+  if (currentView === 'builder') return;
+  try {
+    const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+    if (lines.length >= RECAP_OFFER_BELOW || !hasEnoughGames(games.length)) return;
+  } catch {
+    return;
+  }
+  await showFirstRunRecap(false, { quietIfNothingNew: true });
+}
+
+// The moves of a saved line, root first: the yardstick for "already saved".
+function lineUcis(line: Line): string[] {
+  const out: string[] = [];
+  let node: MoveNode | undefined = line.tree.children[0];
+  while (node) { out.push(node.uci); node = node.children[0]; }
+  return out;
+}
+
+async function showFirstRunRecap(
+  firstRun = true,
+  opts: { quietIfNothingNew?: boolean } = {},
+): Promise<void> {
   // Naming a whole library takes a moment with nothing on screen when Get started
   // asks (first run has the import's loader up): say so, and a second tap meanwhile
   // must not stack a second screen.
   if (recapBuilding) return;
   recapBuilding = true;
-  if (!firstRun) showToast(t('firstRun.reading'));
+  // Not for the offer after an import: it may turn out to have nothing to show.
+  if (!firstRun && !opts.quietIfNothingNew) showToast(t('firstRun.reading'));
   try {
-    await buildAndShowRecap(firstRun);
+    await buildAndShowRecap(firstRun, opts.quietIfNothingNew ?? false);
   } finally {
     recapBuilding = false;
   }
@@ -3839,10 +3872,12 @@ async function showFirstRunRecap(firstRun = true): Promise<void> {
 
 let recapBuilding = false;
 
-async function buildAndShowRecap(firstRun: boolean): Promise<void> {
+async function buildAndShowRecap(firstRun: boolean, quietIfNothingNew: boolean): Promise<void> {
   let games: ImportedGame[];
+  let saved: Line[];
+  let inTraining: number;
   try {
-    games = await getAllGames();
+    [games, saved, inTraining] = await Promise.all([getAllGames(), getAllLines(), countInTraining()]);
   } catch {
     hideRecapLoader();
     showView('train');
@@ -3876,12 +3911,27 @@ async function buildAndShowRecap(firstRun: boolean): Promise<void> {
   // Re-derived on every filter change. Synchronous by contract — the games are
   // already in hand and their openings are already named, so changing a chip
   // repaints without a spinner.
-  const build = (opts: { timeClass: TimeClass | null }, depth = 6): Recap =>
-    buildGamesRecap(
+  // OPENINGS ALREADY SAVED ARE LEFT OUT. Outside first run the repertoire may
+  // already hold some of these: an opening whose trunk an existing line of the
+  // same colour already plays through adds nothing (mergePath would store
+  // nothing new), and offering it ticked would count it as a line saved.
+  const savedPaths = saved.map(l => ({ colour: l.colour, ucis: lineUcis(l) }));
+  const alreadySaved = (o: OpeningGroup): boolean => savedPaths.some(p =>
+    p.colour === o.colour && p.ucis.length >= o.ucis.length && o.ucis.every((u, i) => p.ucis[i] === u));
+  const build = (opts: { timeClass: TimeClass | null }, depth = 6): Recap => {
+    const recap = buildGamesRecap(
       opts.timeClass ? games.filter(g => g.timeClass === opts.timeClass) : games,
       nameOf,
       depth,
     );
+    return savedPaths.length > 0
+      ? { ...recap, openings: recap.openings.filter(o => !alreadySaved(o)) }
+      : recap;
+  };
+
+  const first = build({ timeClass: null });
+  // The offer after an import, with nothing new in it: say nothing at all.
+  if (quietIfNothingNew && first.openings.length === 0) { hideRecapLoader(); return; }
 
   let currentTimeClass: TimeClass | null = null;
 
@@ -3897,22 +3947,25 @@ async function buildAndShowRecap(firstRun: boolean): Promise<void> {
 
   hideRecapLoader();
   showRecapScreen({
-    recap: build({ timeClass: null }),
+    recap: first,
     username: getGamesSource()?.username ?? '',
     avatarUrl: getGamesSource()?.avatarUrl,
     // The rotation's ceiling, shown as slots on the screen. Lines past it are
     // saved paused by saveRecapLines, never sold to (UX-AUDIT C3).
-    freeLimit: isEntitled() ? Number.MAX_SAFE_INTEGER : FREE_TRAINING_LINES,
+    // What is LEFT of it: lines already training hold their slots.
+    freeLimit: isEntitled() ? Number.MAX_SAFE_INTEGER : Math.max(0, FREE_TRAINING_LINES - inTraining),
     onFilterChange: (opts) => { currentTimeClass = opts.timeClass; return build(opts); },
     onDeepen: deepen,
     firstRun,
-    onSave: (openings) => { finishFirstRun(); void saveRecapLines(openings); },
-    // Skipping the openings isn't skipping the games: the analysis carries on and
-    // Home's banner says so. First run ends here, with games on the device and Get
-    // started offering this screen again. The back gesture is not a decision — it
-    // returns to the question, with first run still owed.
+    onSave: (openings) => { finishFirstRun(); void saveRecapLines(openings, firstRun); },
+    // Skipping the openings is the exercises-first door: the analysis carries on,
+    // Home's banner says so, and the daily challenge runs on puzzles, endgames and
+    // the mistakes as they're found. So NOT noteJustOnboarded: that would put Get
+    // started above the daily card the skip note has just promised. Get started
+    // still offers this screen again, underneath. The back gesture is not a
+    // decision — it returns to the question, with first run still owed.
     onSkip: () => {
-      if (firstRun) { finishFirstRun(); noteJustOnboarded(); }
+      if (firstRun) finishFirstRun();
       showView('home');
     },
     // Back always returns to the QUESTION, never to the resume — the user is
@@ -3972,7 +4025,7 @@ function previewRecapLine(opening: OpeningGroup, ctx: PreviewContext): void {
 // Enrolled directly rather than through the confirm run: that run plays each
 // line through and asks the user to repeat it, which is right for one line the
 // user chose deliberately and far too much for three arriving at once.
-async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
+async function saveRecapLines(openings: OpeningGroup[], firstRun: boolean): Promise<void> {
   let saved = 0;
   let paused = 0;
   for (const opening of openings) {
@@ -3995,8 +4048,9 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
   }
   // The hub leads with Get started rather than the daily challenge: four lines
   // arrived in one tap, so a challenge ABOUT them would be this person's first
-  // ever view of the app. See noteJustOnboarded.
-  noteJustOnboarded();
+  // ever view of the app. See noteJustOnboarded. Only at first run: someone
+  // adding lines later already knows the app, and their daily keeps its place.
+  if (firstRun) noteJustOnboarded();
   showView('home');
 
   const pausedNote = paused > 0
@@ -4736,7 +4790,19 @@ function renderTrainRoom(host: HTMLElement): void {
   applyOrder(order);
   const boardSlot = document.createElement('div');
   boardSlot.className = 'train-board-slot';
-  room.append(title, sw, track, boardSlot);
+  room.append(title, sw, track);
+
+  // THE BOARD SITS UNDER THE START CARD, inside the showing panel, before the
+  // list of exercises. The screens own their panels and repaint them from
+  // scratch (innerHTML = ''), which takes the slot with them, so the panel
+  // observer below puts it back after the door on every repaint. The slot keeps
+  // its board while it's out, so a repaint never refetches the puzzle.
+  let slotDomain: DomainId | null = null;
+  const placeBoardSlot = (id: DomainId): void => {
+    if (slotDomain !== id) return;
+    const door = panes.get(id)!.querySelector<HTMLElement>(':scope > .train-door');
+    if (door && door.nextElementSibling !== boardSlot) door.after(boardSlot);
+  };
 
   // The showing section's live board (train-boards.ts). A newer section wins over a
   // slower older one: the games read and the puzzle fetch both take a moment.
@@ -4765,7 +4831,8 @@ function renderTrainRoom(host: HTMLElement): void {
       [TRAIN_TABS[id].label, door?.dataset.locked ? 'locked' : door?.dataset.figure].filter(Boolean).join(', '));
   };
   for (const id of DEFAULT_TRAIN_ORDER) {
-    new MutationObserver(() => syncFigure(id)).observe(panes.get(id)!, { childList: true });
+    new MutationObserver(() => { syncFigure(id); placeBoardSlot(id); })
+      .observe(panes.get(id)!, { childList: true });
   }
   const onBreakpoint = (): void => {
     // A repaint built a new room: this one's listener retires.
@@ -4787,6 +4854,8 @@ function renderTrainRoom(host: HTMLElement): void {
     for (const [tid, b] of tabs) b.setAttribute('aria-selected', String(tid === id));
     for (const [pid, pane] of panes) pane.classList.toggle('train-domain--shown', pid === id);
     sideGroups?.setActive('train', id);
+    slotDomain = id;
+    placeBoardSlot(id);
     void paintBoard(id);
   };
   showLiveTrainTab = (id) => {
@@ -5002,10 +5071,9 @@ function renderHome(host: HTMLElement): void {
     }
     dailyHost.innerHTML = '';
 
-    // The Get-started checklist (first-steps.ts) has two positions in this slot.
-    // Before there's a repertoire to have a daily challenge ABOUT it takes the
-    // slot outright; past the training unlock the daily card comes back and the
-    // checklist rides underneath it, compact, until it's hidden or retired.
+    // The Get-started checklist (first-steps.ts) has two positions in this slot:
+    // above the daily card for someone with no lines and no games, underneath it
+    // for everyone else (firstStepsOwnsSlot).
     const showSteps = shouldShowFirstSteps();
     const buildSteps = (): HTMLElement => renderFirstSteps({
         lineCount: allLines.length,
@@ -5039,21 +5107,22 @@ function renderHome(host: HTMLElement): void {
         onHide: () => showView('home'),
     });
 
-    // Under the three-line goal the checklist LEADS — "how do I get lines" is
-    // the question that has to be answered before a daily challenge means
-    // anything — and the daily card follows it in its locked, introducing face
-    // (see daily-challenge.ts). Past the unlock the two swap over: the daily
-    // card leads and the checklist is appended after it, at the end of this
-    // function.
-    const stepsLead = showSteps && firstStepsOwnsSlot(allLines.length);
+    // No lines and no games: the checklist LEADS — "how do I get started" is the
+    // first question — and the daily card follows it. Otherwise the daily card
+    // leads and the checklist is appended after it, at the end of this function.
+    const stepsLead = showSteps && firstStepsOwnsSlot(allLines.length, gameCount);
     if (stepsLead) dailyHost.appendChild(buildSteps());
 
     // The daily config (which tasks + how many of each) and which are actually
     // runnable right now decide the card — and the "Next challenge →" chain.
     const config = getDailyConfig();
     const dailyLines = pickDailyLines(allLines, config.tasks.lines.count);
+    // Lines and positions join at TRAINING_UNLOCK_LINES, the same rule the
+    // Openings pane uses: a "session" of one line isn't one. Every other part
+    // runs from day one, so a user who only wants exercises has a daily
+    // challenge without ever saving a line.
     const avail = {
-      hasLines: dailyLines.length > 0,
+      hasLines: dailyLines.length > 0 && allLines.length >= TRAINING_UNLOCK_LINES,
       mistakesAvailable: spotRefs.length > 0,
       detectiveAvailable: detectiveRefs.length > 0,
       whichMoveAvailable: pairRefs.length > 0,
@@ -6804,7 +6873,7 @@ function showFirstLineDone(lineCount: number): void {
   showFirstLineSuccess({
     title: t('signup.firstLine'),
     lead: left > 0
-      ? t('steps.note.more', { n: left })
+      ? t('steps.note.moreOpenings', { n: left })
       : t('builder.itJoinsYourTraining'),
     primary: left > 0
       ? { label: t('firstRun.addMoreLines'), onClick: () => showView('home') }
@@ -7279,6 +7348,7 @@ requestAnimationFrame(() => {
     onTakeBack: takeBackLastMove,
   });
 
+  setAfterOwnImport(() => { void offerRecapAfterImport(); });
   setupSaveButton();
   setupBuilderInfo();
   setupPlaybackControls();

@@ -37,7 +37,9 @@ import type { Line } from './types';
 import type { ImportedGame } from './import-core';
 import { Icons } from './icons';
 import { buildGamesBlock } from './home-games-card';
-import { buildMiniBoard } from './board-mini';
+import { Chessground } from 'chessground';
+import type { Key } from 'chessground/types';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { buildSupportNote } from './support-note';
 import { renderForgottenLines } from './forgotten-section';
 import { buildForgottenMovesBlock } from './home-forgotten-card';
@@ -147,7 +149,30 @@ function buildHomePreviews(data: HomeData, noGamesBlock: boolean): HTMLElement |
     h.textContent = title;
     const board = document.createElement('div');
     board.className = 'home-preview-board';
-    board.appendChild(buildMiniBoard(fen, colour, arrow ? { arrows: [arrow] } : {}));
+    // A real, view-only board rather than a miniature: the miniatures draw
+    // Unicode glyphs (cheap for a list of fifty), which at this size read as a
+    // different piece set from the boards these previews stand in for.
+    const cgEl = document.createElement('div');
+    cgEl.className = 'cg-wrap';
+    board.appendChild(cgEl);
+    // After it is in the document: Chessground measures itself as it starts.
+    requestAnimationFrame(() => {
+      if (!cgEl.isConnected) return;
+      const cg = Chessground(cgEl, {
+        fen,
+        orientation: colour,
+        viewOnly: true,
+        coordinates: false,
+        animation: { enabled: false },
+        drawable: { enabled: false, visible: true },
+      });
+      if (arrow) {
+        registerBrushes(cg, { hint: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 } });
+        cg.setAutoShapes([{
+          orig: arrow.slice(0, 2) as Key, dest: arrow.slice(2, 4) as Key, brush: 'hint',
+        }]);
+      }
+    });
     const line = document.createElement('p');
     line.className = 'home-preview-note';
     line.appendChild(Icons.lock(13));

@@ -3185,3 +3185,18 @@ in one file, `src/desktop.css`. A phone renders pixel for pixel as before, apart
   The landing's language switcher is a pill in the bottom-left corner, like connectart.se: short names on a phone, full
   names on a computer, rising above the sticky "Try it" bar.
 
+
+### Another door: exercises without openings (v0.19, 2026-11-06)
+
+- **The daily challenge runs without lines.** Puzzles and endgames from day one, the mistakes from your games as the scan
+  finds them; lines and positions join at 3 saved lines. It was locked below 3, a leftover from when lines were all it had.
+- **Tactics is never locked.** The rated mix used to need openings to pick puzzles by; with none it now uses Lichess's
+  general mix (`angle=mix`). That was the padlock on Tactics in the sidebar.
+- **Get started** leads above the daily card only for someone with no lines and no games, and can be hidden either way.
+  Its goal reads "Add 3 lines to start training your openings".
+- **Skipping the openings at first run** is now the exercises-first door ("Start with the exercises"), and lands on a Home
+  that leads with the daily card.
+- **Importing games from inside the app** offers "Pick your lines" while fewer than 10 lines are saved, leaving out what's
+  already saved and counting only the free slots left.
+- **Train:** each section's board sits under its Start card. Middlegame: Which move, Blunder detective and Time pressure
+  together, then the mistake categories and brilliant moves last. Home's previews are real boards in your piece set.

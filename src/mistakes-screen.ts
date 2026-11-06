@@ -454,12 +454,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   function renderCategoryBox(): HTMLElement {
     const box = buildBox('middlegame', t('analysis.contextLabel'),
       buildInfoButton(t('mid.aboutTheseExercises'), openMistakeInfo));
-    // Three headed groups (v0.14). Your own mistakes lead — they are what this
-    // domain is for — then the exercises that ask you to judge a position, then
-    // the timed one. They replaced one flat list of seven cards.
-    const fixList = boxSection(box, t('showcase.mistakes.title'));
+    // Two headed groups. The exercises lead: Which move, Blunder detective and
+    // Time pressure, together. The mistake categories and your brilliant moves
+    // come last, because Home's carousel is already a door into them (Marçal,
+    // 2026-11-06). Time pressure used to sit in an "Against the clock" group of
+    // its own, a heading over a single card.
     const judgeList = boxSection(box, t('mid.findTheRightMove'));
-    const clockList = boxSection(box, t('train.section.clock'));
+    const fixList = boxSection(box, t('showcase.mistakes.title'));
 
     // Why anything here is dead, said the same way on every card.
     const noneReason = counts.scanned === 0
@@ -497,10 +498,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       onClick: () => startDetective(),
     }));
 
-    // Time pressure — the speed round, in a group of its own because it is the
-    // one exercise here that is not about working a position out.
+    // Time pressure — the speed round, last of the three exercises.
     const tpBest = getTimePressureBest();
-    clockList.appendChild(buildModeCard({
+    judgeList.appendChild(buildModeCard({
       accent: TIME_PRESSURE_ACCENT,
       icon: Icons.clock(20),
       name: t('showcase.pressure.title'),
@@ -531,7 +531,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     // Your brilliant moves — the flip side of the mistake cards. Nothing waiting
     // means they have all been re-found lately, which is a result rather than an
     // empty card, so it stays tappable and the subtitle says why the badge went.
-    judgeList.appendChild(buildModeCard({
+    fixList.appendChild(buildModeCard({
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
       name: t('home.games.brilliant'),

@@ -250,9 +250,10 @@ Screen by screen:
   sees each block that isn't there yet as a dimmed preview under its real title
   (`buildHomePreviews`, `home-screen.ts`; desktop only, and gone once they have games
   and three lines).
-- **Train** is the phone's panel: Start card, then the sections in two columns (§6.3).
-  Under them, on phone and desktop, one live board for the showing section
-  (`train-boards.ts`).
+- **Train** is the phone's panel: Start card, then one live board for the showing
+  section (`train-boards.ts`), then the sections in two columns (§6.3). The board sits
+  inside the panel, after the door; the panel observer puts it back after each repaint.
+  Home's dimmed previews are real view-only Chessgrounds, so they wear the piece set.
 - **Openings** hides `.lines-tabs`; the sidebar stands in for it.
 - **Statistics** shows one region per sidebar pick, through `data-stats-tab` on the
   screen (§14).
@@ -748,8 +749,8 @@ the layout.
 | Domain | Start card | Sections | Lives in |
 |---|---|---|---|
 | **Openings** | Run your book — every move asked once | Play your lines (Whole lines, Weak spots, New lines, Prep) · Single moves (Missed moves) · Against the clock (Time attack) | `train-screen.ts` |
-| **Middlegame** | Today's mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | Fix your mistakes (four categories, Fixed) · Find the right move (Which move, Blunder detective, Your brilliant moves) · Against the clock (Time pressure). Locked until games are imported: the card says so and the box is the import form | `mistakes-screen.ts` |
-| **Tactics** | Daily rated mix, 10 rated puzzles | Against the clock (Puzzle rush, Satisfying traps) · From your openings (sheets) · By theme (sheets) | `puzzles-screen.ts` |
+| **Middlegame** | Today's mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | Find the right move (Which move, Blunder detective, Time pressure) · Fix your mistakes (four categories, Your brilliant moves, Fixed): last, because Home's carousel is already a door into them. Locked until games are imported: the card says so and the box is the import form | `mistakes-screen.ts` |
+| **Tactics** | Daily rated mix, 10 rated puzzles (the general `mix` with no openings, so never locked) | Against the clock (Puzzle rush, Satisfying traps) · From your openings (sheets) · By theme (sheets) | `puzzles-screen.ts` |
 | **Endgames** | Rated ladder, all themes | From your games (Your endgames, a sheet) · Rated, by piece · Classic endgames (sheets) | `endgame-screen.ts` |
 
 `train-doors.ts` owns `buildDoor` / `buildBox` / `boxBody` / `boxSection` /
@@ -883,9 +884,9 @@ is device-local, reset each local calendar day.
 
 | Part | Default count | Needs |
 |---|---|---|
-| `lines` | 3 | a repertoire |
-| `positions` | 3 | a repertoire |
-| `puzzles` | 3 | network |
+| `lines` | 3 | 3 saved lines |
+| `positions` | 3 | 3 saved lines |
+| `puzzles` | 3 | network (your openings, or Lichess's general `mix` with none) |
 | `endgames` | 3 | network |
 | `whichMove` | **2** | scanned games |
 | `detective` | **2** | scanned games |
@@ -913,8 +914,11 @@ draws a dismissable card, above Train/My Lines/Explore, whenever one is ready.
 - **The order is a preference** (`config.order`), rearrangeable in
   `daily-prefs.ts` — reachable both from Settings and from the gear on the card
   itself. "Shuffle each day" hands the order to chance, stably within a day.
-- **Before the unlock** the card has a third face: the same rows, greyed, under a
-  bar counting toward three lines, riding *below* the Get-started checklist.
+- **It runs without lines** (2026-11-06). Below three lines only `lines` and
+  `positions` wait (`hasLines` in `main.ts`); puzzles and endgames run from day one,
+  and the game-fed parts as the scan finds material. The **locked face** (the same
+  rows, greyed, under a bar counting toward three lines) is now only for when nothing
+  configured can run yet.
 - **"Next challenge →"** chains from each part's results screen into the next
   still-open one, resolved at click time and routed through `liveDaily`.
 - **Completion** stamps the day (`markDayComplete`), builds the recap
@@ -1742,9 +1746,19 @@ cap is allowed, the foot counts the slots ("Uses 5 of your 10 free training
 slots" / "10 will train now. The other 2 are saved paused"), and
 `saveRecapLines` saves the extras with `inTraining: false` (UX-AUDIT C3).
 
-"Skip for now" doesn't skip on the first tap: it says opening training stays
-locked below 3 lines and offers "Keep picking". The same screen is what Get
-started's "Pick from my games" opens later (`firstRun: false`: no steps, no asking).
+"Skip for now" doesn't skip on the first tap: it is the **exercises-first door**. It
+says the daily challenge starts with puzzles and endgames, the mistakes join as
+they're found, and openings join at 3 lines; then "Keep picking" or "Start with the
+exercises". Skipping does NOT mark the session just-onboarded, so Home leads with the
+daily card. The same screen is what Get started's "Pick from my games" opens later
+(`firstRun: false`: no steps, no asking).
+
+**An import from inside the app offers it too** (`offerRecapAfterImport`, via
+`setAfterOwnImport` in `import-panel.ts`): an import of your own games (not first run,
+not scouting, not from the builder) with fewer than 10 saved lines and enough games.
+Outside first run the screen leaves out openings an existing same-colour line already
+plays through, counts only the free slots that are left, and says nothing at all when
+nothing new is left to offer.
 
 **`game-analysis.ts` — "Game analysis".** The import starts the background pass
 (`mistake-autoscan.ts`) and arms a once-per-device notice. Nothing waits for it. The
@@ -1783,8 +1797,10 @@ and "Starter packs". Past it, for the rest of a just-onboarded session, the goal
 block says "Your training is ready" with "Start training". The rows: install ·
 create a free account · add openings you play (past the unlock) · build a line by
 hand (the walkthrough until it's been walked, then the builder). Connect Lichess is
-no longer a row; the Library panel and Settings offer it. Below three saved lines,
-or for the rest of a just-onboarded session, it takes the daily card's slot outright.
+no longer a row; the Library panel and Settings offer it. It leads the slot, above
+the daily card, only with no lines AND no games, or for the rest of a just-onboarded
+session (`firstStepsOwnsSlot`); otherwise it rides underneath. Its × works in both
+phases.
 
 `onboarding-lines.ts` holds the 8 curated first lines (truncated by *the user's
 own moves*, so a cut always ends on a move they have to remember).

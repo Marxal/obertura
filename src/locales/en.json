@@ -88,9 +88,9 @@
   },
   "recap.slots.used": "Uses {n} of your {limit} free training slots.",
   "recap.skipForNow": "Skip for now",
-  "recap.skipNote": "Opening training stays locked until you have 3 lines. You can pick them later from Get started.",
+  "recap.skipNote": "Your daily challenge starts with puzzles and endgames, and the mistakes in your games join it as they're found. Save 3 lines whenever you like and your openings join too.",
   "recap.keepPicking": "Keep picking",
-  "recap.skipOpenings": "Skip openings",
+  "recap.skipOpenings": "Start with the exercises",
   "recap.card.playThrough": "Play through {opening}",
   "recap.card.metaWhite": {
     "one": "{n} game · {share}% of your White games",
@@ -381,13 +381,13 @@
     "one": "{n} line saved. Your first session is ready when you are.",
     "other": "{n} lines saved. Your first session is ready when you are."
   },
-  "steps.note.first": {
-    "one": "Add {n} line to start training.",
-    "other": "Add {n} lines to start training."
+  "steps.note.firstOpenings": {
+    "one": "Add {n} line to start training your openings.",
+    "other": "Add {n} lines to start training your openings."
   },
-  "steps.note.more": {
-    "one": "Add {n} more line to start training.",
-    "other": "Add {n} more lines to start training."
+  "steps.note.moreOpenings": {
+    "one": "Add {n} more line to start training your openings.",
+    "other": "Add {n} more lines to start training your openings."
   },
   "steps.route.pick": "Pick from my games",
   "mistake.label.openingBlunder": "Opening blunders",
@@ -2249,7 +2249,6 @@
   "mid.puzzlesAreFetchedAnonymously": "Puzzles are fetched anonymously, so none of this needs a Lichess account. Connecting one adds the richer Lichess dashboard on the Statistics page.",
   "mid.ratedPuzzles": "{DAILY_COUNT} rated puzzles",
   "mid.dailyRatedMix": "Daily rated mix",
-  "mid.needsALineOr": "Needs a line or games",
   "mid.morePuzzles": "More puzzles",
   "mid.byTheme": "By theme",
   "mid.rating": "rating",

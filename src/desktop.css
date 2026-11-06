@@ -246,14 +246,15 @@
   .daily-card--locked .daily-card-tasks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .daily-host:has(> .first-steps) .daily-card-tasks > :last-child:nth-child(7) { grid-column: auto; }
 
-  /* Too narrow to share a row: Start drops below the tasks, or it covers the title. */
-  @media (max-width: 1199.98px) {
-    .daily-host:has(> .first-steps) .daily-card > .daily-card-head { grid-column: 1 / -1; }
-    .daily-host:has(> .first-steps) .daily-card > .daily-card-start {
-      grid-column: 1 / -1;
-      grid-row: auto;
-      width: 100%;
-    }
+  /* Beside Get started the column is 340px at most, at every window width:
+     Start drops below the tasks, or it covers the title. The card's rows sit at
+     its top rather than spreading down the height Get started gives the band. */
+  .daily-host:has(> .first-steps) .daily-card { align-content: start; }
+  .daily-host:has(> .first-steps) .daily-card > .daily-card-head { grid-column: 1 / -1; }
+  .daily-host:has(> .first-steps) .daily-card > .daily-card-start {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    width: 100%;
   }
 
   /* Get started: the name of each step, without the paragraph under it. */
@@ -367,13 +368,13 @@
     color: var(--text-muted);
   }
   .home-preview-board { opacity: 0.55; }
-  .home-preview-board .mini-board {
-    display: block;
+  .home-preview-board .cg-wrap {
     width: 100%;
     max-width: 340px;
-    height: auto;
+    aspect-ratio: 1;
     margin-inline: auto;
     border-radius: 6px;
+    overflow: hidden;
   }
   .home-preview-note {
     display: flex;

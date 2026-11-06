@@ -76,6 +76,13 @@ interface OpeningEntry {
   weight: number;            // line / game count, for ordering and the count badge
 }
 
+// No lines and no games: the rated mix still runs, on Lichess's own "healthy
+// mix" (angle `mix`, every theme). Puzzles drawn from your openings are the
+// better offer, but they are not a reason to have no puzzles at all.
+function generalMix(): OpeningEntry[] {
+  return [{ angle: 'mix', family: t('stats.puzzles'), weight: 1 }];
+}
+
 // ── Small persisted prefs ─────────────────────────────────────────────────────
 
 // Time attack's one length. TA_TIMES and the per-length records stay exactly as
@@ -314,8 +321,8 @@ export async function startDailyPuzzles(
     ...lines.map((l) => ({ opening: l.openingName, colour: l.colour })),
     ...games.map((g) => ({ opening: g.opening, colour: g.colour })),
   ];
-  const allEntries = entriesFrom(items);
-  if (allEntries.length === 0) return false;
+  const fromOpenings = entriesFrom(items);
+  const allEntries = fromOpenings.length > 0 ? fromOpenings : generalMix();
 
   // Easy → medium → hard, anchored to your rating: one band below it, your own
   // band, one band above. Extra slots (a bigger goal) stay at the top band.
@@ -383,33 +390,10 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   const rebuild = (): void => {
     root.innerHTML = '';
 
-    // No openings at all on either source → the empty state for the opening-based
-    // modes, but the theme accordion still works (it needs no repertoire), so
-    // offer it below so there's always something to solve.
-    if (allEntries.length === 0) {
-      // No repertoire and no games: the rated mix has nothing to build a set
-      // from, so the door says why and the themes — which need neither — stay
-      // available in the box underneath it.
-      root.appendChild(buildDoor({
-        domain: 'tactics',
-        icon: Icons.puzzlePiece(26),
-        name: t('train.domain.tactics'),
-        sub: t('mid.ratedPuzzles', { DAILY_COUNT: DAILY_COUNT }),
-        heroTitle: t('mid.dailyRatedMix'),
-        disabled: true,
-        disabledReason: t('mid.needsALineOr'),
-      }));
-      const box = buildBox('tactics', t('mid.morePuzzles'));
-      const body = boxBody(box);
-      body.appendChild(emptyState(hasGames, deps));
-      const themes = boxSection(box, t('mid.byTheme'));
-      for (const group of PUZZLE_THEME_GROUPS) themes.appendChild(renderThemeGroup(group));
-      root.appendChild(box);
-      return;
-    }
-
     // The door: the Daily Rated Mix, which was already this pane's wide button.
-    // The only rated mode here, so it is the one whose number moves.
+    // The only rated mode here, so it is the one whose number moves. With no
+    // openings on either source it runs on the general mix (generalMix).
+    const ratedEntries = allEntries.length > 0 ? allEntries : generalMix();
     root.appendChild(buildDoor({
       domain: 'tactics',
       icon: Icons.puzzlePiece(26),
@@ -421,10 +405,23 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       statLabel: t('mid.rating'),
       progress: ratingProgress(getPuzzleRating()),
       onClick: () => startSession(
-        allEntries, t('mid.puzzleRatedMix'),
+        ratedEntries, t('mid.puzzleRatedMix'),
         { kind: 'count', count: DAILY_COUNT, rated: true },
         { repeatAllAngles: true }),
     }));
+
+    // No openings at all on either source: the opening-based modes have nothing
+    // to draw from, so the box says how to get some, and the themes — which need
+    // neither — stay available underneath.
+    if (allEntries.length === 0) {
+      const box = buildBox('tactics', t('mid.morePuzzles'));
+      const body = boxBody(box);
+      body.appendChild(emptyState(hasGames, deps));
+      const themes = boxSection(box, t('mid.byTheme'));
+      for (const group of PUZZLE_THEME_GROUPS) themes.appendChild(renderThemeGroup(group));
+      root.appendChild(box);
+      return;
+    }
 
     // ONE list, top to bottom: the two timed runs you can start outright, then
     // every catalogue you can pick from. They used to be three separate sections

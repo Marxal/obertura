@@ -370,6 +370,17 @@ export interface ImportPanelOptions {
   skipReview?: boolean;
 }
 
+// ── After an import of your own games, from inside the app ───────────────────
+//
+// First run turns an import into lines ("Pick your lines"); an import made later,
+// from Get started, Settings or My games, used to just store the games. main.ts
+// sets this to offer the same screen when the repertoire is still small. It runs
+// after the caller's own onImported and after the panel has closed, so the offer
+// lands on whatever screen that caller went to. Not for first run (skipReview:
+// it already shows that screen) and not for opponent scouting (its own `save`).
+let afterOwnImport: (() => void) | null = null;
+export function setAfterOwnImport(fn: () => void): void { afterOwnImport = fn; }
+
 export function openImportPanel(opts: ImportPanelOptions = {}): void {
   let platform: Platform = opts.platform ?? getLastPlatform();
   let scan: ImportResult | null = null;
@@ -1018,6 +1029,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         // the LAST thing an import fires, whichever way the panel ended.
         opts.onImported?.(games.length);
         close();
+        if (!opts.save && !opts.skipReview) afterOwnImport?.();
       } catch (err) {
         showError(t('import.saveFailed', { error: (err as Error).message }));
         importBtn.disabled = false;

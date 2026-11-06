@@ -18542,8 +18542,9 @@ html:not([lang="en"]) .daily-count-seg .seg-btn {
 }
 .fs-engine-wait { font-size: 0.8rem; color: var(--text-faint); padding-block: 0.3rem; }
 
-/* Train's live board, under the sections. */
-.train-board-slot { margin-top: var(--space-md); }
+/* Train's live board, inside the panel now, between the Start card and the exercises: the panel's
+   own gap spaces it. */
+.train-board-slot { margin-top: 0; }
 .train-board-slot:empty { display: none; }
 
 /* Home's Learn block, once answered: how the game went, and the clock. */

@@ -9,12 +9,12 @@
 // deliberately the loudest thing on the screen: an accent-washed card with a
 // progress bar, above the tabs, where the daily challenge normally sits.
 //
-// TWO PHASES. Under TRAINING_UNLOCK_LINES saved lines it's the GOAL panel: it
-// takes the daily challenge's slot outright, because a user with no repertoire
-// has no use for a daily challenge, and it leads with the line goal, its bar and
-// the routes to moving it. At three lines the goal block drops away, the daily
-// card takes its slot back, and what's left — the checklist — rides underneath
-// it. The remaining items are the ones that matter most and are easiest to put
+// TWO PHASES. Under TRAINING_UNLOCK_LINES saved lines it's the GOAL panel: the
+// line goal, its bar and the routes to moving it. It leads the slot only for
+// someone with no lines and no games (firstStepsOwnsSlot); anyone with games
+// already has a daily challenge running, so it rides underneath that. At three
+// lines the goal block drops away and what's left — the checklist — rides
+// underneath the daily card. The remaining items are the ones that matter most and are easiest to put
 // off, so they don't get to vanish just because the training lock opened.
 //
 // HOW IT ENDS. Two ways, and neither is "after N lines":
@@ -134,11 +134,20 @@ function justOnboarded(): boolean {
   try { return sessionStorage.getItem(JUST_ONBOARDED_KEY) === '1'; } catch { return false; }
 }
 
-// Does it take the daily challenge's slot outright, or ride underneath it? The
-// goal phase owns the slot; past the unlock the daily card comes back and this
-// becomes a compact checklist below it.
-export function firstStepsOwnsSlot(lineCount: number): boolean {
+// The goal phase: under the line goal, or for the rest of a just-onboarded
+// session. It decides what the card SAYS (the goal block, or the compact list).
+function inGoalPhase(lineCount: number): boolean {
   return justOnboarded() || lineCount < TRAINING_UNLOCK_LINES;
+}
+
+// Does it lead the slot, above the daily card, or ride underneath it? The daily
+// challenge runs without lines now (puzzles, endgames, and your games' mistakes),
+// so it only steps aside for someone with nothing of their own yet: no lines AND
+// no games, where "how do I get started" really is the first question. Someone
+// who imported games and skipped the openings has chosen the exercises; their
+// daily leads, and the line goal waits underneath as an offer.
+export function firstStepsOwnsSlot(lineCount: number, gameCount: number): boolean {
+  return justOnboarded() || (lineCount < TRAINING_UNLOCK_LINES && gameCount === 0);
 }
 
 interface Step {
@@ -198,7 +207,7 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
 
   // Which phase: the goal panel, or the compact checklist that rides under the
   // daily card once training has unlocked.
-  const showGoal = firstStepsOwnsSlot(lines);
+  const showGoal = inGoalPhase(lines);
   const unlocked = lines >= TRAINING_UNLOCK_LINES;
   const hasGames = deps.gameCount > 0;
   // Fewer than this and the openings screen has nothing honest to say.
@@ -256,10 +265,11 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   tally.textContent = t('steps.tally', { done: doneCount, total });
   head.appendChild(tally);
 
-  // Deliberately tiny, and only in the second phase — in the first there is
-  // nothing to dismiss the panel INTO. Hiding lasts for the session; the panel
-  // only goes for good once there's an account or an install (see retired()).
-  if (!showGoal) {
+  // Deliberately tiny. Offered in both phases now: the daily challenge runs
+  // without lines, so there is always something to dismiss the panel INTO.
+  // Hiding lasts for the session; the panel only goes for good once there's an
+  // account or an install (see retired()).
+  {
     const hide = document.createElement('button');
     hide.type = 'button';
     hide.className = 'first-steps-hide';
@@ -313,8 +323,8 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   goalNote.textContent = unlocked
     ? t('steps.note.ready', { n: lines })
     : lines === 0
-      ? t('steps.note.first', { n: TRAINING_UNLOCK_LINES })
-      : t('steps.note.more', { n: left });
+      ? t('steps.note.firstOpenings', { n: TRAINING_UNLOCK_LINES })
+      : t('steps.note.moreOpenings', { n: left });
   goal.appendChild(goalNote);
 
   const routes = document.createElement('div');

@@ -5,14 +5,15 @@
 // "done for today" state. State is device-local (localStorage), reset each
 // calendar day, mirroring streak.ts.
 //
-// BEFORE THE UNLOCK it has a third face. Under TRAINING_UNLOCK_LINES saved lines
-// there is nothing to have a daily challenge about — two of its parts need
-// a repertoire — so it does not run. It used to vanish entirely, which meant the
-// single habit the whole app is built around was invisible until you had already
-// done the work that turns it on. So it INTRODUCES itself instead: the same
-// card, the same rows, greyed out, under a bar counting toward three lines. It
-// rides below the Get-started checklist, because "how do I get lines" is the
-// question that has to be answered first.
+// IT RUNS ON WHATEVER THERE IS. Lines and positions join once there are
+// TRAINING_UNLOCK_LINES saved lines (main.ts's `hasLines`); puzzles and endgames
+// need nothing; the from-your-games parts join as the scan finds material. So
+// someone who never saves a line still has a daily challenge. It used to stay
+// locked below three lines, a leftover from when lines were all it had.
+//
+// THE LOCKED FACE is what's left of that: drawn only when nothing configured can
+// run yet (say, only lines switched on, and fewer than three saved). The same
+// rows, greyed, under a bar counting toward three lines.
 //
 // The word is CHALLENGE, not task: one challenge a day, made of several parts.
 // "Task" reads like a chore list and made the completion popup ("every task
@@ -521,8 +522,8 @@ export interface DailyChallengeDeps {
   active: DailyTaskId[];
   // The lines to drill for today's lines task (already picked), or [] when none.
   lines: Line[];
-  // How many lines are SAVED. Under TRAINING_UNLOCK_LINES the card renders its
-  // locked, introducing face instead of running (see renderDailyChallenge).
+  // How many lines are SAVED. Under TRAINING_UNLOCK_LINES, and with nothing
+  // else runnable, the card shows its locked face (see renderDailyChallenge).
   savedLineCount: number;
   onTrainLines: (lines: Line[]) => void;
   onRefreshPositions: () => void;
@@ -605,12 +606,7 @@ function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
   }
 }
 
-/**
- * Is the daily challenge locked — fewer than TRAINING_UNLOCK_LINES lines saved?
- *
- * Exported so the caller can put the card in the right PLACE without building it
- * first: locked, it rides under the Get-started checklist; unlocked, it leads.
- */
+/** Fewer than TRAINING_UNLOCK_LINES lines saved: the line parts are still waiting. */
 export function dailyChallengeLocked(savedLineCount: number): boolean {
   return savedLineCount < TRAINING_UNLOCK_LINES;
 }
@@ -621,13 +617,11 @@ export function dailyChallengeLocked(savedLineCount: number): boolean {
 export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | null {
   const { config, active } = deps;
   if (!config.enabled) return null;
-  if (dailyChallengeLocked(deps.savedLineCount)) return buildLockedCard(deps);
-  // Nothing runnable is the only reason to draw nothing. It used to ALSO bail
-  // when today's lines came back empty, which quietly deleted the whole card
-  // for anyone who had switched "lines to remember" off — every other part
-  // still had work to offer, and the caller's `hasLines` flag has already
-  // dropped the two parts that actually need a repertoire.
-  if (active.length === 0) return null;
+  // Nothing runnable: below the line goal that is the parts waiting on lines,
+  // so the card introduces itself; past it there is genuinely nothing to draw.
+  if (active.length === 0) {
+    return dailyChallengeLocked(deps.savedLineCount) ? buildLockedCard(deps) : null;
+  }
 
   const state = getDaily();
   const done = active.every((id) => state[id]);

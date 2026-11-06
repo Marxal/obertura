@@ -1,4 +1,5 @@
-// One live board at the foot of each Train section, in the Start card's domain.
+// One live board in each Train section, right under its Start card and above
+// the exercises (main.ts places it), in the Start card's domain.
 //
 //   Openings    your most forgotten moves, or a puzzle from your openings until
 //               you have missed something
